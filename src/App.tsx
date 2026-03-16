@@ -44,7 +44,7 @@ function SuspenseWrapper({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <AuthProvider>
         <ToastProvider>
           <ToastContainer />
