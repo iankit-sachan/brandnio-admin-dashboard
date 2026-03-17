@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
-import { Upload, X, Image as ImageIcon } from 'lucide-react'
+import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import { uploadApi } from '../../services/admin-api'
 
 interface Props {
   label: string
@@ -13,16 +14,22 @@ interface Props {
 
 export function ImageUpload({ label, value, onChange, accept = 'image/*', className, aspectHint }: Props) {
   const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
-    // Revoke previous object URL to prevent memory leak
-    if (value && value.startsWith('blob:')) {
-      URL.revokeObjectURL(value)
+    setUploading(true)
+    setError(null)
+    try {
+      const url = await uploadApi.upload(file)
+      onChange(url)
+    } catch {
+      setError('Upload failed')
+    } finally {
+      setUploading(false)
     }
-    const url = URL.createObjectURL(file)
-    onChange(url)
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -57,7 +64,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
             </button>
             <button
               type="button"
-              onClick={() => { if (value?.startsWith('blob:')) URL.revokeObjectURL(value); onChange(null) }}
+              onClick={() => onChange(null)}
               className="p-2 bg-brand-dark-card rounded-lg text-brand-text hover:text-status-error transition-colors"
             >
               <X className="h-5 w-5" />
@@ -66,20 +73,32 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
         </div>
       ) : (
         <div
-          onClick={() => fileRef.current?.click()}
+          onClick={() => !uploading && fileRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           className={cn(
             'flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg cursor-pointer transition-colors',
-            dragOver
-              ? 'border-brand-gold bg-brand-gold/5'
-              : 'border-brand-dark-border hover:border-brand-gold/50 bg-brand-dark',
+            uploading
+              ? 'border-brand-gold bg-brand-gold/5 cursor-wait'
+              : dragOver
+                ? 'border-brand-gold bg-brand-gold/5'
+                : 'border-brand-dark-border hover:border-brand-gold/50 bg-brand-dark',
           )}
         >
-          <ImageIcon className="h-8 w-8 text-brand-text-muted mb-2" />
-          <p className="text-sm text-brand-text-muted">Click or drag to upload</p>
-          {aspectHint && <p className="text-xs text-brand-text-muted/60 mt-1">{aspectHint}</p>}
+          {uploading ? (
+            <>
+              <Loader2 className="h-8 w-8 text-brand-gold mb-2 animate-spin" />
+              <p className="text-sm text-brand-text-muted">Uploading...</p>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="h-8 w-8 text-brand-text-muted mb-2" />
+              <p className="text-sm text-brand-text-muted">Click or drag to upload</p>
+              {aspectHint && <p className="text-xs text-brand-text-muted/60 mt-1">{aspectHint}</p>}
+              {error && <p className="text-xs text-status-error mt-1">{error}</p>}
+            </>
+          )}
         </div>
       )}
       <input

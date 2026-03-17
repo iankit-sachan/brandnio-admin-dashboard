@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { authApi } from '../services/admin-api'
 
 interface AuthState {
   isAuthenticated: boolean
@@ -17,32 +18,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isAuthenticated: localStorage.getItem('admin_auth') === 'true',
     user: localStorage.getItem('admin_auth') === 'true'
-      ? { username: localStorage.getItem('admin_user') || 'admin', email: 'admin@brandnio.com' }
+      ? { username: localStorage.getItem('admin_user') || 'admin', email: localStorage.getItem('admin_email') || '' }
       : null,
     loading: false,
   })
 
-  const login = useCallback(async (username: string, password: string) => {
-    setState(prev => ({ ...prev, loading: true }))
-    // Mock login - accepts admin/admin123
-    await new Promise(resolve => setTimeout(resolve, 800))
-    if (username === 'admin' && password === 'admin123') {
-      localStorage.setItem('admin_auth', 'true')
-      localStorage.setItem('admin_user', username)
-      setState({
-        isAuthenticated: true,
-        user: { username, email: 'admin@brandnio.com' },
-        loading: false,
+  // Verify session is still valid on mount
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      authApi.me().catch(() => {
+        localStorage.removeItem('admin_auth')
+        localStorage.removeItem('admin_user')
+        localStorage.removeItem('admin_email')
+        setState({ isAuthenticated: false, user: null, loading: false })
       })
-    } else {
-      setState(prev => ({ ...prev, loading: false }))
-      throw new Error('Invalid credentials')
     }
   }, [])
 
-  const logout = useCallback(() => {
+  const login = useCallback(async (username: string, password: string) => {
+    setState(prev => ({ ...prev, loading: true }))
+    try {
+      const user = await authApi.login(username, password)
+      localStorage.setItem('admin_auth', 'true')
+      localStorage.setItem('admin_user', user.username)
+      localStorage.setItem('admin_email', user.email)
+      setState({
+        isAuthenticated: true,
+        user: { username: user.username, email: user.email },
+        loading: false,
+      })
+    } catch {
+      setState(prev => ({ ...prev, loading: false }))
+      throw new Error('Invalid credentials or not an admin')
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    try { await authApi.logout() } catch { /* ignore */ }
     localStorage.removeItem('admin_auth')
     localStorage.removeItem('admin_user')
+    localStorage.removeItem('admin_email')
     setState({ isAuthenticated: false, user: null, loading: false })
   }, [])
 

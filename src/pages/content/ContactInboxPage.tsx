@@ -4,12 +4,13 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, CheckCircle } from 'lucide-react'
-import { mockContactSubmissions } from '../../services/mock-data'
+import { contactSubmissionsApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { ContactSubmission } from '../../types'
 
 export default function ContactInboxPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<ContactSubmission[]>([...mockContactSubmissions])
+  const { data, loading, update } = useAdminCrud<ContactSubmission>(contactSubmissionsApi)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ContactSubmission | null>(null)
   const [adminNotes, setAdminNotes] = useState('')
@@ -21,20 +22,28 @@ export default function ContactInboxPage() {
     setEditModalOpen(true)
   }
 
-  const handleSaveNotes = () => {
+  const handleSaveNotes = async () => {
     if (!editingItem) return
-    setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, admin_notes: adminNotes } : d))
-    addToast('Notes updated successfully')
-    setEditModalOpen(false)
+    try {
+      await update(editingItem.id, { admin_notes: adminNotes } as Partial<ContactSubmission>)
+      addToast('Notes updated successfully')
+      setEditModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const openResolve = (item: ContactSubmission) => setResolveItem(item)
 
-  const handleResolve = () => {
+  const handleResolve = async () => {
     if (!resolveItem) return
-    setData(prev => prev.map(d => d.id === resolveItem.id ? { ...d, is_resolved: true } : d))
-    addToast('Marked as resolved')
-    setResolveItem(null)
+    try {
+      await update(resolveItem.id, { is_resolved: true } as Partial<ContactSubmission>)
+      addToast('Marked as resolved')
+      setResolveItem(null)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<ContactSubmission>[] = [
@@ -59,7 +68,7 @@ export default function ContactInboxPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Contact Inbox</h1>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Admin Notes">

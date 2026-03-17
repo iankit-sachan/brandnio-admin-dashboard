@@ -1,21 +1,31 @@
 import { useState } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { useToast } from '../../context/ToastContext'
+import { notificationSendApi } from '../../services/admin-api'
 
 export default function SendNotificationPage() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [type, setType] = useState('general')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
   const { addToast } = useToast()
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    addToast('Notification sent successfully!', 'success')
-    setTitle('')
-    setBody('')
-    setType('general')
-    setImageUrl(null)
+    setSending(true)
+    try {
+      await notificationSendApi.send({ title, body, notification_type: type, image_url: imageUrl || undefined, target: 'all' })
+      addToast('Notification sent successfully!', 'success')
+      setTitle('')
+      setBody('')
+      setType('general')
+      setImageUrl(null)
+    } catch {
+      addToast('Failed to send notification', 'error')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -39,7 +49,9 @@ export default function SendNotificationPage() {
             <option value="system">System</option>
           </select>
         </div>
-        <button type="submit" className="px-6 py-2.5 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Send Notification</button>
+        <button type="submit" disabled={sending} className="px-6 py-2.5 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50">
+          {sending ? 'Sending...' : 'Send Notification'}
+        </button>
       </form>
     </div>
   )

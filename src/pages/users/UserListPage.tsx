@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { SearchInput } from '../../components/ui/SearchInput'
-import { mockUsers } from '../../services/mock-data'
+import { usersApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatDate } from '../../utils/formatters'
 import type { User } from '../../types'
 
@@ -16,8 +17,9 @@ const columns: Column<User>[] = [
 ]
 
 export default function UserListPage() {
+  const { data, loading } = useAdminCrud<User>(usersApi)
   const [search, setSearch] = useState('')
-  const filtered = mockUsers.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search))
+  const filtered = data.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search))
 
   return (
     <div className="space-y-4">
@@ -25,9 +27,13 @@ export default function UserListPage() {
         <h1 className="text-2xl font-bold text-brand-text">Users</h1>
         <SearchInput value={search} onChange={setSearch} placeholder="Search users..." className="w-64" />
       </div>
-      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={filtered} />
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
+      ) : (
+        <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
+          <DataTable columns={columns} data={filtered} />
+        </div>
+      )}
     </div>
   )
 }

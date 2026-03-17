@@ -1,6 +1,7 @@
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
-import { mockAIToolUsage } from '../../services/mock-data'
+import { aiUsageApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatDate } from '../../utils/formatters'
 import { AI_TOOL_LABELS } from '../../utils/constants'
 import type { AIToolUsage } from '../../types'
@@ -15,11 +16,13 @@ const columns: Column<AIToolUsage>[] = [
 ]
 
 export default function AIToolsDashboardPage() {
+  const { data, loading } = useAdminCrud<AIToolUsage>(aiUsageApi)
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">AI Tools Usage</h1>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={mockAIToolUsage} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
     </div>
   )

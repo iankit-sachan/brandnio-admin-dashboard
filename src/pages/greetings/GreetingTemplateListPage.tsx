@@ -5,7 +5,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockGreetingTemplates, mockGreetingCategories } from '../../services/mock-data'
+import { greetingTemplatesApi, greetingCategoriesApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { GreetingTemplate } from '../../types'
 
 interface FormState {
@@ -20,7 +21,8 @@ const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', 
 
 export default function GreetingTemplateListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<GreetingTemplate[]>([...mockGreetingTemplates])
+  const { data, loading, create, update, remove } = useAdminCrud<GreetingTemplate>(greetingTemplatesApi)
+  const { data: categories } = useAdminCrud(greetingCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<GreetingTemplate | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -40,25 +42,31 @@ export default function GreetingTemplateListPage() {
 
   const openDelete = (item: GreetingTemplate) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
-    const catName = mockGreetingCategories.find(c => c.id === form.category)?.name || ''
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, thumbnail_url: form.thumbnail_url || '', image_url: form.image_url || '', title: form.title, category: form.category, category_name: catName, is_premium: form.is_premium } : d))
-      addToast('Template updated successfully')
-    } else {
-      const newItem: GreetingTemplate = { id: Date.now(), title: form.title, category: form.category, category_name: catName, thumbnail_url: form.thumbnail_url || '', image_url: form.image_url || '', template_data: {}, is_premium: form.is_premium, tags: [], download_count: 0, created_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Template created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, form)
+        addToast('Template updated successfully')
+      } else {
+        await create(form)
+        addToast('Template created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Template deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Template deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<GreetingTemplate>[] = [
@@ -82,10 +90,10 @@ export default function GreetingTemplateListPage() {
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Template</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Template' : 'Add Template'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Template' : 'Add Template'}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <ImageUpload label="Thumbnail" value={form.thumbnail_url} onChange={v => setForm(f => ({ ...f, thumbnail_url: v }))} aspectHint="300x300" />
@@ -98,7 +106,7 @@ export default function GreetingTemplateListPage() {
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              {mockGreetingCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -106,7 +114,7 @@ export default function GreetingTemplateListPage() {
             <label className="text-sm text-brand-text-muted">Premium</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

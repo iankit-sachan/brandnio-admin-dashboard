@@ -5,7 +5,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockTutorials } from '../../services/mock-data'
+import { tutorialsApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { Tutorial } from '../../types'
 
 interface FormState {
@@ -25,7 +26,7 @@ function toSlug(name: string) {
 
 export default function TutorialListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<Tutorial[]>([...mockTutorials])
+  const { data, loading, create, update, remove } = useAdminCrud<Tutorial>(tutorialsApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Tutorial | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -45,24 +46,31 @@ export default function TutorialListPage() {
 
   const openDelete = (item: Tutorial) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, thumbnail_url: form.thumbnail_url, title: form.title, slug: form.slug, description: form.description, sort_order: form.sort_order, is_active: form.is_active } : d))
-      addToast('Tutorial updated successfully')
-    } else {
-      const newItem: Tutorial = { id: Date.now(), title: form.title, slug: form.slug, description: form.description, content: '', thumbnail_url: form.thumbnail_url, video_url: null, sort_order: form.sort_order, is_active: form.is_active, created_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Tutorial created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, { thumbnail_url: form.thumbnail_url, title: form.title, slug: form.slug, description: form.description, sort_order: form.sort_order, is_active: form.is_active } as Partial<Tutorial>)
+        addToast('Tutorial updated successfully')
+      } else {
+        await create({ title: form.title, slug: form.slug, description: form.description, thumbnail_url: form.thumbnail_url, sort_order: form.sort_order, is_active: form.is_active } as Partial<Tutorial>)
+        addToast('Tutorial created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Tutorial deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Tutorial deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<Tutorial>[] = [
@@ -86,10 +94,10 @@ export default function TutorialListPage() {
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Tutorial</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Tutorial' : 'Add Tutorial'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Tutorial' : 'Add Tutorial'}>
         <div className="space-y-4">
           <ImageUpload label="Thumbnail" value={form.thumbnail_url} onChange={v => setForm(f => ({ ...f, thumbnail_url: v }))} aspectHint="16:9, 640x360 recommended" />
           <div>
@@ -113,7 +121,7 @@ export default function TutorialListPage() {
             <label className="text-sm text-brand-text-muted">Active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

@@ -16,10 +16,13 @@ import type { Tutorial, PolicyPage, ContactSubmission, PartnerInquiry, MallCateg
 export const mockDashboardStats: DashboardStats = {
   totalUsers: 12847,
   activeSubscriptions: 3421,
+  expiredSubscriptions: 1876,
   revenueThisMonth: 847500,
   creditsConsumedToday: 1892,
   aiToolCallsToday: 456,
   activeReelsProcessing: 12,
+  businessProfiles: 4521,
+  totalPosters: 8934,
   userGrowth: [
     { date: '2026-02-15', count: 11200 },
     { date: '2026-02-22', count: 11580 },

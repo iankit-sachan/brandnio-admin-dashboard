@@ -5,7 +5,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Star, Power } from 'lucide-react'
-import { mockMallListings } from '../../services/mock-data'
+import { mallListingsApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import type { MallListing } from '../../types'
 
@@ -17,7 +18,7 @@ interface EditFormState {
 
 export default function MallListingModerationPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<MallListing[]>([...mockMallListings])
+  const { data, loading, update } = useAdminCrud<MallListing>(mallListingsApi)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MallListing | null>(null)
   const [editForm, setEditForm] = useState<EditFormState>({ image_url: null, title: '', is_featured: false })
@@ -29,25 +30,37 @@ export default function MallListingModerationPage() {
     setEditModalOpen(true)
   }
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     if (!editingItem) return
-    setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, images: editForm.image_url ? [editForm.image_url, ...d.images.slice(1)] : d.images, title: editForm.title, is_featured: editForm.is_featured } : d))
-    addToast('Listing updated successfully')
-    setEditModalOpen(false)
+    try {
+      await update(editingItem.id, { images: editForm.image_url ? [editForm.image_url, ...editingItem.images.slice(1)] : editingItem.images, title: editForm.title, is_featured: editForm.is_featured } as Partial<MallListing>)
+      addToast('Listing updated successfully')
+      setEditModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
-  const toggleFeatured = (item: MallListing) => {
-    setData(prev => prev.map(d => d.id === item.id ? { ...d, is_featured: !d.is_featured } : d))
-    addToast(item.is_featured ? 'Removed from featured' : 'Marked as featured')
+  const toggleFeatured = async (item: MallListing) => {
+    try {
+      await update(item.id, { is_featured: !item.is_featured } as Partial<MallListing>)
+      addToast(item.is_featured ? 'Removed from featured' : 'Marked as featured')
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const openToggleActive = (item: MallListing) => setToggleItem(item)
 
-  const handleToggleActive = () => {
+  const handleToggleActive = async () => {
     if (!toggleItem) return
-    setData(prev => prev.map(d => d.id === toggleItem.id ? { ...d, is_active: !d.is_active } : d))
-    addToast(toggleItem.is_active ? 'Listing deactivated' : 'Listing activated')
-    setToggleItem(null)
+    try {
+      await update(toggleItem.id, { is_active: !toggleItem.is_active } as Partial<MallListing>)
+      addToast(toggleItem.is_active ? 'Listing deactivated' : 'Listing activated')
+      setToggleItem(null)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<MallListing>[] = [
@@ -73,7 +86,7 @@ export default function MallListingModerationPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Brand Mall Listings</h1>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Listing">

@@ -4,7 +4,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockPolicies } from '../../services/mock-data'
+import { policiesApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { PolicyPage, PolicyType } from '../../types'
 
 interface FormState {
@@ -23,7 +24,7 @@ function toSlug(name: string) {
 
 export default function PolicyListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<PolicyPage[]>([...mockPolicies])
+  const { data, loading, create, update, remove } = useAdminCrud<PolicyPage>(policiesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PolicyPage | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -43,24 +44,31 @@ export default function PolicyListPage() {
 
   const openDelete = (item: PolicyPage) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, title: form.title, slug: form.slug, policy_type: form.policy_type, version: form.version, is_active: form.is_active } : d))
-      addToast('Policy updated successfully')
-    } else {
-      const newItem: PolicyPage = { id: Date.now(), title: form.title, slug: form.slug, policy_type: form.policy_type, content: '', version: form.version, is_active: form.is_active, updated_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Policy created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, { title: form.title, slug: form.slug, policy_type: form.policy_type, version: form.version, is_active: form.is_active } as Partial<PolicyPage>)
+        addToast('Policy updated successfully')
+      } else {
+        await create({ title: form.title, slug: form.slug, policy_type: form.policy_type, version: form.version, is_active: form.is_active } as Partial<PolicyPage>)
+        addToast('Policy created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Policy deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Policy deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<PolicyPage>[] = [
@@ -84,10 +92,10 @@ export default function PolicyListPage() {
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Policy</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Policy' : 'Add Policy'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Policy' : 'Add Policy'}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
@@ -116,7 +124,7 @@ export default function PolicyListPage() {
             <label className="text-sm text-brand-text-muted">Active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

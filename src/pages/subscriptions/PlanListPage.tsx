@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { plansApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockPlans } from '../../services/mock-data'
 import { formatCurrency } from '../../utils/formatters'
 import type { SubscriptionPlan, SubscriptionDuration } from '../../types'
 
@@ -27,7 +28,7 @@ function toSlug(name: string) {
 
 export default function PlanListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<SubscriptionPlan[]>([...mockPlans])
+  const { data, loading, create, update, remove } = useAdminCrud<SubscriptionPlan>(plansApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<SubscriptionPlan | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -47,24 +48,31 @@ export default function PlanListPage() {
 
   const openDelete = (item: SubscriptionPlan) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, ...form } : d))
-      addToast('Plan updated successfully')
-    } else {
-      const newItem: SubscriptionPlan = { id: Date.now(), ...form, features: [], sort_order: data.length + 1, created_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Plan created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, form)
+        addToast('Plan updated successfully')
+      } else {
+        await create(form)
+        addToast('Plan created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Plan deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Plan deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<SubscriptionPlan>[] = [
@@ -87,11 +95,15 @@ export default function PlanListPage() {
         <h1 className="text-2xl font-bold text-brand-text">Subscription Plans</h1>
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Plan</button>
       </div>
-      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
+      ) : (
+        <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
+          <DataTable columns={columns} data={data} />
+        </div>
+      )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Plan' : 'Add Plan'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Plan' : 'Add Plan'}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>
@@ -134,7 +146,7 @@ export default function PlanListPage() {
             <label className="text-sm text-brand-text-muted">Active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

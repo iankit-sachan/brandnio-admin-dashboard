@@ -4,12 +4,13 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, CheckCircle } from 'lucide-react'
-import { mockPartnerInquiries } from '../../services/mock-data'
+import { partnerInquiriesApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { PartnerInquiry } from '../../types'
 
 export default function PartnerInboxPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<PartnerInquiry[]>([...mockPartnerInquiries])
+  const { data, loading, update } = useAdminCrud<PartnerInquiry>(partnerInquiriesApi)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PartnerInquiry | null>(null)
   const [adminNotes, setAdminNotes] = useState('')
@@ -21,20 +22,28 @@ export default function PartnerInboxPage() {
     setEditModalOpen(true)
   }
 
-  const handleSaveNotes = () => {
+  const handleSaveNotes = async () => {
     if (!editingItem) return
-    setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, admin_notes: adminNotes } : d))
-    addToast('Notes updated successfully')
-    setEditModalOpen(false)
+    try {
+      await update(editingItem.id, { admin_notes: adminNotes } as Partial<PartnerInquiry>)
+      addToast('Notes updated successfully')
+      setEditModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const openReview = (item: PartnerInquiry) => setReviewItem(item)
 
-  const handleReview = () => {
+  const handleReview = async () => {
     if (!reviewItem) return
-    setData(prev => prev.map(d => d.id === reviewItem.id ? { ...d, is_reviewed: true } : d))
-    addToast('Marked as reviewed')
-    setReviewItem(null)
+    try {
+      await update(reviewItem.id, { is_reviewed: true } as Partial<PartnerInquiry>)
+      addToast('Marked as reviewed')
+      setReviewItem(null)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<PartnerInquiry>[] = [
@@ -59,7 +68,7 @@ export default function PartnerInboxPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Partner Inquiries</h1>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Admin Notes">

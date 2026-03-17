@@ -38,13 +38,13 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleSubmit} className="bg-brand-dark-card border border-brand-dark-border rounded-xl p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Username</label>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Email</label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={e => setUsername(e.target.value)}
               className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-gold/50"
-              placeholder="Username"
+              placeholder="admin@brandnio.com"
               required
             />
           </div>

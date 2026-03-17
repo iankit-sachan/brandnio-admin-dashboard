@@ -5,7 +5,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockAdTemplates } from '../../services/mock-data'
+import { adTemplatesApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { AdTemplate } from '../../types'
 
 interface FormState {
@@ -21,7 +22,7 @@ const emptyForm: FormState = { image_url: null, title: '', category: 'retail', a
 
 export default function AdTemplateListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<AdTemplate[]>([...mockAdTemplates])
+  const { data, loading, create, update, remove } = useAdminCrud<AdTemplate>(adTemplatesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AdTemplate | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -41,24 +42,31 @@ export default function AdTemplateListPage() {
 
   const openDelete = (item: AdTemplate) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, image_url: form.image_url || '', title: form.title, category: form.category, aspect_ratio: form.aspect_ratio, is_premium: form.is_premium, is_active: form.is_active } : d))
-      addToast('Template updated successfully')
-    } else {
-      const newItem: AdTemplate = { id: Date.now(), title: form.title, image_url: form.image_url || '', template_data: {}, aspect_ratio: form.aspect_ratio, category: form.category, is_premium: form.is_premium, is_active: form.is_active, created_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Template created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, form)
+        addToast('Template updated successfully')
+      } else {
+        await create(form)
+        addToast('Template created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Template deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Template deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<AdTemplate>[] = [
@@ -82,10 +90,10 @@ export default function AdTemplateListPage() {
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Template</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Template' : 'Add Template'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Template' : 'Add Template'}>
         <div className="space-y-4">
           <ImageUpload label="Template Image" value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} aspectHint="Match aspect ratio selection" />
           <div>
@@ -121,7 +129,7 @@ export default function AdTemplateListPage() {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

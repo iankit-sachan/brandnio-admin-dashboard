@@ -5,7 +5,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { mockMusicTracks } from '../../services/mock-data'
+import { musicTracksApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { MusicTrack, MusicCategory } from '../../types'
 
 interface FormState {
@@ -20,7 +21,7 @@ const emptyForm: FormState = { file_url: null, name: '', duration: 30, category:
 
 export default function MusicTrackListPage() {
   const { addToast } = useToast()
-  const [data, setData] = useState<MusicTrack[]>([...mockMusicTracks])
+  const { data, loading, create, update, remove } = useAdminCrud<MusicTrack>(musicTracksApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MusicTrack | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -40,24 +41,31 @@ export default function MusicTrackListPage() {
 
   const openDelete = (item: MusicTrack) => setDeleteItem(item)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
-    if (editingItem) {
-      setData(prev => prev.map(d => d.id === editingItem.id ? { ...d, file_url: form.file_url || '#', name: form.name, duration: form.duration, category: form.category, is_premium: form.is_premium } : d))
-      addToast('Track updated successfully')
-    } else {
-      const newItem: MusicTrack = { id: Date.now(), name: form.name, file_url: form.file_url || '#', duration: form.duration, category: form.category, is_premium: form.is_premium, created_at: new Date().toISOString() }
-      setData(prev => [...prev, newItem])
-      addToast('Track created successfully')
+    try {
+      if (editingItem) {
+        await update(editingItem.id, form)
+        addToast('Track updated successfully')
+      } else {
+        await create(form)
+        addToast('Track created successfully')
+      }
+      setForm(emptyForm); setEditingItem(null); setModalOpen(false)
+    } catch {
+      addToast('Operation failed. Please try again.', 'error')
     }
-    setModalOpen(false)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return
-    setData(prev => prev.filter(d => d.id !== deleteItem.id))
-    addToast('Track deleted successfully')
-    setDeleteItem(null)
+    try {
+      await remove(deleteItem.id)
+      addToast('Track deleted successfully')
+      setDeleteItem(null)
+    } catch {
+      addToast('Delete failed. Please try again.', 'error')
+    }
   }
 
   const columns: Column<MusicTrack>[] = [
@@ -80,10 +88,10 @@ export default function MusicTrackListPage() {
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Track</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={data} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingItem ? 'Edit Track' : 'Add Track'}>
+      <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Track' : 'Add Track'}>
         <div className="space-y-4">
           <FileUpload label="Audio File" value={form.file_url} onChange={v => setForm(f => ({ ...f, file_url: v }))} accept="audio/*" />
           <div>
@@ -108,7 +116,7 @@ export default function MusicTrackListPage() {
             <label className="text-sm text-brand-text-muted">Premium</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+            <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
           </div>
         </div>

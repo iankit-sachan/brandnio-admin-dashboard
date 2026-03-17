@@ -19,10 +19,13 @@ export interface SelectOption {
 export interface DashboardStats {
   totalUsers: number
   activeSubscriptions: number
+  expiredSubscriptions: number
   revenueThisMonth: number
   creditsConsumedToday: number
   aiToolCallsToday: number
   activeReelsProcessing: number
+  businessProfiles: number
+  totalPosters: number
   userGrowth: { date: string; count: number }[]
   revenueByPlan: { plan: string; revenue: number }[]
   aiToolUsage: { tool: string; count: number }[]

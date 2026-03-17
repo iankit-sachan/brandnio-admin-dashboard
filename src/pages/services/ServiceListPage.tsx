@@ -1,5 +1,6 @@
 import { DataTable, type Column } from '../../components/ui/DataTable'
-import { mockServices } from '../../services/mock-data'
+import { servicesApi } from '../../services/admin-api'
+import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { NearbyService } from '../../types'
 
 const columns: Column<NearbyService>[] = [
@@ -11,11 +12,13 @@ const columns: Column<NearbyService>[] = [
 ]
 
 export default function ServiceListPage() {
+  const { data, loading } = useAdminCrud<NearbyService>(servicesApi)
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Service Listings</h1>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        <DataTable columns={columns} data={mockServices} />
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
       </div>
     </div>
   )

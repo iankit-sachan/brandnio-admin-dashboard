@@ -1,93 +1,179 @@
 import { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, CreditCard, Image, PartyPopper, Bot, Film, Bell,
-  Store, Cake, Smile, Megaphone, FileText, ChevronDown, ChevronRight,
-  PanelLeftClose, PanelLeft
+  LayoutDashboard, Users, CreditCard, XCircle, Briefcase, Landmark,
+  Image, PartyPopper, Frame, Building2, FolderOpen,
+  Grid3X3, Vote, ImagePlus,
+  Smile, Wrench, Sticker, List, Layers,
+  MessageSquare,
+  Type, Droplets, Palette, FileText, Trash2,
+  LogOut, PanelLeftClose, PanelLeft,
+  CalendarDays, Crown, ListOrdered,
+  Tags, LayoutTemplate,
+  Package,
+  FolderCog, ClipboardList,
+  Film, Music,
+  Wand2,
+  Send, History,
+  Megaphone, PenTool,
+  BookOpen, Mail, Handshake, FileCheck, Store
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import { useAuth } from '../../context/AuthContext'
 
 interface NavItem {
   label: string
-  path?: string
+  path: string
   icon: React.ElementType
-  children?: { label: string; path: string }[]
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { label: 'Users', path: '/users', icon: Users },
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
   {
-    label: 'Subscriptions', icon: CreditCard, children: [
-      { label: 'Plans', path: '/subscriptions/plans' },
-      { label: 'Payments', path: '/subscriptions' },
-    ]
+    title: 'MAIN',
+    items: [
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    ],
   },
   {
-    label: 'Posters', icon: Image, children: [
-      { label: 'Categories', path: '/posters/categories' },
-      { label: 'Templates', path: '/posters' },
-      { label: 'Auto-Generated', path: '/posters/auto-generated' },
-    ]
-  },
-  { label: 'Festivals', path: '/festivals', icon: PartyPopper },
-  { label: 'AI Tools', path: '/ai-tools', icon: Bot },
-  {
-    label: 'Reels', icon: Film, children: [
-      { label: 'Monitor', path: '/reels' },
-      { label: 'Music Tracks', path: '/reels/music' },
-    ]
+    title: 'USER MANAGEMENT',
+    items: [
+      { label: 'All Users', icon: Users, path: '/users' },
+      { label: 'Active Plans', icon: CreditCard, path: '/users/active-plans' },
+      { label: 'Expired Plans', icon: XCircle, path: '/users/expired-plans' },
+      { label: 'Business Profiles', icon: Briefcase, path: '/users/business-profiles' },
+      { label: 'Political Profiles', icon: Landmark, path: '/users/political-profiles' },
+    ],
   },
   {
-    label: 'Notifications', icon: Bell, children: [
-      { label: 'Send', path: '/notifications/send' },
-      { label: 'History', path: '/notifications/history' },
-    ]
+    title: 'CONTENT MANAGEMENT',
+    items: [
+      { label: 'All Posters', icon: Image, path: '/posters' },
+      { label: 'Festival Posters', icon: PartyPopper, path: '/posters/festival' },
+      { label: 'Frame Posters', icon: Frame, path: '/posters/frames' },
+      { label: 'Business Posters', icon: Building2, path: '/posters/business' },
+      { label: 'Business Category', icon: FolderOpen, path: '/posters/business-category' },
+    ],
   },
   {
-    label: 'Services', icon: Store, children: [
-      { label: 'Categories', path: '/services/categories' },
-      { label: 'Listings', path: '/services' },
-    ]
+    title: 'CATEGORY MANAGEMENT',
+    items: [
+      { label: 'General Category', icon: Grid3X3, path: '/categories/general' },
+      { label: 'Politician Category', icon: Vote, path: '/categories/politician' },
+      { label: 'Politician Image', icon: ImagePlus, path: '/categories/politician-image' },
+    ],
   },
   {
-    label: 'Greetings', icon: Cake, children: [
-      { label: 'Categories', path: '/greetings/categories' },
-      { label: 'Templates', path: '/greetings/templates' },
-    ]
-  },
-  { label: 'Stickers', path: '/stickers', icon: Smile },
-  {
-    label: 'Product Ads', icon: Megaphone, children: [
-      { label: 'Templates', path: '/product-ads/templates' },
-      { label: 'Generated Ads', path: '/product-ads' },
-    ]
+    title: 'FESTIVALS',
+    items: [
+      { label: 'Festival List', icon: CalendarDays, path: '/festivals' },
+    ],
   },
   {
-    label: 'Content', icon: FileText, children: [
-      { label: 'Tutorials', path: '/content/tutorials' },
-      { label: 'Policies', path: '/content/policies' },
-      { label: 'Contact Inbox', path: '/content/contact' },
-      { label: 'Partner Inbox', path: '/content/partners' },
-      { label: 'Brand Mall', path: '/content/mall' },
-    ]
+    title: 'SUBSCRIPTIONS',
+    items: [
+      { label: 'Subscriptions', icon: Crown, path: '/subscriptions' },
+      { label: 'Plans', icon: ListOrdered, path: '/subscriptions/plans' },
+    ],
+  },
+  {
+    title: 'GREETINGS',
+    items: [
+      { label: 'Categories', icon: Tags, path: '/greetings/categories' },
+      { label: 'Templates', icon: LayoutTemplate, path: '/greetings/templates' },
+    ],
+  },
+  {
+    title: 'STICKERS',
+    items: [
+      { label: 'Sticker Packs', icon: Package, path: '/stickers' },
+    ],
+  },
+  {
+    title: 'SERVICES',
+    items: [
+      { label: 'Service Categories', icon: FolderCog, path: '/services/categories' },
+      { label: 'Service List', icon: ClipboardList, path: '/services' },
+    ],
+  },
+  {
+    title: 'REELS',
+    items: [
+      { label: 'Reel Monitor', icon: Film, path: '/reels' },
+      { label: 'Music Tracks', icon: Music, path: '/reels/music' },
+    ],
+  },
+  {
+    title: 'AI TOOLS',
+    items: [
+      { label: 'AI Dashboard', icon: Wand2, path: '/ai-tools' },
+    ],
+  },
+  {
+    title: 'NOTIFICATIONS',
+    items: [
+      { label: 'Send Notification', icon: Send, path: '/notifications/send' },
+      { label: 'History', icon: History, path: '/notifications/history' },
+    ],
+  },
+  {
+    title: 'PRODUCT ADS',
+    items: [
+      { label: 'Ad Templates', icon: PenTool, path: '/product-ads/templates' },
+      { label: 'Generated Ads', icon: Megaphone, path: '/product-ads' },
+    ],
+  },
+  {
+    title: 'CONTENT',
+    items: [
+      { label: 'Tutorials', icon: BookOpen, path: '/content/tutorials' },
+      { label: 'Contact Inbox', icon: Mail, path: '/content/contact' },
+      { label: 'Partner Inbox', icon: Handshake, path: '/content/partners' },
+      { label: 'Policies', icon: FileCheck, path: '/content/policies' },
+      { label: 'Mall Moderation', icon: Store, path: '/content/mall' },
+    ],
+  },
+  {
+    title: 'CONTENT TYPES',
+    items: [
+      { label: 'Greeting Posters', icon: Smile, path: '/content-types/greetings' },
+      { label: 'Service Posters', icon: Wrench, path: '/content-types/services' },
+      { label: 'Stickers', icon: Sticker, path: '/content-types/stickers' },
+      { label: 'Service List', icon: List, path: '/content-types/service-list' },
+      { label: 'Pop-up Posters', icon: Layers, path: '/content-types/popups' },
+    ],
+  },
+  {
+    title: 'COMMUNICATION',
+    items: [
+      { label: 'Communication Center', icon: MessageSquare, path: '/communication' },
+    ],
+  },
+  {
+    title: 'SETTINGS',
+    items: [
+      { label: 'Taglines', icon: Type, path: '/settings/taglines' },
+      { label: 'Payment Plans', icon: CreditCard, path: '/settings/payment-plans' },
+      { label: 'Watermark Options', icon: Droplets, path: '/settings/watermark' },
+      { label: 'Design Settings', icon: Palette, path: '/settings/design' },
+      { label: 'Policies', icon: FileText, path: '/settings/policies' },
+      { label: 'Delete Requests', icon: Trash2, path: '/settings/delete-requests' },
+    ],
   },
 ]
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const [openSections, setOpenSections] = useState<string[]>([])
-  const location = useLocation()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
 
-  const toggleSection = (label: string) => {
-    setOpenSections(prev =>
-      prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]
-    )
-  }
-
-  const isActive = (path?: string, children?: { path: string }[]) => {
-    if (path) return location.pathname === path
-    return children?.some(c => location.pathname === c.path) ?? false
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -105,76 +191,57 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {navItems.map(item => {
-          const Icon = item.icon
-          const active = isActive(item.path, item.children)
-          const isOpen = openSections.includes(item.label)
-
-          if (item.children && !collapsed) {
-            return (
-              <div key={item.label} className="mb-0.5">
-                <button
-                  onClick={() => toggleSection(item.label)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
-                    active ? 'text-brand-gold bg-brand-gold/10' : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
-                  )}
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" style={{width: '18px', height: '18px'}} />
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                </button>
-                {isOpen && (
-                  <div className="ml-8 mt-0.5 space-y-0.5">
-                    {item.children.map(child => (
-                      <NavLink
-                        key={child.path}
-                        to={child.path}
-                        className={({ isActive: a }) => cn(
-                          'block px-3 py-2 rounded-lg text-sm transition-colors',
-                          a ? 'text-brand-gold bg-brand-gold/10' : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
-                        )}
-                      >
-                        {child.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
+        {navSections.map((section) => (
+          <div key={section.title}>
+            {/* Section header */}
+            {!collapsed && (
+              <div className="text-xs uppercase tracking-wider text-brand-gold font-semibold px-4 mt-4 mb-1">
+                {section.title}
               </div>
-            )
-          }
+            )}
 
-          if (collapsed) {
-            const childActive = item.children?.some(c => location.pathname === c.path)
-            return (
-              <NavLink
-                key={item.label}
-                to={item.path || (item.children?.[0]?.path ?? '/')}
-                className={({ isActive: a }) => cn(
-                  'flex items-center justify-center p-2.5 rounded-lg mb-0.5 transition-colors',
-                  (a || childActive) ? 'text-brand-gold bg-brand-gold/10' : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
-                )}
-                title={item.label}
-              >
-                <Icon style={{width: '18px', height: '18px'}} />
-              </NavLink>
-            )
-          }
+            {/* Nav items */}
+            {section.items.map((item) => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end
+                  className={({ isActive }) => cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors',
+                    collapsed && 'justify-center',
+                    isActive
+                      ? 'text-brand-gold bg-brand-gold/10'
+                      : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
+                  )}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <Icon style={{ width: '18px', height: '18px' }} className="shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              )
+            })}
+          </div>
+        ))}
 
-          return (
-            <NavLink
-              key={item.label}
-              to={item.path!}
-              className={({ isActive: a }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-colors',
-                a ? 'text-brand-gold bg-brand-gold/10' : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
-              )}
-            >
-              <Icon style={{width: '18px', height: '18px'}} />
-              <span>{item.label}</span>
-            </NavLink>
-          )
-        })}
+        {/* Logout */}
+        <div className={cn(!collapsed && 'mt-4')}>
+          {!collapsed && (
+            <div className="border-t border-brand-dark-border my-2" />
+          )}
+          <button
+            onClick={handleLogout}
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-brand-text-muted hover:text-status-error hover:bg-status-error/10',
+              collapsed && 'justify-center'
+            )}
+            title={collapsed ? 'Logout' : undefined}
+          >
+            <LogOut style={{ width: '18px', height: '18px' }} className="shrink-0" />
+            {!collapsed && <span>Logout</span>}
+          </button>
+        </div>
       </nav>
 
       {/* Collapse toggle */}

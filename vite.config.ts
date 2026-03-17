@@ -4,5 +4,20 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === 'build' ? '/admin/' : '/',
-  server: { port: 5173, open: true }
+  server: {
+    port: 5173,
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'http://13.203.77.238',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/media': {
+        target: 'http://13.203.77.238',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  }
 }))

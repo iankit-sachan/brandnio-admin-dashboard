@@ -1,29 +1,91 @@
-import { Users, CreditCard, IndianRupee, Zap, Bot, Film } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Users, CreditCard, XCircle, Briefcase, Image,
+  PartyPopper, Building2, Sticker, MessageSquare,
+  TrendingUp,
+} from 'lucide-react'
 import { KPICard } from '../components/ui/KPICard'
+import { dashboardApi } from '../services/admin-api'
 import { mockDashboardStats } from '../services/mock-data'
-import { formatCurrency, formatNumber } from '../utils/formatters'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { formatNumber } from '../utils/formatters'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts'
 
 const COLORS = ['#4CAF50', '#F44336', '#FFC107', '#2196F3']
 
+const quickActions = [
+  { label: 'Add Festival Poster', path: '/posters/festival', icon: PartyPopper, color: 'bg-brand-gold' },
+  { label: 'Add Business Poster', path: '/posters/business', icon: Building2, color: 'bg-blue-500' },
+  { label: 'View Users', path: '/users', icon: Users, color: 'bg-green-500' },
+  { label: 'Payment Plans', path: '/settings/payment-plans', icon: CreditCard, color: 'bg-purple-500' },
+  { label: 'Add Stickers', path: '/content-types/stickers', icon: Sticker, color: 'bg-pink-500' },
+  { label: 'Communication', path: '/communication', icon: MessageSquare, color: 'bg-orange-500' },
+]
+
 export default function DashboardPage() {
-  const stats = mockDashboardStats
+  const navigate = useNavigate()
+  const [stats, setStats] = useState(mockDashboardStats)
+
+  useEffect(() => {
+    dashboardApi.stats().then(setStats).catch(() => {})
+  }, [])
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-brand-text">Dashboard</h1>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KPICard title="Total Users" value={formatNumber(stats.totalUsers)} icon={Users} trend={{ value: 8.5, isUp: true }} />
-        <KPICard title="Active Subs" value={formatNumber(stats.activeSubscriptions)} icon={CreditCard} trend={{ value: 12.3, isUp: true }} />
-        <KPICard title="Revenue (Month)" value={formatCurrency(stats.revenueThisMonth)} icon={IndianRupee} trend={{ value: 5.2, isUp: true }} />
-        <KPICard title="Credits Today" value={formatNumber(stats.creditsConsumedToday)} icon={Zap} trend={{ value: 3.1, isUp: false }} />
-        <KPICard title="AI Calls Today" value={formatNumber(stats.aiToolCallsToday)} icon={Bot} trend={{ value: 15.8, isUp: true }} />
-        <KPICard title="Reels Processing" value={stats.activeReelsProcessing} icon={Film} />
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-text">
+            Welcome back, Admin! <span role="img" aria-label="wave">👋</span>
+          </h1>
+          <p className="text-brand-text-muted mt-1">
+            Here's what's happening with Brandnio today.
+          </p>
+        </div>
+        <div className="bg-brand-dark-card rounded-xl border-2 border-brand-gold/40 px-6 py-4 flex items-center gap-3">
+          <div className="bg-brand-gold/10 p-2 rounded-lg">
+            <TrendingUp className="h-5 w-5 text-brand-gold" />
+          </div>
+          <div>
+            <p className="text-brand-gold text-lg font-bold">+12.5% Growth</p>
+            <p className="text-brand-text-muted text-xs">vs last month</p>
+          </div>
+        </div>
       </div>
 
-      {/* Charts */}
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <KPICard title="Total Users" value={formatNumber(stats.totalUsers)} icon={Users} trend={{ value: 8.5, isUp: true }} />
+        <KPICard title="Active Plans" value={formatNumber(stats.activeSubscriptions)} icon={CreditCard} trend={{ value: 12.3, isUp: true }} />
+        <KPICard title="Expired Plans" value={formatNumber(stats.expiredSubscriptions ?? 0)} icon={XCircle} trend={{ value: 5.2, isUp: false }} />
+        <KPICard title="Business Profiles" value={formatNumber(stats.businessProfiles ?? 0)} icon={Briefcase} trend={{ value: 15.8, isUp: true }} />
+        <KPICard title="Total Posters" value={formatNumber(stats.totalPosters ?? 0)} icon={Image} trend={{ value: 22.1, isUp: true }} />
+      </div>
+
+      {/* Quick Action Buttons */}
+      <div className="flex flex-wrap gap-3">
+        {quickActions.map((action) => {
+          const Icon = action.icon
+          return (
+            <button
+              key={action.path}
+              onClick={() => navigate(action.path)}
+              className="bg-brand-dark-card border border-brand-dark-border/50 rounded-xl px-5 py-3 flex items-center gap-3 hover:scale-105 transition-transform duration-200 hover:border-brand-gold/30 cursor-pointer"
+            >
+              <div className={`${action.color} p-2 rounded-full`}>
+                <Icon className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-brand-text text-sm font-medium whitespace-nowrap">{action.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Growth */}
         <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-5">
@@ -73,7 +135,7 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie data={stats.subscriptionDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="count" nameKey="status" label={(props: any) => `${props.status}: ${props.count}`}>
-                {stats.subscriptionDistribution.map((_, i) => (
+                {stats.subscriptionDistribution.map((_: any, i: number) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>

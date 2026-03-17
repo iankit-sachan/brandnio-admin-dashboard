@@ -7,32 +7,88 @@ import { lazy, Suspense } from 'react'
 import { LoadingSpinner } from './components/ui/LoadingSpinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
+// Auth
 const LoginPage = lazy(() => import('./pages/LoginPage'))
+
+// Main
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+
+// User Management
 const UserListPage = lazy(() => import('./pages/users/UserListPage'))
-const PlanListPage = lazy(() => import('./pages/subscriptions/PlanListPage'))
-const SubscriptionListPage = lazy(() => import('./pages/subscriptions/SubscriptionListPage'))
-const PosterCategoryListPage = lazy(() => import('./pages/posters/PosterCategoryListPage'))
+const ActivePlansPage = lazy(() => import('./pages/users/ActivePlansPage'))
+const ExpiredPlansPage = lazy(() => import('./pages/users/ExpiredPlansPage'))
+const BusinessProfilesPage = lazy(() => import('./pages/users/BusinessProfilesPage'))
+const PoliticalProfilesPage = lazy(() => import('./pages/users/PoliticalProfilesPage'))
+
+// Content Management (Posters)
 const PosterListPage = lazy(() => import('./pages/posters/PosterListPage'))
-const AutoPosterMonitorPage = lazy(() => import('./pages/posters/AutoPosterMonitorPage'))
+const FestivalPosterPage = lazy(() => import('./pages/posters/FestivalPosterPage'))
+const FramePosterPage = lazy(() => import('./pages/posters/FramePosterPage'))
+const BusinessPosterPage = lazy(() => import('./pages/posters/BusinessPosterPage'))
+const BusinessCategoryPage = lazy(() => import('./pages/posters/BusinessCategoryPage'))
+
+// Category Management
+const GeneralCategoryPage = lazy(() => import('./pages/categories/GeneralCategoryPage'))
+const PoliticianCategoryPage = lazy(() => import('./pages/categories/PoliticianCategoryPage'))
+const PoliticianImagePage = lazy(() => import('./pages/categories/PoliticianImagePage'))
+
+// Content Types
+const GreetingPostersPage = lazy(() => import('./pages/content-types/GreetingPostersPage'))
+const ServicePostersPage = lazy(() => import('./pages/content-types/ServicePostersPage'))
+const StickersPage = lazy(() => import('./pages/content-types/StickersPage'))
+const ContentTypeServiceListPage = lazy(() => import('./pages/content-types/ServiceListPage'))
+const PopupPostersPage = lazy(() => import('./pages/content-types/PopupPostersPage'))
+
+// Communication
+const CommunicationCenterPage = lazy(() => import('./pages/communication/CommunicationCenterPage'))
+
+// Festivals
 const FestivalListPage = lazy(() => import('./pages/festivals/FestivalListPage'))
-const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
-const ReelMonitorPage = lazy(() => import('./pages/reels/ReelMonitorPage'))
-const MusicTrackListPage = lazy(() => import('./pages/reels/MusicTrackListPage'))
-const SendNotificationPage = lazy(() => import('./pages/notifications/SendNotificationPage'))
-const NotificationHistoryPage = lazy(() => import('./pages/notifications/NotificationHistoryPage'))
-const ServiceCategoryListPage = lazy(() => import('./pages/services/ServiceCategoryListPage'))
-const ServiceListPage = lazy(() => import('./pages/services/ServiceListPage'))
+
+// Subscriptions
+const SubscriptionListPage = lazy(() => import('./pages/subscriptions/SubscriptionListPage'))
+const PlanListPage = lazy(() => import('./pages/subscriptions/PlanListPage'))
+
+// Greetings
 const GreetingCategoryListPage = lazy(() => import('./pages/greetings/GreetingCategoryListPage'))
 const GreetingTemplateListPage = lazy(() => import('./pages/greetings/GreetingTemplateListPage'))
+
+// Stickers
 const StickerPackListPage = lazy(() => import('./pages/stickers/StickerPackListPage'))
+
+// Services
+const ServiceCategoryListPage = lazy(() => import('./pages/services/ServiceCategoryListPage'))
+const ServiceListPage = lazy(() => import('./pages/services/ServiceListPage'))
+
+// Reels
+const ReelMonitorPage = lazy(() => import('./pages/reels/ReelMonitorPage'))
+const MusicTrackListPage = lazy(() => import('./pages/reels/MusicTrackListPage'))
+
+// Notifications
+const SendNotificationPage = lazy(() => import('./pages/notifications/SendNotificationPage'))
+const NotificationHistoryPage = lazy(() => import('./pages/notifications/NotificationHistoryPage'))
+
+// Product Ads
 const AdTemplateListPage = lazy(() => import('./pages/product-ads/AdTemplateListPage'))
 const GeneratedAdMonitorPage = lazy(() => import('./pages/product-ads/GeneratedAdMonitorPage'))
+
+// Content
 const TutorialListPage = lazy(() => import('./pages/content/TutorialListPage'))
-const PolicyListPage = lazy(() => import('./pages/content/PolicyListPage'))
 const ContactInboxPage = lazy(() => import('./pages/content/ContactInboxPage'))
 const PartnerInboxPage = lazy(() => import('./pages/content/PartnerInboxPage'))
+const PolicyListPage = lazy(() => import('./pages/content/PolicyListPage'))
 const MallListingModerationPage = lazy(() => import('./pages/content/MallListingModerationPage'))
+
+// AI Tools
+const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
+
+// Settings
+const TaglinesPage = lazy(() => import('./pages/settings/TaglinesPage'))
+const PaymentPlansPage = lazy(() => import('./pages/settings/PaymentPlansPage'))
+const WatermarkPage = lazy(() => import('./pages/settings/WatermarkPage'))
+const DesignSettingsPage = lazy(() => import('./pages/settings/DesignSettingsPage'))
+const PoliciesPage = lazy(() => import('./pages/settings/PoliciesPage'))
+const DeleteRequestsPage = lazy(() => import('./pages/settings/DeleteRequestsPage'))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -52,31 +108,85 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route element={<AdminLayout />}>
+                {/* Main */}
                 <Route path="/" element={<DashboardPage />} />
+
+                {/* User Management */}
                 <Route path="/users" element={<UserListPage />} />
-                <Route path="/subscriptions/plans" element={<PlanListPage />} />
-                <Route path="/subscriptions" element={<SubscriptionListPage />} />
-                <Route path="/posters/categories" element={<PosterCategoryListPage />} />
+                <Route path="/users/active-plans" element={<ActivePlansPage />} />
+                <Route path="/users/expired-plans" element={<ExpiredPlansPage />} />
+                <Route path="/users/business-profiles" element={<BusinessProfilesPage />} />
+                <Route path="/users/political-profiles" element={<PoliticalProfilesPage />} />
+
+                {/* Content Management */}
                 <Route path="/posters" element={<PosterListPage />} />
-                <Route path="/posters/auto-generated" element={<AutoPosterMonitorPage />} />
+                <Route path="/posters/festival" element={<FestivalPosterPage />} />
+                <Route path="/posters/frames" element={<FramePosterPage />} />
+                <Route path="/posters/business" element={<BusinessPosterPage />} />
+                <Route path="/posters/business-category" element={<BusinessCategoryPage />} />
+
+                {/* Category Management */}
+                <Route path="/categories/general" element={<GeneralCategoryPage />} />
+                <Route path="/categories/politician" element={<PoliticianCategoryPage />} />
+                <Route path="/categories/politician-image" element={<PoliticianImagePage />} />
+
+                {/* Festivals */}
                 <Route path="/festivals" element={<FestivalListPage />} />
-                <Route path="/ai-tools" element={<AIToolsDashboardPage />} />
-                <Route path="/reels" element={<ReelMonitorPage />} />
-                <Route path="/reels/music" element={<MusicTrackListPage />} />
-                <Route path="/notifications/send" element={<SendNotificationPage />} />
-                <Route path="/notifications/history" element={<NotificationHistoryPage />} />
-                <Route path="/services/categories" element={<ServiceCategoryListPage />} />
-                <Route path="/services" element={<ServiceListPage />} />
+
+                {/* Subscriptions */}
+                <Route path="/subscriptions" element={<SubscriptionListPage />} />
+                <Route path="/subscriptions/plans" element={<PlanListPage />} />
+
+                {/* Greetings */}
                 <Route path="/greetings/categories" element={<GreetingCategoryListPage />} />
                 <Route path="/greetings/templates" element={<GreetingTemplateListPage />} />
+
+                {/* Stickers */}
                 <Route path="/stickers" element={<StickerPackListPage />} />
+
+                {/* Services */}
+                <Route path="/services/categories" element={<ServiceCategoryListPage />} />
+                <Route path="/services" element={<ServiceListPage />} />
+
+                {/* Reels */}
+                <Route path="/reels" element={<ReelMonitorPage />} />
+                <Route path="/reels/music" element={<MusicTrackListPage />} />
+
+                {/* Notifications */}
+                <Route path="/notifications/send" element={<SendNotificationPage />} />
+                <Route path="/notifications/history" element={<NotificationHistoryPage />} />
+
+                {/* Product Ads */}
                 <Route path="/product-ads/templates" element={<AdTemplateListPage />} />
                 <Route path="/product-ads" element={<GeneratedAdMonitorPage />} />
+
+                {/* Content */}
                 <Route path="/content/tutorials" element={<TutorialListPage />} />
-                <Route path="/content/policies" element={<PolicyListPage />} />
                 <Route path="/content/contact" element={<ContactInboxPage />} />
                 <Route path="/content/partners" element={<PartnerInboxPage />} />
+                <Route path="/content/policies" element={<PolicyListPage />} />
                 <Route path="/content/mall" element={<MallListingModerationPage />} />
+
+                {/* AI Tools */}
+                <Route path="/ai-tools" element={<AIToolsDashboardPage />} />
+
+                {/* Content Types */}
+                <Route path="/content-types/greetings" element={<GreetingPostersPage />} />
+                <Route path="/content-types/services" element={<ServicePostersPage />} />
+                <Route path="/content-types/stickers" element={<StickersPage />} />
+                <Route path="/content-types/service-list" element={<ContentTypeServiceListPage />} />
+                <Route path="/content-types/popups" element={<PopupPostersPage />} />
+
+                {/* Communication */}
+                <Route path="/communication" element={<CommunicationCenterPage />} />
+
+                {/* Settings */}
+                <Route path="/settings/taglines" element={<TaglinesPage />} />
+                <Route path="/settings/payment-plans" element={<PaymentPlansPage />} />
+                <Route path="/settings/watermark" element={<WatermarkPage />} />
+                <Route path="/settings/design" element={<DesignSettingsPage />} />
+                <Route path="/settings/policies" element={<PoliciesPage />} />
+                <Route path="/settings/delete-requests" element={<DeleteRequestsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

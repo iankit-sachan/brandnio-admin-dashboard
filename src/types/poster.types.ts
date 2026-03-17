@@ -10,6 +10,9 @@ export interface PosterCategory {
   description: string
   sort_order: number
   is_active: boolean
+  parent: number | null
+  parent_name: string | null
+  children_count: number
   poster_count: number
 }
 
