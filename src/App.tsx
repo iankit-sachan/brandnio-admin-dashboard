@@ -85,6 +85,7 @@ const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboar
 // VbizCard
 const VbizCardCategoryPage = lazy(() => import('./pages/vbizcard/VbizCardCategoryPage'))
 const VbizCardTemplatePage = lazy(() => import('./pages/vbizcard/VbizCardTemplatePage'))
+const VbizCardHomeSectionPage = lazy(() => import('./pages/vbizcard/VbizCardHomeSectionPage'))
 
 // Settings
 const TaglinesPage = lazy(() => import('./pages/settings/TaglinesPage'))
@@ -187,6 +188,7 @@ export default function App() {
                 {/* VbizCard */}
                 <Route path="/vbizcard/categories" element={<VbizCardCategoryPage />} />
                 <Route path="/vbizcard/templates" element={<VbizCardTemplatePage />} />
+                <Route path="/vbizcard/home-sections" element={<VbizCardHomeSectionPage />} />
 
                 {/* Settings */}
                 <Route path="/settings/taglines" element={<TaglinesPage />} />

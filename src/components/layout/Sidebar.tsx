@@ -17,7 +17,7 @@ import {
   Send, History,
   Megaphone, PenTool,
   BookOpen, Mail, Handshake, FileCheck, Store,
-  IdCard, GalleryHorizontalEnd
+  IdCard, GalleryHorizontalEnd, LayoutList
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
@@ -153,6 +153,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'VC Categories', icon: IdCard, path: '/vbizcard/categories' },
       { label: 'VC Templates', icon: GalleryHorizontalEnd, path: '/vbizcard/templates' },
+      { label: 'VC Home Sections', icon: LayoutList, path: '/vbizcard/home-sections' },
     ],
   },
   {

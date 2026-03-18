@@ -27,3 +27,13 @@ export interface VbizCardTemplate {
   tags: string[]
   created_at: string
 }
+
+export interface VbizCardHomeSection {
+  id: number
+  title: string
+  category_slug: string
+  display_type: 'small' | 'large'
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}

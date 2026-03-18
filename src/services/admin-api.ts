@@ -112,3 +112,4 @@ export const deleteRequestsApi = {
 // ── VbizCard ─────────────────────────────────────────────────────
 export const vbizCardCategoriesApi = crud('vbizcard-categories')
 export const vbizCardTemplatesApi = crud('vbizcard-templates')
+export const vbizCardHomeSectionsApi = crud('vbizcard-home-sections')
