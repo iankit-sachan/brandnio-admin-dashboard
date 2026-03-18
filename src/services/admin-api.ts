@@ -108,3 +108,7 @@ export const deleteRequestsApi = {
   reject: (id: number, admin_notes?: string) =>
     api.post(`/api/admin/delete-requests/${id}/reject/`, { admin_notes }).then(r => r.data),
 }
+
+// ── VbizCard ─────────────────────────────────────────────────────
+export const vbizCardCategoriesApi = crud('vbizcard-categories')
+export const vbizCardTemplatesApi = crud('vbizcard-templates')

@@ -16,7 +16,8 @@ import {
   Wand2,
   Send, History,
   Megaphone, PenTool,
-  BookOpen, Mail, Handshake, FileCheck, Store
+  BookOpen, Mail, Handshake, FileCheck, Store,
+  IdCard, GalleryHorizontalEnd
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
@@ -145,6 +146,13 @@ const navSections: NavSection[] = [
       { label: 'Stickers', icon: Sticker, path: '/content-types/stickers' },
       { label: 'Service List', icon: List, path: '/content-types/service-list' },
       { label: 'Pop-up Posters', icon: Layers, path: '/content-types/popups' },
+    ],
+  },
+  {
+    title: 'VBIZ CARD',
+    items: [
+      { label: 'VC Categories', icon: IdCard, path: '/vbizcard/categories' },
+      { label: 'VC Templates', icon: GalleryHorizontalEnd, path: '/vbizcard/templates' },
     ],
   },
   {

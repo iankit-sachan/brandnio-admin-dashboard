@@ -112,6 +112,9 @@ export const mockPosterCategories: PosterCategory[] = posterCategories.map((name
   sort_order: i + 1,
   is_active: true,
   poster_count: Math.floor(Math.random() * 200) + 20,
+  parent: null,
+  parent_name: null,
+  children_count: 0,
 }))
 
 export const mockPosters: Poster[] = Array.from({ length: 20 }, (_, i) => ({

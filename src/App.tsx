@@ -82,6 +82,10 @@ const MallListingModerationPage = lazy(() => import('./pages/content/MallListing
 // AI Tools
 const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
 
+// VbizCard
+const VbizCardCategoryPage = lazy(() => import('./pages/vbizcard/VbizCardCategoryPage'))
+const VbizCardTemplatePage = lazy(() => import('./pages/vbizcard/VbizCardTemplatePage'))
+
 // Settings
 const TaglinesPage = lazy(() => import('./pages/settings/TaglinesPage'))
 const PaymentPlansPage = lazy(() => import('./pages/settings/PaymentPlansPage'))
@@ -179,6 +183,10 @@ export default function App() {
 
                 {/* Communication */}
                 <Route path="/communication" element={<CommunicationCenterPage />} />
+
+                {/* VbizCard */}
+                <Route path="/vbizcard/categories" element={<VbizCardCategoryPage />} />
+                <Route path="/vbizcard/templates" element={<VbizCardTemplatePage />} />
 
                 {/* Settings */}
                 <Route path="/settings/taglines" element={<TaglinesPage />} />
