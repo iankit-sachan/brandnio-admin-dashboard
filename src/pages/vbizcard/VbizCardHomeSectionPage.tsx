@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { vbizCardHomeSectionsApi, vbizCardCategoriesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { VbizCardHomeSection, VbizCardCategory } from '../../types'
+import { useNavigate } from 'react-router-dom'
 
 const DISPLAY_BADGE: Record<string, string> = {
   small: 'bg-blue-500/20 text-blue-400',
@@ -27,7 +28,8 @@ const emptyForm: FormState = {
 
 export default function VbizCardHomeSectionPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<VbizCardHomeSection>(vbizCardHomeSectionsApi)
+  const navigate = useNavigate()
+  const { data, loading, create, update, remove, setData } = useAdminCrud<VbizCardHomeSection>(vbizCardHomeSectionsApi)
   const [categories, setCategories] = useState<VbizCardCategory[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VbizCardHomeSection | null>(null)
@@ -35,10 +37,22 @@ export default function VbizCardHomeSectionPage() {
   const [deleteItem, setDeleteItem] = useState<VbizCardHomeSection | null>(null)
 
   useEffect(() => {
-    vbizCardCategoriesApi.list().then((res: { data: VbizCardCategory[] }) => setCategories(res.data)).catch(() => {})
+    vbizCardCategoriesApi.list().then((cats) => setCategories(Array.isArray(cats) ? cats : [])).catch(() => {})
   }, [])
 
-  const sectionCategories = categories.filter(c => c.category_type === 'section')
+  const sectionCategories = (categories || []).filter(c => c.category_type === 'section')
+
+  // Map slug → category name for display
+  const slugToName = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const c of categories || []) {
+      map[c.slug] = c.name
+    }
+    return map
+  }, [categories])
+
+  // Sorted data by sort_order
+  const sortedData = useMemo(() => [...data].sort((a, b) => a.sort_order - b.sort_order), [data])
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
 
@@ -79,9 +93,70 @@ export default function VbizCardHomeSectionPage() {
     }
   }
 
+  // Inline toggle active
+  const toggleActive = useCallback(async (item: VbizCardHomeSection) => {
+    try {
+      const updated = await update(item.id, { is_active: !item.is_active } as any)
+      if (updated) addToast(`Section "${item.title}" ${!item.is_active ? 'activated' : 'deactivated'}`)
+    } catch {
+      addToast('Toggle failed', 'error')
+    }
+  }, [update, addToast])
+
+  // Reorder: swap sort_order with adjacent item
+  const moveItem = useCallback(async (item: VbizCardHomeSection, direction: 'up' | 'down') => {
+    const idx = sortedData.findIndex(d => d.id === item.id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= sortedData.length) return
+
+    const other = sortedData[swapIdx]
+    try {
+      await update(item.id, { sort_order: other.sort_order } as any)
+      await update(other.id, { sort_order: item.sort_order } as any)
+      addToast('Order updated')
+    } catch {
+      addToast('Reorder failed', 'error')
+    }
+  }, [sortedData, update, addToast])
+
   const columns: Column<VbizCardHomeSection>[] = [
+    {
+      key: 'sort_order', title: '#', sortable: true,
+      render: (item) => {
+        const idx = sortedData.findIndex(d => d.id === item.id)
+        return (
+          <div className="flex items-center gap-1">
+            <span className="text-brand-text-muted w-5 text-center">{item.sort_order}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); moveItem(item, 'up') }}
+              disabled={idx === 0}
+              className="p-0.5 rounded hover:bg-brand-dark-hover disabled:opacity-20 text-brand-text-muted hover:text-brand-gold transition-colors"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); moveItem(item, 'down') }}
+              disabled={idx === sortedData.length - 1}
+              className="p-0.5 rounded hover:bg-brand-dark-hover disabled:opacity-20 text-brand-text-muted hover:text-brand-gold transition-colors"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )
+      },
+    },
     { key: 'title', title: 'Title', sortable: true, render: (item) => <span className="font-medium text-brand-text">{item.title}</span> },
-    { key: 'category_slug', title: 'Category Slug' },
+    {
+      key: 'category_slug', title: 'Category',
+      render: (item) => (
+        <div>
+          <span className="text-brand-text">{slugToName[item.category_slug] || item.category_slug}</span>
+          {slugToName[item.category_slug] && (
+            <span className="block text-xs text-brand-text-muted">{item.category_slug}</span>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'display_type', title: 'Display',
       render: (item) => (
@@ -90,12 +165,16 @@ export default function VbizCardHomeSectionPage() {
         </span>
       ),
     },
-    { key: 'sort_order', title: 'Order', sortable: true },
     {
       key: 'is_active', title: 'Status',
-      render: (item) => item.is_active
-        ? <span className="text-status-success">Active</span>
-        : <span className="text-status-error">Inactive</span>,
+      render: (item) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleActive(item) }}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${item.is_active ? 'bg-green-500' : 'bg-gray-600'}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      ),
     },
     {
       key: 'actions', title: 'Actions',
@@ -112,17 +191,25 @@ export default function VbizCardHomeSectionPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">VC Home Sections</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Section</button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/posters/home-sections')}
+            className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors"
+          >
+            Poster Home Sections
+          </button>
+          <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Section</button>
+        </div>
       </div>
 
       <p className="text-sm text-brand-text-muted">
-        Control which card sections appear on the VbizCard home screen. Adjust order, display type (small/large cards), and visibility.
+        Control which card sections appear on the VbizCard home screen. Use arrows to reorder, toggle to show/hide.
       </p>
 
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading
-          ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading…</div>
-          : <DataTable columns={columns} data={data} />
+          ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
+          : <DataTable columns={columns} data={sortedData} />
         }
       </div>
 
@@ -136,7 +223,7 @@ export default function VbizCardHomeSectionPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category Slug</label>
             {sectionCategories.length > 0 ? (
               <select value={form.category_slug} onChange={e => setForm(f => ({ ...f, category_slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-                <option value="">Select a category…</option>
+                <option value="">Select a category...</option>
                 {sectionCategories.map(c => <option key={c.slug} value={c.slug}>{c.name} ({c.slug})</option>)}
               </select>
             ) : (

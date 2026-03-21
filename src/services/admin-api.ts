@@ -15,7 +15,7 @@ function crud<T = any>(resource: string) {
       // Handle both plain arrays and DRF paginated responses
       if (Array.isArray(d)) return d as T[]
       if (d && typeof d === 'object' && 'results' in d && Array.isArray(d.results)) return d.results as T[]
-      return d as T[]
+      return [] as T[]
     }),
     get:    (id: number) => api.get<T>(`${base}${id}/`).then(r => r.data),
     create: (data: Partial<T>) => api.post<T>(base, data).then(r => r.data),
@@ -113,3 +113,16 @@ export const deleteRequestsApi = {
 export const vbizCardCategoriesApi = crud('vbizcard-categories')
 export const vbizCardTemplatesApi = crud('vbizcard-templates')
 export const vbizCardHomeSectionsApi = crud('vbizcard-home-sections')
+
+// ── Home Banners ────────────────────────────────────────────────
+export const homeBannersApi = crud('home-banners')
+
+// ── Create Tools ────────────────────────────────────────────────
+export const createToolsApi = crud('create-tools')
+
+// ── Canvas Presets ─────────────────────────────────────────────
+export const canvasPresetsApi = crud('canvas-presets')
+
+// ── Video Categories & Templates ──────────────────────────
+export const videoCategoriesApi = crud('video-categories')
+export const videoTemplatesApi = crud('video-templates')

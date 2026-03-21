@@ -13,6 +13,8 @@ interface GeneralCategory {
   slug: string
   icon_url: string | null
   is_active: boolean
+  show_in_home: boolean
+  show_in_create: boolean
   parent: number | null
   parent_name: string | null
   children_count: number
@@ -35,10 +37,12 @@ interface FormState {
   name: string
   slug: string
   is_active: boolean
+  show_in_home: boolean
+  show_in_create: boolean
   parent: number | null
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, show_in_home: true, show_in_create: true, parent: null }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -134,7 +138,7 @@ export default function GeneralCategoryPage() {
 
   const openEdit = (item: GeneralCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active, parent: item.parent })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent })
     setModalOpen(true)
   }
 
@@ -329,6 +333,12 @@ export default function GeneralCategoryPage() {
               </div>
             )}
             {!cat.is_active && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-status-error/20 text-status-error">Inactive</span>}
+            {!viewingParent && (
+              <div className="flex items-center justify-center gap-1 mt-1.5">
+                {cat.show_in_home && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">Home</span>}
+                {cat.show_in_create && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">Create</span>}
+              </div>
+            )}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
               <button onClick={e => { e.stopPropagation(); openEdit(cat) }} className="p-1 bg-brand-dark-hover rounded text-brand-gold"><Pencil className="h-3 w-3" /></button>
               <button onClick={e => { e.stopPropagation(); openDelete(cat) }} className="p-1 bg-brand-dark-hover rounded text-status-error"><Trash2 className="h-3 w-3" /></button>
@@ -375,9 +385,19 @@ export default function GeneralCategoryPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
             <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Active</label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+              <label className="text-sm text-brand-text-muted">Active</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={form.show_in_home} onChange={e => setForm(f => ({ ...f, show_in_home: e.target.checked }))} className="rounded" />
+              <label className="text-sm text-green-400">Show in Home</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={form.show_in_create} onChange={e => setForm(f => ({ ...f, show_in_create: e.target.checked }))} className="rounded" />
+              <label className="text-sm text-purple-400">Show in Create</label>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>

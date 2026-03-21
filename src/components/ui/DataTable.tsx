@@ -24,6 +24,12 @@ interface Props<T> {
   onSort?: (key: string) => void
   onRowClick?: (item: T) => void
   keyExtractor?: (item: T) => string | number
+  /** Wrap the tbody content (e.g. with DndContext + SortableContext) */
+  tbodyWrapper?: (children: React.ReactNode) => React.ReactNode
+  /** Custom row renderer (e.g. SortableRow). Receives item, key, and cell nodes. */
+  renderRow?: (item: T, key: string | number, cells: React.ReactNode) => React.ReactNode
+  /** Show an empty header for the drag-handle column */
+  showDragHandle?: boolean
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +45,9 @@ export function DataTable<T extends Record<string, any>>({
   onSort,
   onRowClick,
   keyExtractor = (item) => item.id != null ? String(item.id) : `row-${Math.random()}`,
+  tbodyWrapper,
+  renderRow,
+  showDragHandle,
 }: Props<T>) {
   if (loading) return <LoadingSpinner className="py-20" />
   if (data.length === 0) return <EmptyState />
@@ -48,6 +57,7 @@ export function DataTable<T extends Record<string, any>>({
       <table className="w-full">
         <thead>
           <tr className="border-b border-brand-dark-border">
+            {showDragHandle && <th className="w-8 px-2 py-3" />}
             {columns.map(col => (
               <th
                 key={col.key}
@@ -73,22 +83,29 @@ export function DataTable<T extends Record<string, any>>({
           </tr>
         </thead>
         <tbody className="divide-y divide-brand-dark-border/50">
-          {data.map(item => (
-            <tr
-              key={keyExtractor(item)}
-              className={cn(
-                'hover:bg-brand-dark-hover/50 transition-colors',
-                onRowClick && 'cursor-pointer',
-              )}
-              onClick={() => onRowClick?.(item)}
-            >
-              {columns.map(col => (
+          {(tbodyWrapper ?? (c => c))(
+            data.map(item => {
+              const key = keyExtractor(item)
+              const cells = columns.map(col => (
                 <td key={col.key} className={cn('px-4 py-3 text-sm text-brand-text', col.className)}>
                   {col.render ? col.render(item) : String(item[col.key] ?? '—')}
                 </td>
-              ))}
-            </tr>
-          ))}
+              ))
+              if (renderRow) return renderRow(item, key, cells)
+              return (
+                <tr
+                  key={key}
+                  className={cn(
+                    'hover:bg-brand-dark-hover/50 transition-colors',
+                    onRowClick && 'cursor-pointer',
+                  )}
+                  onClick={() => onRowClick?.(item)}
+                >
+                  {cells}
+                </tr>
+              )
+            })
+          )}
         </tbody>
       </table>
       {totalPages > 1 && (

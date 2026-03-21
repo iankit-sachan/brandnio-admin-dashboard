@@ -82,6 +82,20 @@ const MallListingModerationPage = lazy(() => import('./pages/content/MallListing
 // AI Tools
 const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
 
+// Poster Home Sections
+const PosterHomeSectionsPage = lazy(() => import('./pages/posters/PosterHomeSectionsPage'))
+
+// Home Banners
+const HomeBannerPage = lazy(() => import('./pages/posters/HomeBannerPage'))
+
+// Create Tools
+const CreateToolPage = lazy(() => import('./pages/posters/CreateToolPage'))
+const CanvasPresetPage = lazy(() => import('./pages/posters/CanvasPresetPage'))
+
+// Video Categories & Templates
+const VideoCategoryPage = lazy(() => import('./pages/posters/VideoCategoryPage'))
+const VideoTemplatePage = lazy(() => import('./pages/posters/VideoTemplatePage'))
+
 // VbizCard
 const VbizCardCategoryPage = lazy(() => import('./pages/vbizcard/VbizCardCategoryPage'))
 const VbizCardTemplatePage = lazy(() => import('./pages/vbizcard/VbizCardTemplatePage'))
@@ -129,6 +143,12 @@ export default function App() {
                 <Route path="/posters/frames" element={<FramePosterPage />} />
                 <Route path="/posters/business" element={<BusinessPosterPage />} />
                 <Route path="/posters/business-category" element={<BusinessCategoryPage />} />
+                <Route path="/posters/home-sections" element={<PosterHomeSectionsPage />} />
+                <Route path="/posters/home-banners" element={<HomeBannerPage />} />
+                <Route path="/posters/create-tools" element={<CreateToolPage />} />
+                <Route path="/posters/canvas-presets" element={<CanvasPresetPage />} />
+                <Route path="/posters/video-categories" element={<VideoCategoryPage />} />
+                <Route path="/posters/video-templates" element={<VideoTemplatePage />} />
 
                 {/* Category Management */}
                 <Route path="/categories/general" element={<GeneralCategoryPage />} />

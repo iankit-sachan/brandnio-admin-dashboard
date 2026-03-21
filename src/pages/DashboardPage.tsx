@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, CreditCard, XCircle, Briefcase, Image,
-  PartyPopper, Building2, Sticker, MessageSquare,
-  TrendingUp,
+  PartyPopper, LayoutList, Send,
+  TrendingUp, FolderOpen, Trash2,
 } from 'lucide-react'
 import { KPICard } from '../components/ui/KPICard'
 import { dashboardApi } from '../services/admin-api'
@@ -18,11 +18,11 @@ const COLORS = ['#4CAF50', '#F44336', '#FFC107', '#2196F3']
 
 const quickActions = [
   { label: 'Add Festival Poster', path: '/posters/festival', icon: PartyPopper, color: 'bg-brand-gold' },
-  { label: 'Add Business Poster', path: '/posters/business', icon: Building2, color: 'bg-blue-500' },
-  { label: 'View Users', path: '/users', icon: Users, color: 'bg-green-500' },
-  { label: 'Payment Plans', path: '/settings/payment-plans', icon: CreditCard, color: 'bg-purple-500' },
-  { label: 'Add Stickers', path: '/content-types/stickers', icon: Sticker, color: 'bg-pink-500' },
-  { label: 'Communication', path: '/communication', icon: MessageSquare, color: 'bg-orange-500' },
+  { label: 'Poster Categories', path: '/categories/general', icon: FolderOpen, color: 'bg-blue-500' },
+  { label: 'VC Home Sections', path: '/vbizcard/home-sections', icon: LayoutList, color: 'bg-purple-500' },
+  { label: 'Send Notification', path: '/notifications/send', icon: Send, color: 'bg-green-500' },
+  { label: 'View Users', path: '/users', icon: Users, color: 'bg-orange-500' },
+  { label: 'Delete Requests', path: '/settings/delete-requests', icon: Trash2, color: 'bg-red-500' },
 ]
 
 export default function DashboardPage() {
@@ -33,6 +33,16 @@ export default function DashboardPage() {
     dashboardApi.stats().then(setStats).catch(() => {})
   }, [])
 
+  // Compute growth from userGrowth data
+  const growthPercent = useMemo(() => {
+    const growth = stats.userGrowth
+    if (!Array.isArray(growth) || growth.length < 2) return null
+    const latest = growth[growth.length - 1]?.count ?? 0
+    const previous = growth[growth.length - 2]?.count ?? 0
+    if (previous === 0) return null
+    return ((latest - previous) / previous * 100).toFixed(1)
+  }, [stats.userGrowth])
+
   return (
     <div className="space-y-6">
 
@@ -40,21 +50,25 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-text">
-            Welcome back, Admin! <span role="img" aria-label="wave">👋</span>
+            Welcome back, Admin!
           </h1>
           <p className="text-brand-text-muted mt-1">
             Here's what's happening with Brandnio today.
           </p>
         </div>
-        <div className="bg-brand-dark-card rounded-xl border-2 border-brand-gold/40 px-6 py-4 flex items-center gap-3">
-          <div className="bg-brand-gold/10 p-2 rounded-lg">
-            <TrendingUp className="h-5 w-5 text-brand-gold" />
+        {growthPercent !== null && (
+          <div className="bg-brand-dark-card rounded-xl border-2 border-brand-gold/40 px-6 py-4 flex items-center gap-3">
+            <div className="bg-brand-gold/10 p-2 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-brand-gold" />
+            </div>
+            <div>
+              <p className="text-brand-gold text-lg font-bold">
+                {Number(growthPercent) >= 0 ? '+' : ''}{growthPercent}% Growth
+              </p>
+              <p className="text-brand-text-muted text-xs">vs previous period</p>
+            </div>
           </div>
-          <div>
-            <p className="text-brand-gold text-lg font-bold">+12.5% Growth</p>
-            <p className="text-brand-text-muted text-xs">vs last month</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Statistics Cards */}
