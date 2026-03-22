@@ -7,6 +7,17 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(config => {
+  // Add token auth header
+  const auth = localStorage.getItem('admin_auth')
+  if (auth) {
+    try {
+      const { token } = JSON.parse(auth)
+      if (token) {
+        config.headers['Authorization'] = `Token ${token}`
+      }
+    } catch {}
+  }
+  // CSRF for session-based fallback
   const csrfToken = document.cookie
     .split('; ')
     .find(row => row.startsWith('csrftoken='))

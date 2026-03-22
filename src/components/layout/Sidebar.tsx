@@ -131,6 +131,15 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: 'BG REMOVAL',
+    defaultOpen: false,
+    items: [
+      { label: 'Credit Plans', icon: CreditCard, path: '/ai-tools/bg-credits' },
+      { label: 'FAQs', icon: FileText, path: '/ai-tools/faqs' },
+      { label: 'Testimonials', icon: MessageSquare, path: '/ai-tools/testimonials' },
+    ],
+  },
+  {
     title: 'SETTINGS',
     defaultOpen: false,
     items: [

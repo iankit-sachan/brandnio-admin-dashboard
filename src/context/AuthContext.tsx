@@ -16,8 +16,8 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    isAuthenticated: localStorage.getItem('admin_auth') === 'true',
-    user: localStorage.getItem('admin_auth') === 'true'
+    isAuthenticated: !!localStorage.getItem('admin_auth'),
+    user: !!localStorage.getItem('admin_auth')
       ? { username: localStorage.getItem('admin_user') || 'admin', email: localStorage.getItem('admin_email') || '' }
       : null,
     loading: false,
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, loading: true }))
     try {
       const user = await authApi.login(username, password)
-      localStorage.setItem('admin_auth', 'true')
+      localStorage.setItem('admin_auth', JSON.stringify({ token: user.token }))
       localStorage.setItem('admin_user', user.username)
       localStorage.setItem('admin_email', user.email)
       setState({

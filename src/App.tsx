@@ -81,6 +81,9 @@ const MallListingModerationPage = lazy(() => import('./pages/content/MallListing
 
 // AI Tools
 const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
+const BgRemovalCreditsPage = lazy(() => import('./pages/ai-tools/BgRemovalCreditsPage'))
+const FaqPage = lazy(() => import('./pages/ai-tools/FaqPage'))
+const TestimonialsPage = lazy(() => import('./pages/ai-tools/TestimonialsPage'))
 
 // Poster Home Sections
 const PosterHomeSectionsPage = lazy(() => import('./pages/posters/PosterHomeSectionsPage'))
@@ -194,6 +197,9 @@ export default function App() {
 
                 {/* AI Tools */}
                 <Route path="/ai-tools" element={<AIToolsDashboardPage />} />
+                <Route path="/ai-tools/bg-credits" element={<BgRemovalCreditsPage />} />
+                <Route path="/ai-tools/faqs" element={<FaqPage />} />
+                <Route path="/ai-tools/testimonials" element={<TestimonialsPage />} />
 
                 {/* Content Types */}
                 <Route path="/content-types/greetings" element={<GreetingPostersPage />} />

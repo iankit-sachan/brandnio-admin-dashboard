@@ -117,6 +117,12 @@ export const vbizCardHomeSectionsApi = crud('vbizcard-home-sections')
 // ── Home Banners ────────────────────────────────────────────────
 export const homeBannersApi = crud('home-banners')
 
+// ── BG Removal ───────────────────────────────────────────────────
+export const bgRemovalCreditsApi = crud('bg-credit-plans')
+export const bgRemovalFaqsApi = crud('bg-faqs')
+export const bgRemovalBannersApi = crud('bg-removal-banners')
+export const bgRemovalTestimonialsApi = crud('bg-testimonials')
+
 // ── Create Tools ────────────────────────────────────────────────
 export const createToolsApi = crud('create-tools')
 
