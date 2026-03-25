@@ -18,8 +18,21 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB — matches backend limit
+
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) return
+    if (!file.type.startsWith('image/')) {
+      setError('Only image files are allowed')
+      return
+    }
+    if (file.type === 'image/svg+xml') {
+      setError('SVG files are not allowed')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 10 MB.`)
+      return
+    }
     setUploading(true)
     setError(null)
     try {

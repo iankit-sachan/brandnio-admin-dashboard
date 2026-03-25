@@ -3,7 +3,7 @@ import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2, Upload, Download } from 'lucide-react'
+import { Pencil, Trash2, Upload, Download, Play, X } from 'lucide-react'
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { SortableRow } from '../../components/common/SortableRow'
@@ -35,6 +35,7 @@ export default function VideoTemplatePage() {
   const [editingItem, setEditingItem] = useState<VideoTemplate | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<VideoTemplate | null>(null)
+  const [previewItem, setPreviewItem] = useState<VideoTemplate | null>(null)
 
   // Bulk upload state
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null)
@@ -206,7 +207,17 @@ Premium Outro,2,https://example.com/thumb2.jpg,https://example.com/video2.mp4,15
       key: 'sort_order', title: 'Sort Order', sortable: true,
       render: (item) => <span className="text-brand-text-muted">{item.sort_order}</span>,
     },
-    { key: 'title', title: 'Title', sortable: true, render: (item) => <span className="font-medium text-brand-text">{item.title}</span> },
+    { key: 'title', title: 'Template', render: (item) => (
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setPreviewItem(item)}>
+            <div className="w-12 h-12 rounded-lg bg-brand-dark overflow-hidden relative shrink-0">
+                {item.thumbnail_url ? <img src={item.thumbnail_url} className="w-full h-full object-cover" /> : null}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Play className="h-4 w-4 text-white fill-white" />
+                </div>
+            </div>
+            <span className="text-brand-text text-sm">{item.title}</span>
+        </div>
+    )},
     {
       key: 'category', title: 'Category',
       render: (item) => <span className="text-brand-text-muted text-sm">{categoryMap[item.category] ?? `#${item.category}`}</span>,
@@ -242,6 +253,8 @@ Premium Outro,2,https://example.com/thumb2.jpg,https://example.com/video2.mp4,15
         </button>
       ),
     },
+    { key: 'view_count', title: 'Views', sortable: true, render: (item) => <span className="text-brand-text-muted text-sm">{(item.view_count ?? 0).toLocaleString()}</span> },
+    { key: 'share_count', title: 'Shares', sortable: true, render: (item) => <span className="text-brand-text-muted text-sm">{(item.share_count ?? 0).toLocaleString()}</span> },
     {
       key: 'actions', title: 'Actions',
       render: (item) => (
@@ -361,6 +374,30 @@ Premium Outro,2,https://example.com/thumb2.jpg,https://example.com/video2.mp4,15
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Video Template" message={`Delete "${deleteItem?.title}"? This will remove the template from the mobile app.`} confirmText="Delete" variant="danger" />
+
+      {previewItem && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setPreviewItem(null)}>
+              <div className="max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-brand-text font-medium">{previewItem.title}</h3>
+                      <button onClick={() => setPreviewItem(null)} className="text-brand-text-muted hover:text-brand-text">
+                          <X className="h-5 w-5" />
+                      </button>
+                  </div>
+                  {previewItem.video_url ? (
+                      <video
+                          src={previewItem.video_url}
+                          controls
+                          autoPlay
+                          className="w-full rounded-xl"
+                          style={{ maxHeight: '70vh' }}
+                      />
+                  ) : (
+                      <div className="bg-brand-dark rounded-xl p-12 text-center text-brand-text-muted">No video URL available</div>
+                  )}
+              </div>
+          </div>
+      )}
     </div>
   )
 }

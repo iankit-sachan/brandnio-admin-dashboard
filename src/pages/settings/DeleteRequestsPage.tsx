@@ -27,15 +27,16 @@ export default function DeleteRequestsPage() {
   const { addToast } = useToast()
   const { data, loading, setData } = useAdminCrud<DeleteRequest>(deleteRequestsApi)
   const [confirmAction, setConfirmAction] = useState<{ item: DeleteRequest; action: 'approve' | 'reject' } | null>(null)
+  const [adminNotes, setAdminNotes] = useState('')
 
   const handleConfirm = async () => {
     if (!confirmAction) return
     const { item, action } = confirmAction
     try {
       if (action === 'approve') {
-        await deleteRequestsApi.approve(item.id)
+        await deleteRequestsApi.approve(item.id, adminNotes || undefined)
       } else {
-        await deleteRequestsApi.reject(item.id)
+        await deleteRequestsApi.reject(item.id, adminNotes || undefined)
       }
       const newStatus: RequestStatus = action === 'approve' ? 'approved' : 'rejected'
       setData(prev => prev.map(d => d.id === item.id ? { ...d, status: newStatus } : d))
@@ -44,6 +45,7 @@ export default function DeleteRequestsPage() {
       addToast(`Failed to ${action} request`, 'error')
     }
     setConfirmAction(null)
+    setAdminNotes('')
   }
 
   const columns: Column<DeleteRequest>[] = [
@@ -86,7 +88,7 @@ export default function DeleteRequestsPage() {
 
       <ConfirmDialog
         isOpen={!!confirmAction}
-        onClose={() => setConfirmAction(null)}
+        onClose={() => { setConfirmAction(null); setAdminNotes('') }}
         onConfirm={handleConfirm}
         title={confirmAction?.action === 'approve' ? 'Approve Delete Request' : 'Reject Delete Request'}
         message={confirmAction?.action === 'approve'
@@ -95,7 +97,15 @@ export default function DeleteRequestsPage() {
         }
         confirmText={confirmAction?.action === 'approve' ? 'Approve' : 'Reject'}
         variant={confirmAction?.action === 'approve' ? 'warning' : 'danger'}
-      />
+      >
+        <textarea
+          value={adminNotes}
+          onChange={e => setAdminNotes(e.target.value)}
+          placeholder="Admin notes (optional)"
+          rows={3}
+          className="w-full mt-3 px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-brand-text text-sm placeholder-brand-text-muted/50 focus:outline-none focus:border-brand-gold/50"
+        />
+      </ConfirmDialog>
     </div>
   )
 }

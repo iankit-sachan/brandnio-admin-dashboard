@@ -84,6 +84,7 @@ export const greetingTemplatesApi = crud('greeting-templates')
 
 export const stickerPacksApi = crud('sticker-packs')
 export const stickersApi = crud('stickers')
+export const stickerBannersApi = crud('sticker-banners')
 
 export const adTemplatesApi = crud('ad-templates')
 export const productsApi = crud('products')

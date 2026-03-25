@@ -17,5 +17,7 @@ export interface VideoTemplate {
   is_premium: boolean
   is_active: boolean
   sort_order: number
+  view_count: number
+  share_count: number
   created_at?: string
 }

@@ -55,6 +55,8 @@ const GreetingTemplateListPage = lazy(() => import('./pages/greetings/GreetingTe
 
 // Stickers
 const StickerPackListPage = lazy(() => import('./pages/stickers/StickerPackListPage'))
+const StickerDetailPage = lazy(() => import('./pages/stickers/StickerDetailPage'))
+const StickerBannerPage = lazy(() => import('./pages/stickers/StickerBannerPage'))
 
 // Services
 const ServiceCategoryListPage = lazy(() => import('./pages/services/ServiceCategoryListPage'))
@@ -171,6 +173,8 @@ export default function App() {
 
                 {/* Stickers */}
                 <Route path="/stickers" element={<StickerPackListPage />} />
+                <Route path="/stickers/:packId/stickers" element={<StickerDetailPage />} />
+                <Route path="/sticker-banners" element={<StickerBannerPage />} />
 
                 {/* Services */}
                 <Route path="/services/categories" element={<ServiceCategoryListPage />} />

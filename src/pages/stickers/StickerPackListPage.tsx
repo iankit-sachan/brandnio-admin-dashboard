@@ -1,30 +1,36 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Eye } from 'lucide-react'
 import { stickerPacksApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { StickerPack } from '../../types'
 
 interface FormState {
   cover_image_url: string | null
+  icon_url: string | null
   name: string
   slug: string
+  description: string
   category: string
+  tabs: string
+  sort_order: number
   is_premium: boolean
   is_active: boolean
 }
 
-const emptyForm: FormState = { cover_image_url: null, name: '', slug: '', category: 'emoji', is_premium: false, is_active: true }
+const emptyForm: FormState = { cover_image_url: null, icon_url: null, name: '', slug: '', description: '', category: 'general', tabs: 'all_industry', sort_order: 0, is_premium: false, is_active: true }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export default function StickerPackListPage() {
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const { data, loading, create, update, remove } = useAdminCrud<StickerPack>(stickerPacksApi)
   const [modalOpen, setModalOpen] = useState(false)
@@ -40,7 +46,7 @@ export default function StickerPackListPage() {
 
   const openEdit = (item: StickerPack) => {
     setEditingItem(item)
-    setForm({ cover_image_url: item.cover_image_url, name: item.name, slug: item.slug, category: item.category, is_premium: item.is_premium, is_active: item.is_active })
+    setForm({ cover_image_url: item.cover_image_url, icon_url: item.icon_url ?? null, name: item.name, slug: item.slug, description: item.description ?? '', category: item.category, tabs: item.tabs ?? 'all_industry', sort_order: item.sort_order ?? 0, is_premium: item.is_premium, is_active: item.is_active })
     setModalOpen(true)
   }
 
@@ -82,6 +88,7 @@ export default function StickerPackListPage() {
     { key: 'is_active', title: 'Status', render: (p) => p.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
+        <button onClick={(e) => { e.stopPropagation(); navigate(`/stickers/${item.id}/stickers`) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-blue transition-colors" title="View Stickers"><Eye className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
       </div>
@@ -101,6 +108,7 @@ export default function StickerPackListPage() {
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Pack' : 'Add Pack'}>
         <div className="space-y-4">
           <ImageUpload label="Cover Image" value={form.cover_image_url} onChange={v => setForm(f => ({ ...f, cover_image_url: v }))} aspectHint="Square, 300x300" />
+          <ImageUpload label="Icon (circular)" value={form.icon_url} onChange={v => setForm(f => ({ ...f, icon_url: v }))} aspectHint="Circle, 120x120" />
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: toSlug(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
@@ -110,13 +118,24 @@ export default function StickerPackListPage() {
             <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value="emoji">Emoji</option>
-              <option value="business">Business</option>
-              <option value="festival">Festival</option>
-              <option value="fun">Fun</option>
+            <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. education, ramadan, payment, general" className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tab</label>
+            <select value={form.tabs} onChange={e => setForm(f => ({ ...f, tabs: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="branding">Branding</option>
+              <option value="all_industry">All Industry</option>
+              <option value="both">Both</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
+            <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

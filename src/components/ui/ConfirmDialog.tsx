@@ -9,9 +9,10 @@ interface Props {
   message: string
   confirmText?: string
   variant?: 'danger' | 'warning'
+  children?: React.ReactNode
 }
 
-export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', variant = 'danger' }: Props) {
+export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', variant = 'danger', children }: Props) {
   const [confirming, setConfirming] = useState(false)
 
   // Reset confirming state when dialog opens/closes
@@ -27,7 +28,8 @@ export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, conf
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <p className="text-brand-text-muted text-sm mb-6">{message}</p>
+      <p className="text-brand-text-muted text-sm mb-2">{message}</p>
+      {children && <div className="mb-4">{children}</div>}
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">
           Cancel
