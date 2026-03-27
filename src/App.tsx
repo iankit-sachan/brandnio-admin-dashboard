@@ -29,6 +29,7 @@ const BusinessCategoryPage = lazy(() => import('./pages/posters/BusinessCategory
 
 // Category Management
 const GeneralCategoryPage = lazy(() => import('./pages/categories/GeneralCategoryPage'))
+const RecycleBinPage = lazy(() => import('./pages/categories/RecycleBinPage'))
 const PoliticianCategoryPage = lazy(() => import('./pages/categories/PoliticianCategoryPage'))
 const PoliticianImagePage = lazy(() => import('./pages/categories/PoliticianImagePage'))
 
@@ -83,6 +84,7 @@ const MallListingModerationPage = lazy(() => import('./pages/content/MallListing
 
 // AI Tools
 const AIToolsDashboardPage = lazy(() => import('./pages/ai-tools/AIToolsDashboardPage'))
+const AIToolsConfigPage = lazy(() => import('./pages/ai-tools/AIToolsConfigPage'))
 const BgRemovalCreditsPage = lazy(() => import('./pages/ai-tools/BgRemovalCreditsPage'))
 const FaqPage = lazy(() => import('./pages/ai-tools/FaqPage'))
 const TestimonialsPage = lazy(() => import('./pages/ai-tools/TestimonialsPage'))
@@ -92,6 +94,9 @@ const PosterHomeSectionsPage = lazy(() => import('./pages/posters/PosterHomeSect
 
 // Home Banners
 const HomeBannerPage = lazy(() => import('./pages/posters/HomeBannerPage'))
+
+// Promo Announcements
+const PromoAnnouncementPage = lazy(() => import('./pages/posters/PromoAnnouncementPage'))
 
 // Create Tools
 const CreateToolPage = lazy(() => import('./pages/posters/CreateToolPage'))
@@ -150,6 +155,7 @@ export default function App() {
                 <Route path="/posters/business-category" element={<BusinessCategoryPage />} />
                 <Route path="/posters/home-sections" element={<PosterHomeSectionsPage />} />
                 <Route path="/posters/home-banners" element={<HomeBannerPage />} />
+                <Route path="/posters/promo-announcements" element={<PromoAnnouncementPage />} />
                 <Route path="/posters/create-tools" element={<CreateToolPage />} />
                 <Route path="/posters/canvas-presets" element={<CanvasPresetPage />} />
                 <Route path="/posters/video-categories" element={<VideoCategoryPage />} />
@@ -157,6 +163,7 @@ export default function App() {
 
                 {/* Category Management */}
                 <Route path="/categories/general" element={<GeneralCategoryPage />} />
+                <Route path="/categories/recycle-bin" element={<RecycleBinPage />} />
                 <Route path="/categories/politician" element={<PoliticianCategoryPage />} />
                 <Route path="/categories/politician-image" element={<PoliticianImagePage />} />
 
@@ -201,6 +208,7 @@ export default function App() {
 
                 {/* AI Tools */}
                 <Route path="/ai-tools" element={<AIToolsDashboardPage />} />
+                <Route path="/ai-tools/config" element={<AIToolsConfigPage />} />
                 <Route path="/ai-tools/bg-credits" element={<BgRemovalCreditsPage />} />
                 <Route path="/ai-tools/faqs" element={<FaqPage />} />
                 <Route path="/ai-tools/testimonials" element={<TestimonialsPage />} />

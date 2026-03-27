@@ -65,7 +65,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
           <img
             src={value}
             alt={label}
-            className="w-full h-40 object-cover rounded-lg border border-brand-dark-border"
+            className="w-full h-40 object-contain bg-neutral-900 rounded-lg border border-brand-dark-border"
           />
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-3">
             <button

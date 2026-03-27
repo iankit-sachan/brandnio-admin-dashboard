@@ -106,8 +106,8 @@ export default function StickersPage() {
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filtered.map(item => (
             <div key={item.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-3 text-center group relative">
-              <div className="w-20 h-20 mx-auto rounded-xl bg-brand-dark overflow-hidden mb-2">
-                {item.cover_image_url ? <img src={item.cover_image_url} className="w-full h-full object-cover" /> : <Smile className="w-10 h-10 text-brand-text-muted mx-auto mt-5" />}
+              <div className="w-20 h-20 mx-auto rounded-xl bg-neutral-900 overflow-hidden mb-2 flex items-center justify-center">
+                {item.cover_image_url ? <img src={item.cover_image_url} className="w-full h-full object-contain p-1" /> : <Smile className="w-10 h-10 text-brand-text-muted" />}
               </div>
               <div className="flex items-center justify-center gap-1">
                 <h3 className="text-xs font-medium text-brand-text truncate">{item.name}</h3>

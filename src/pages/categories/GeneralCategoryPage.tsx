@@ -19,6 +19,7 @@ interface GeneralCategory {
   parent_name: string | null
   children_count: number
   poster_count: number
+  section_type: string
 }
 
 interface PosterItem {
@@ -40,9 +41,10 @@ interface FormState {
   show_in_home: boolean
   show_in_create: boolean
   parent: number | null
+  section_type: string
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, show_in_home: true, show_in_create: true, parent: null }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal' }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -138,7 +140,7 @@ export default function GeneralCategoryPage() {
 
   const openEdit = (item: GeneralCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal' })
     setModalOpen(true)
   }
 
@@ -165,7 +167,7 @@ export default function GeneralCategoryPage() {
     if (!deleteItem) return
     try {
       await remove(deleteItem.id)
-      addToast('Category deleted successfully')
+      addToast('Category moved to Recycle Bin')
       setDeleteItem(null)
       if (viewingSubcat?.id === deleteItem.id) setViewingSubcat(null)
     } catch {
@@ -237,7 +239,7 @@ export default function GeneralCategoryPage() {
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {posters.map(p => (
               <div key={p.id} className="relative group rounded-xl overflow-hidden border border-brand-dark-border/50 bg-brand-dark-card">
-                <img src={p.thumbnail_url} alt={p.title} className="w-full aspect-square object-cover" />
+                <img src={p.thumbnail_url} alt={p.title} className="w-full aspect-square object-contain bg-neutral-900" />
                 <div className="p-2">
                   <p className="text-xs text-brand-text truncate">{p.title}</p>
                 </div>
@@ -313,8 +315,8 @@ export default function GeneralCategoryPage() {
               }
             }}
           >
-            <div className="w-16 h-16 mx-auto rounded-xl bg-brand-dark overflow-hidden mb-3">
-              {cat.icon_url ? <img src={cat.icon_url} className="w-full h-full object-cover" /> : <Grid3X3 className="w-8 h-8 text-brand-text-muted mx-auto mt-4" />}
+            <div className="w-16 h-16 mx-auto rounded-xl bg-neutral-900 overflow-hidden mb-3 flex items-center justify-center">
+              {cat.icon_url ? <img src={cat.icon_url} className="w-full h-full object-contain p-1" /> : <Grid3X3 className="w-8 h-8 text-brand-text-muted" />}
             </div>
             <h3 className="text-sm font-medium text-brand-text">{cat.name}</h3>
             <p className="text-xs text-brand-text-muted mt-0.5">{cat.slug}</p>
@@ -337,6 +339,11 @@ export default function GeneralCategoryPage() {
               <div className="flex items-center justify-center gap-1 mt-1.5">
                 {cat.show_in_home && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">Home</span>}
                 {cat.show_in_create && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">Create</span>}
+                {cat.section_type && cat.section_type !== 'normal' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">
+                    {cat.section_type === 'video_cards' ? 'Video' : cat.section_type === 'grand_opening' ? 'Grand' : 'Calendar'}
+                  </span>
+                )}
               </div>
             )}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
@@ -385,6 +392,19 @@ export default function GeneralCategoryPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
             <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Section Type</label>
+            <select
+              value={form.section_type}
+              onChange={e => setForm(f => ({ ...f, section_type: e.target.value }))}
+              className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+            >
+              <option value="normal">Normal</option>
+              <option value="grand_opening">Grand Opening</option>
+              <option value="calendar_anchor">Calendar Anchor</option>
+              <option value="video_cards">Video Cards</option>
+            </select>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
@@ -406,7 +426,7 @@ export default function GeneralCategoryPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${deleteItem?.name}"?${(deleteItem as GeneralCategory)?.children_count > 0 ? ' This will also delete all subcategories.' : ''} This action cannot be undone.`} confirmText="Delete" variant="danger" />
+      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Move to Recycle Bin" message={`Are you sure you want to delete "${deleteItem?.name}"?${(deleteItem as GeneralCategory)?.children_count > 0 ? ' This will also move all subcategories.' : ''} You can restore it later from the Recycle Bin.`} confirmText="Move to Recycle Bin" variant="danger" />
     </div>
   )
 }

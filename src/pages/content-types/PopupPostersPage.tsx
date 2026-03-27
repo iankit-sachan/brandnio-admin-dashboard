@@ -112,8 +112,8 @@ export default function PopupPostersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(item => (
             <div key={item.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group relative">
-              <div className="aspect-[3/2] bg-brand-dark overflow-hidden">
-                {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <ImageIcon className="w-10 h-10 text-brand-text-muted mx-auto mt-[30%]" />}
+              <div className="aspect-[3/2] bg-neutral-900 overflow-hidden flex items-center justify-center">
+                {item.image_url ? <img src={item.image_url} className="w-full h-full object-contain" /> : <ImageIcon className="w-10 h-10 text-brand-text-muted" />}
               </div>
               <div className="p-4">
                 <h3 className="text-sm font-medium text-brand-text">{item.title}</h3>

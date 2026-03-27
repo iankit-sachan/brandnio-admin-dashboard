@@ -126,8 +126,8 @@ export default function FramePosterPage() {
         {filteredData.map(poster => (
           <div key={poster.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group">
             {/* Image */}
-            <div className="aspect-[4/5] bg-brand-dark relative overflow-hidden">
-              <img src={poster.image_url} alt={poster.title} className="w-full h-full object-cover" />
+            <div className="aspect-[4/5] bg-neutral-900 relative overflow-hidden flex items-center justify-center">
+              <img src={poster.image_url} alt={poster.title} className="w-full h-full object-contain" />
               {/* Overlay on hover */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button onClick={() => openEdit(poster)} className="p-2 bg-brand-gold rounded-lg text-gray-900"><Pencil className="h-4 w-4" /></button>

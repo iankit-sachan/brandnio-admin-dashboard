@@ -56,6 +56,11 @@ export const usersApi = crud('users')
 export const businessProfilesApi = crud('business-profiles')
 
 export const posterCategoriesApi = crud('poster-categories')
+export const categoryRecycleBinApi = {
+  list: () => api.get('/api/admin/poster-categories/recycle_bin/').then(r => r.data),
+  restore: (id: number) => api.post(`/api/admin/poster-categories/${id}/restore/`).then(r => r.data),
+  permanentDelete: (id: number) => api.post(`/api/admin/poster-categories/${id}/permanent_delete/`).then(r => r.data),
+}
 export const postersApi = crud('posters')
 export const festivalsApi = crud('festivals')
 export const autoPostersApi = crud('auto-posters')
@@ -118,6 +123,13 @@ export const vbizCardHomeSectionsApi = crud('vbizcard-home-sections')
 // ── Home Banners ────────────────────────────────────────────────
 export const homeBannersApi = crud('home-banners')
 
+// ── Home Cards ──────────────────────────────────────────────────
+export const homeCardsApi = crud<any>('home-cards')
+export const homeCardSectionsApi = crud<any>('home-card-sections')
+
+// ── Promo Announcements ────────────────────────────────────────
+export const promoAnnouncementsApi = crud<any>('promo-announcements')
+
 // ── BG Removal ───────────────────────────────────────────────────
 export const bgRemovalCreditsApi = crud('bg-credit-plans')
 export const bgRemovalFaqsApi = crud('bg-faqs')
@@ -133,3 +145,6 @@ export const canvasPresetsApi = crud('canvas-presets')
 // ── Video Categories & Templates ──────────────────────────
 export const videoCategoriesApi = crud('video-categories')
 export const videoTemplatesApi = crud('video-templates')
+
+// ── AI Tool Config ──────────────────────────────────────────
+export const aiToolConfigApi = crud('ai-tools/config')

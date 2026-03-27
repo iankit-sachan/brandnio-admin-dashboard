@@ -13,7 +13,7 @@ import {
   Package,
   FolderCog, ClipboardList,
   Film, Music, Video,
-  Wand2,
+  Wand2, Settings2,
   Send, History,
   Megaphone, PenTool,
   BookOpen, Mail, Handshake, FileCheck, Store,
@@ -60,6 +60,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Home Sections', icon: Home, path: '/posters/home-sections' },
       { label: 'Home Banners', icon: Megaphone, path: '/posters/home-banners' },
+      { label: 'Promo Announcements', icon: Megaphone, path: '/posters/promo-announcements' },
       { label: 'All Posters', icon: Image, path: '/posters' },
       { label: 'Festival Posters', icon: PartyPopper, path: '/posters/festival' },
       { label: 'Frame Posters', icon: Frame, path: '/posters/frames' },
@@ -70,6 +71,7 @@ const navSections: NavSection[] = [
       { label: 'Video Categories', icon: Film, path: '/posters/video-categories' },
       { label: 'Video Templates', icon: Video, path: '/posters/video-templates' },
       { label: 'General Category', icon: Grid3X3, path: '/categories/general' },
+      { label: 'Recycle Bin', icon: Trash2, path: '/categories/recycle-bin' },
       { label: 'Politician Category', icon: Vote, path: '/categories/politician' },
       { label: 'Politician Image', icon: ImagePlus, path: '/categories/politician-image' },
     ],
@@ -144,6 +146,7 @@ const navSections: NavSection[] = [
     defaultOpen: false,
     items: [
       { label: 'AI Dashboard', icon: Wand2, path: '/ai-tools' },
+      { label: 'Tool Config', icon: Settings2, path: '/ai-tools/config' },
       { label: 'Subscriptions', icon: Crown, path: '/subscriptions' },
       { label: 'Plans', icon: ListOrdered, path: '/subscriptions/plans' },
       { label: 'Taglines', icon: Type, path: '/settings/taglines' },

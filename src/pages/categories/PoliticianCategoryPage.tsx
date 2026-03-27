@@ -98,8 +98,8 @@ export default function PoliticianCategoryPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filtered.map(cat => (
           <div key={cat.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-4 text-center group relative">
-            <div className="w-16 h-16 mx-auto rounded-xl bg-brand-dark overflow-hidden mb-3">
-              {cat.icon_url ? <img src={cat.icon_url} className="w-full h-full object-cover" /> : <Flag className="w-8 h-8 text-brand-text-muted mx-auto mt-4" />}
+            <div className="w-16 h-16 mx-auto rounded-xl bg-neutral-900 overflow-hidden mb-3 flex items-center justify-center">
+              {cat.icon_url ? <img src={cat.icon_url} className="w-full h-full object-contain p-1" /> : <Flag className="w-8 h-8 text-brand-text-muted" />}
             </div>
             <h3 className="text-sm font-medium text-brand-text">{cat.name}</h3>
             <p className="text-xs text-brand-text-muted mt-0.5">{cat.slug}</p>

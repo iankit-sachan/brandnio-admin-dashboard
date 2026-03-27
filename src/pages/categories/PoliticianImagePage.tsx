@@ -108,8 +108,8 @@ export default function PoliticianImagePage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filtered.map(item => (
           <div key={item.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group relative">
-            <div className="aspect-square bg-brand-dark overflow-hidden">
-              {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <User className="w-12 h-12 text-brand-text-muted mx-auto mt-[40%]" />}
+            <div className="aspect-square bg-neutral-900 overflow-hidden flex items-center justify-center">
+              {item.image_url ? <img src={item.image_url} className="w-full h-full object-contain" /> : <User className="w-12 h-12 text-brand-text-muted" />}
             </div>
             <div className="p-3">
               <h3 className="text-sm font-medium text-brand-text truncate">{item.name}</h3>

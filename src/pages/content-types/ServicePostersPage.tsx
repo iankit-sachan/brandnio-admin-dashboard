@@ -114,8 +114,8 @@ export default function ServicePostersPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map(item => (
             <div key={item.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group relative">
-              <div className="aspect-[4/5] bg-brand-dark overflow-hidden">
-                {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <ImageIcon className="w-10 h-10 text-brand-text-muted mx-auto mt-[40%]" />}
+              <div className="aspect-[4/5] bg-neutral-900 overflow-hidden flex items-center justify-center">
+                {item.image_url ? <img src={item.image_url} className="w-full h-full object-contain" /> : <ImageIcon className="w-10 h-10 text-brand-text-muted" />}
               </div>
               <div className="p-3">
                 <div className="flex items-center gap-1.5">

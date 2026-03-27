@@ -63,6 +63,8 @@ export interface HomeBanner {
   gradient_end_color: string | null
   target_category_slug: string | null
   target_category_name: string | null
+  placement: 'top_carousel' | 'inline' | 'category_section'
+  position_after_section: number
   sort_order: number
   is_active: boolean
   created_at: string
