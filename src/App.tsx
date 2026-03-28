@@ -98,6 +98,10 @@ const HomeBannerPage = lazy(() => import('./pages/posters/HomeBannerPage'))
 // Promo Announcements
 const PromoAnnouncementPage = lazy(() => import('./pages/posters/PromoAnnouncementPage'))
 
+// Home Cards & Sections
+const HomeCardPage = lazy(() => import('./pages/posters/HomeCardPage'))
+const HomeCardSectionPage = lazy(() => import('./pages/posters/HomeCardSectionPage'))
+
 // Create Tools
 const CreateToolPage = lazy(() => import('./pages/posters/CreateToolPage'))
 const CanvasPresetPage = lazy(() => import('./pages/posters/CanvasPresetPage'))
@@ -156,6 +160,8 @@ export default function App() {
                 <Route path="/posters/home-sections" element={<PosterHomeSectionsPage />} />
                 <Route path="/posters/home-banners" element={<HomeBannerPage />} />
                 <Route path="/posters/promo-announcements" element={<PromoAnnouncementPage />} />
+                <Route path="/posters/home-cards" element={<HomeCardPage />} />
+                <Route path="/posters/home-card-sections" element={<HomeCardSectionPage />} />
                 <Route path="/posters/create-tools" element={<CreateToolPage />} />
                 <Route path="/posters/canvas-presets" element={<CanvasPresetPage />} />
                 <Route path="/posters/video-categories" element={<VideoCategoryPage />} />
