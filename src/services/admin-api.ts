@@ -119,6 +119,8 @@ export const deleteRequestsApi = {
 export const vbizCardCategoriesApi = crud('vbizcard-categories')
 export const vbizCardTemplatesApi = crud('vbizcard-templates')
 export const vbizCardHomeSectionsApi = crud('vbizcard-home-sections')
+export const vbizCardPromoBannersApi = crud('vbizcard-promo-banners')
+export const vbizCardTestimonialsApi = crud('vbizcard-testimonials')
 
 // ── Home Banners ────────────────────────────────────────────────
 export const homeBannersApi = crud('home-banners')

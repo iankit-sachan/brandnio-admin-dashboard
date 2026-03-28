@@ -95,6 +95,8 @@ const navSections: NavSection[] = [
       { label: 'VC Categories', icon: IdCard, path: '/vbizcard/categories' },
       { label: 'VC Templates', icon: GalleryHorizontalEnd, path: '/vbizcard/templates' },
       { label: 'VC Home Sections', icon: LayoutList, path: '/vbizcard/home-sections' },
+      { label: 'VC Promo Banners', icon: Megaphone, path: '/vbizcard/promo-banners' },
+      { label: 'VC Testimonials', icon: MessageSquare, path: '/vbizcard/testimonials' },
     ],
   },
   {

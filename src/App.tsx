@@ -115,6 +115,8 @@ const VideoTemplatePage = lazy(() => import('./pages/posters/VideoTemplatePage')
 const VbizCardCategoryPage = lazy(() => import('./pages/vbizcard/VbizCardCategoryPage'))
 const VbizCardTemplatePage = lazy(() => import('./pages/vbizcard/VbizCardTemplatePage'))
 const VbizCardHomeSectionPage = lazy(() => import('./pages/vbizcard/VbizCardHomeSectionPage'))
+const VbizCardPromoBannerPage = lazy(() => import('./pages/vbizcard/VbizCardPromoBannerPage'))
+const VbizCardTestimonialPage = lazy(() => import('./pages/vbizcard/VbizCardTestimonialPage'))
 
 // Settings
 const TaglinesPage = lazy(() => import('./pages/settings/TaglinesPage'))
@@ -235,6 +237,8 @@ export default function App() {
                 <Route path="/vbizcard/categories" element={<VbizCardCategoryPage />} />
                 <Route path="/vbizcard/templates" element={<VbizCardTemplatePage />} />
                 <Route path="/vbizcard/home-sections" element={<VbizCardHomeSectionPage />} />
+                <Route path="/vbizcard/promo-banners" element={<VbizCardPromoBannerPage />} />
+                <Route path="/vbizcard/testimonials" element={<VbizCardTestimonialPage />} />
 
                 {/* Settings */}
                 <Route path="/settings/taglines" element={<TaglinesPage />} />

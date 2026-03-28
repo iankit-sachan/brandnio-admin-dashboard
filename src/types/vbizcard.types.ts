@@ -37,3 +37,27 @@ export interface VbizCardHomeSection {
   sort_order: number
   created_at: string
 }
+
+export interface VbizCardPromoBanner {
+  id: number
+  title: string
+  subtitle: string
+  cta_text: string
+  badge_text: string
+  badge_subtitle: string
+  background_color: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface VbizCardTestimonial {
+  id: number
+  business_name: string
+  category: string
+  quote: string
+  logo_url: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
