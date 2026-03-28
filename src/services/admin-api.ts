@@ -139,6 +139,9 @@ export const bgRemovalTestimonialsApi = crud('bg-testimonials')
 // ── Create Tools ────────────────────────────────────────────────
 export const createToolsApi = crud('create-tools')
 
+// ── Create Screen Banners ─────────────────────────────────────
+export const createScreenBannersApi = crud('create-screen-banners')
+
 // ── Canvas Presets ─────────────────────────────────────────────
 export const canvasPresetsApi = crud('canvas-presets')
 

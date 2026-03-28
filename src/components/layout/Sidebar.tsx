@@ -70,6 +70,7 @@ const navSections: NavSection[] = [
       { label: 'Business Category', icon: FolderOpen, path: '/posters/business-category' },
       { label: 'Create Tools', icon: PenTool, path: '/posters/create-tools' },
       { label: 'Canvas Presets', icon: Maximize2, path: '/posters/canvas-presets' },
+      { label: 'Create Banners', icon: Megaphone, path: '/posters/create-banners' },
       { label: 'Video Categories', icon: Film, path: '/posters/video-categories' },
       { label: 'Video Templates', icon: Video, path: '/posters/video-templates' },
       { label: 'General Category', icon: Grid3X3, path: '/categories/general' },
