@@ -1,24 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { adTemplatesApi } from '../../services/admin-api'
+import { adTemplatesApi, adCategoriesApi, adConfigApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-import type { AdTemplate } from '../../types'
+import type { AdTemplate, ProductAdCategory } from '../../types'
 
 interface FormState {
   image_url: string | null
   title: string
-  category: string
+  category: number | string
   aspect_ratio: string
   is_premium: boolean
   is_active: boolean
+  template_data_json: string
 }
 
-const emptyForm: FormState = { image_url: null, title: '', category: 'retail', aspect_ratio: '1:1', is_premium: false, is_active: true }
+const emptyForm: FormState = { image_url: null, title: '', category: '', aspect_ratio: '1:1', is_premium: false, is_active: true, template_data_json: '{}' }
 
 export default function AdTemplateListPage() {
   const { addToast } = useToast()
@@ -27,6 +28,18 @@ export default function AdTemplateListPage() {
   const [editingItem, setEditingItem] = useState<AdTemplate | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<AdTemplate | null>(null)
+  const [categories, setCategories] = useState<ProductAdCategory[]>([])
+  // Fallback aspect ratios - overridden by backend config if available
+  const [aspectRatios, setAspectRatios] = useState<string[]>(['1:1', '4:5', '9:16', '16:9'])
+
+  useEffect(() => {
+    adCategoriesApi.list().then(r => setCategories(Array.isArray(r) ? r : []))
+    adConfigApi.get().then(config => {
+      if (config?.aspect_ratio_choices?.length) {
+        setAspectRatios(config.aspect_ratio_choices)
+      }
+    }).catch(() => {})
+  }, [])
 
   const openAdd = () => {
     setEditingItem(null)
@@ -36,7 +49,7 @@ export default function AdTemplateListPage() {
 
   const openEdit = (item: AdTemplate) => {
     setEditingItem(item)
-    setForm({ image_url: item.image_url, title: item.title, category: item.category, aspect_ratio: item.aspect_ratio, is_premium: item.is_premium, is_active: item.is_active })
+    setForm({ image_url: item.image_url, title: item.title, category: item.category, aspect_ratio: item.aspect_ratio, is_premium: item.is_premium, is_active: item.is_active, template_data_json: JSON.stringify(item.template_data || {}, null, 2) })
     setModalOpen(true)
   }
 
@@ -44,12 +57,20 @@ export default function AdTemplateListPage() {
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
+    let template_data: Record<string, unknown> = {}
     try {
+      template_data = JSON.parse(form.template_data_json || '{}')
+    } catch {
+      addToast('Invalid JSON in Template Data', 'error')
+      return
+    }
+    try {
+      const payload = { ...form, template_data, template_data_json: undefined }
       if (editingItem) {
-        await update(editingItem.id, form)
+        await update(editingItem.id, payload)
         addToast('Template updated successfully')
       } else {
-        await create(form)
+        await create(payload)
         addToast('Template created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
@@ -102,21 +123,26 @@ export default function AdTemplateListPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value="retail">Retail</option>
-              <option value="food">Food</option>
-              <option value="fashion">Fashion</option>
-              <option value="tech">Tech</option>
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="">Select Category</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Aspect Ratio</label>
             <select value={form.aspect_ratio} onChange={e => setForm(f => ({ ...f, aspect_ratio: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value="1:1">1:1</option>
-              <option value="4:5">4:5</option>
-              <option value="9:16">9:16</option>
-              <option value="16:9">16:9</option>
+              {aspectRatios.map(ar => <option key={ar} value={ar}>{ar}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Template Data (JSON)</label>
+            <textarea
+              className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 font-mono text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+              rows={6}
+              value={form.template_data_json || '{}'}
+              onChange={e => setForm(f => ({ ...f, template_data_json: e.target.value }))}
+              placeholder='{"layers": [], "canvas": {}}'
+            />
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

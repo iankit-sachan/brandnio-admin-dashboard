@@ -7,6 +7,15 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 
+// Simple in-memory cache with 30s TTL to avoid re-fetching on tab navigation
+const CACHE_TTL = 30_000
+const _cache = new Map<string, { data: unknown; ts: number }>()
+function getCacheKey(api: unknown, params?: Record<string, string>): string {
+  // Use the list function reference + params as cache key
+  const base = (api as { list: { name?: string } }).list?.name || 'crud'
+  return `${base}:${JSON.stringify(params || {})}`
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FormData = Record<string, any>
 
@@ -37,20 +46,36 @@ export function useAdminCrud<T extends { id: number }>(
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (skipCache = false) => {
+    const cacheKey = getCacheKey(apiService, params)
+
+    // Check cache first (not on explicit refresh)
+    if (!skipCache) {
+      const cached = _cache.get(cacheKey)
+      if (cached && Date.now() - cached.ts < CACHE_TTL) {
+        if (mountedRef.current) {
+          setData(cached.data as T[])
+          setLoading(false)
+        }
+        return
+      }
+    }
+
     setLoading(true)
     setError(null)
     try {
       const result = await apiService.list(params)
       if (mountedRef.current) {
-        // Handle both plain arrays and DRF paginated responses {count, results: [...]}
+        let parsed: T[]
         if (Array.isArray(result)) {
-          setData(result)
+          parsed = result
         } else if (result && typeof result === 'object' && 'results' in result && Array.isArray((result as Record<string, unknown>).results)) {
-          setData((result as Record<string, unknown>).results as T[])
+          parsed = (result as Record<string, unknown>).results as T[]
         } else {
-          setData([])
+          parsed = []
         }
+        setData(parsed)
+        _cache.set(cacheKey, { data: parsed, ts: Date.now() })
       }
     } catch (err: unknown) {
       if (mountedRef.current) {
@@ -68,23 +93,32 @@ export function useAdminCrud<T extends { id: number }>(
     return () => { mountedRef.current = false }
   }, [fetchData])
 
+  const invalidateCache = useCallback(() => {
+    _cache.delete(getCacheKey(apiService, params))
+  }, [apiService, params])
+
   const create = useCallback(async (item: FormData): Promise<T | null> => {
     const created = await apiService.create(item as Partial<T>)
+    invalidateCache()
     setData(prev => [...prev, created])
     return created
-  }, [apiService])
+  }, [apiService, invalidateCache])
 
   const update = useCallback(async (id: number, item: FormData): Promise<T | null> => {
     const updated = await apiService.update(id, item as Partial<T>)
+    invalidateCache()
     setData(prev => prev.map(d => d.id === id ? updated : d))
     return updated
-  }, [apiService])
+  }, [apiService, invalidateCache])
 
   const remove = useCallback(async (id: number): Promise<boolean> => {
     await apiService.delete(id)
+    invalidateCache()
     setData(prev => prev.filter(d => d.id !== id))
     return true
-  }, [apiService])
+  }, [apiService, invalidateCache])
 
-  return { data, loading, error, create, update, remove, refresh: fetchData, setData }
+  const refresh = useCallback(() => fetchData(true), [fetchData])
+
+  return { data, loading, error, create, update, remove, refresh, setData }
 }

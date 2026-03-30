@@ -4,7 +4,8 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
-import { vbizCardPromoBannersApi } from '../../services/admin-api'
+import { vbizCardPromoBannersApi, uploadApi } from '../../services/admin-api'
+import { ImageUpload } from '../../components/ui/ImageUpload'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { VbizCardPromoBanner } from '../../types'
 
@@ -15,13 +16,14 @@ interface FormState {
   badge_text: string
   badge_subtitle: string
   background_color: string
+  background_image_url: string
   sort_order: number
   is_active: boolean
 }
 
 const emptyForm: FormState = {
   title: '', subtitle: '', cta_text: '', badge_text: '', badge_subtitle: '',
-  background_color: '#6366f1', sort_order: 0, is_active: true,
+  background_color: '#6366f1', background_image_url: '', sort_order: 0, is_active: true,
 }
 
 export default function VbizCardPromoBannerPage() {
@@ -41,7 +43,8 @@ export default function VbizCardPromoBannerPage() {
     setForm({
       title: item.title, subtitle: item.subtitle, cta_text: item.cta_text,
       badge_text: item.badge_text, badge_subtitle: item.badge_subtitle,
-      background_color: item.background_color, sort_order: item.sort_order, is_active: item.is_active,
+      background_color: item.background_color, background_image_url: item.background_image_url || '',
+      sort_order: item.sort_order, is_active: item.is_active,
     })
     setModalOpen(true)
   }
@@ -206,6 +209,11 @@ export default function VbizCardPromoBannerPage() {
               <input value={form.background_color} onChange={e => setForm(f => ({ ...f, background_color: e.target.value }))} placeholder="#6366f1" className="flex-1 bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
               <div className="h-10 w-20 rounded-lg border border-brand-dark-border" style={{ backgroundColor: form.background_color }} />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Background Image</label>
+            <ImageUpload label="Banner Background" value={form.background_image_url || null} onChange={(url) => setForm(f => ({ ...f, background_image_url: url || '' }))} aspectHint="Landscape, 1200x400" />
+            <p className="text-xs text-brand-text-muted mt-1">Overrides background color when set</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>

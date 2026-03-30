@@ -8,9 +8,8 @@ import type { AIToolUsage } from '../types/ai-tool.types'
 import type { Reel, MusicTrack } from '../types/reel.types'
 import type { Notification as AppNotification } from '../types/notification.types'
 import type { NearbyService, ServiceCategory } from '../types/service.types'
-import type { GreetingCategory, GreetingTemplate } from '../types/greeting.types'
+
 import type { StickerPack } from '../types/sticker.types'
-import type { AdTemplate, GeneratedAd } from '../types/product-ad.types'
 import type { Tutorial, PolicyPage, ContactSubmission, PartnerInquiry, MallCategory, MallListing } from '../types/content.types'
 
 export const mockDashboardStats: DashboardStats = {
@@ -231,28 +230,11 @@ export const mockServices: NearbyService[] = Array.from({ length: 10 }, (_, i) =
   id: i + 1, owner: (i % 20) + 1, owner_name: names[i % 20], category: (i % 6) + 1, category_name: serviceCategories[i % 6], name: `${names[i % 20]}'s ${serviceCategories[i % 6]}`, description: 'Quality services for your business', phone: '+919000000000', email: 'service@example.com', website: '', address: `${i + 1} Main Street`, city: cities[i % 10], state: 'Maharashtra', pincode: '400001', latitude: 19.076, longitude: 72.877, images: [], average_rating: Math.round((3 + Math.random() * 2) * 10) / 10, review_count: Math.floor(Math.random() * 50), is_verified: i % 3 === 0, is_active: true, created_at: '2025-06-01T00:00:00Z',
 }))
 
-export const mockGreetingCategories: GreetingCategory[] = [
-  { id: 1, name: 'Birthday', slug: 'birthday', icon_url: null, sort_order: 1, is_active: true, template_count: 45 },
-  { id: 2, name: 'Anniversary', slug: 'anniversary', icon_url: null, sort_order: 2, is_active: true, template_count: 30 },
-  { id: 3, name: 'Wedding', slug: 'wedding', icon_url: null, sort_order: 3, is_active: true, template_count: 25 },
-  { id: 4, name: 'Congratulations', slug: 'congratulations', icon_url: null, sort_order: 4, is_active: true, template_count: 20 },
-]
-
-export const mockGreetingTemplates: GreetingTemplate[] = Array.from({ length: 10 }, (_, i) => ({
-  id: i + 1, category: (i % 4) + 1, category_name: ['Birthday', 'Anniversary', 'Wedding', 'Congratulations'][i % 4], title: `Greeting Template ${i + 1}`, thumbnail_url: `https://placehold.co/300x300/383838/FFC107?text=GT${i + 1}`, image_url: `https://placehold.co/1080x1080/383838/FFC107?text=Greeting+${i + 1}`, template_data: {}, is_premium: i % 3 === 0, tags: ['greeting'], download_count: Math.floor(Math.random() * 1000), created_at: '2025-06-01T00:00:00Z',
-}))
 
 export const mockStickerPacks: StickerPack[] = Array.from({ length: 8 }, (_, i) => ({
   id: i + 1, name: `Sticker Pack ${i + 1}`, slug: `sticker-pack-${i + 1}`, cover_image_url: null, category: ['emoji', 'business', 'festival', 'fun'][i % 4], is_premium: i % 3 === 0, download_count: Math.floor(Math.random() * 5000), sort_order: i + 1, sticker_count: Math.floor(Math.random() * 20) + 5, is_active: true, created_at: '2025-06-01T00:00:00Z',
 }))
 
-export const mockAdTemplates: AdTemplate[] = Array.from({ length: 8 }, (_, i) => ({
-  id: i + 1, title: `Ad Template ${i + 1}`, image_url: `https://placehold.co/300x300/383838/FFC107?text=Ad${i + 1}`, template_data: {}, aspect_ratio: '1:1', category: ['retail', 'food', 'fashion', 'tech'][i % 4], is_premium: i % 3 === 0, is_active: true, created_at: '2025-06-01T00:00:00Z',
-}))
-
-export const mockGeneratedAds: GeneratedAd[] = Array.from({ length: 10 }, (_, i) => ({
-  id: i + 1, user: (i % 20) + 1, user_name: names[i % 20], product: i + 1, product_name: `Product ${i + 1}`, template: (i % 8) + 1, output_image_url: null, ad_text: 'Amazing product at great price!', status: (['completed', 'processing', 'pending', 'failed', 'completed'] as const)[i % 5], credits_charged: 5, created_at: `2026-03-${String((i % 15) + 1).padStart(2, '0')}T00:00:00Z`,
-}))
 
 export const mockTutorials: Tutorial[] = Array.from({ length: 5 }, (_, i) => ({
   id: i + 1, title: `How to ${['Create Posters', 'Use AI Tools', 'Schedule Festivals', 'Generate Reels', 'Set Up Business Profile'][i]}`, slug: `tutorial-${i + 1}`, description: 'Step by step guide', content: '<p>Tutorial content here...</p>', thumbnail_url: null, video_url: null, sort_order: i + 1, is_active: true, created_at: '2025-06-01T00:00:00Z',

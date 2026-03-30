@@ -15,9 +15,13 @@ interface FormState {
   title: string
   category: number
   is_premium: boolean
+  tags: string
+  section_type: 'send' | 'exclusive' | 'browse'
+  canvas_width: number
+  canvas_height: number
 }
 
-const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', category: 1, is_premium: false }
+const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', category: 1, is_premium: false, tags: '', section_type: 'browse', canvas_width: 1080, canvas_height: 1080 }
 
 export default function GreetingTemplateListPage() {
   const { addToast } = useToast()
@@ -36,7 +40,17 @@ export default function GreetingTemplateListPage() {
 
   const openEdit = (item: GreetingTemplate) => {
     setEditingItem(item)
-    setForm({ thumbnail_url: item.thumbnail_url, image_url: item.image_url, title: item.title, category: item.category, is_premium: item.is_premium })
+    setForm({
+      thumbnail_url: item.thumbnail_url,
+      image_url: item.image_url,
+      title: item.title,
+      category: item.category,
+      is_premium: item.is_premium,
+      tags: (item.tags || []).join(', '),
+      section_type: item.section_type || 'browse',
+      canvas_width: item.canvas_width || 1080,
+      canvas_height: item.canvas_height || 1080,
+    })
     setModalOpen(true)
   }
 
@@ -44,12 +58,16 @@ export default function GreetingTemplateListPage() {
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
+    const payload = {
+      ...form,
+      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+    }
     try {
       if (editingItem) {
-        await update(editingItem.id, form)
+        await update(editingItem.id, payload)
         addToast('Template updated successfully')
       } else {
-        await create(form)
+        await create(payload)
         addToast('Template created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
@@ -72,8 +90,10 @@ export default function GreetingTemplateListPage() {
   const columns: Column<GreetingTemplate>[] = [
     { key: 'title', title: 'Title', sortable: true },
     { key: 'category_name', title: 'Category', sortable: true },
+    { key: 'section_type', title: 'Section', render: (t) => <span className="capitalize text-brand-text-muted">{t.section_type || 'browse'}</span> },
     { key: 'is_premium', title: 'Premium', render: (t) => t.is_premium ? <span className="text-brand-gold">Premium</span> : <span className="text-brand-text-muted">Free</span> },
     { key: 'download_count', title: 'Downloads', sortable: true },
+    { key: 'tags', title: 'Tags', render: (t) => <span className="text-brand-text-muted text-xs">{(t.tags || []).join(', ') || '-'}</span> },
     { key: 'created_at', title: 'Created' },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
@@ -103,11 +123,35 @@ export default function GreetingTemplateListPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Section Type</label>
+              <select value={form.section_type} onChange={e => setForm(f => ({ ...f, section_type: e.target.value as FormState['section_type'] }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                <option value="send">Send</option>
+                <option value="exclusive">Exclusive</option>
+                <option value="browse">Browse</option>
+              </select>
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tags (comma-separated)</label>
+            <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="e.g. birthday, celebration, party" className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Canvas Width</label>
+              <input type="number" value={form.canvas_width} onChange={e => setForm(f => ({ ...f, canvas_width: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Canvas Height</label>
+              <input type="number" value={form.canvas_height} onChange={e => setForm(f => ({ ...f, canvas_height: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" checked={form.is_premium} onChange={e => setForm(f => ({ ...f, is_premium: e.target.checked }))} className="rounded" />

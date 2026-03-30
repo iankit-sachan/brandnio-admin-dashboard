@@ -1,68 +1,63 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Image as ImageIcon, Pencil, Trash2, Plus, Search, Crown } from 'lucide-react'
-import { greetingTemplatesApi } from '../../services/admin-api'
+import { greetingTemplatesApi, greetingCategoriesApi, greetingConfigApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-
-interface GreetingPoster {
-  id: number
-  title: string
-  image_url: string | null
-  category: string
-  language: string
-  is_premium: boolean
-  has_editable_frame: boolean
-  status: 'active' | 'draft' | 'archived'
-}
+import type { GreetingTemplate, GreetingCategory } from '../../types'
 
 interface FormState {
   image_url: string | null
   title: string
-  category: string
+  category: number
   language: string
   is_premium: boolean
   has_editable_frame: boolean
 }
 
-const categories = ['Birthday', 'Anniversary', 'Wedding', 'Good Morning', 'Good Night', 'Motivational', 'Religious', 'Festival']
-const languages = ['English', 'Hindi', 'Gujarati', 'Marathi', 'Tamil', 'Telugu']
-
-const emptyForm: FormState = { image_url: null, title: '', category: 'Birthday', language: 'English', is_premium: false, has_editable_frame: false }
+const emptyForm: FormState = { image_url: null, title: '', category: 0, language: '', is_premium: false, has_editable_frame: false }
 
 export default function GreetingPostersPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<GreetingPoster>(greetingTemplatesApi)
+  const { data, loading, create, update, remove } = useAdminCrud<GreetingTemplate>(greetingTemplatesApi)
+  const { data: categories } = useAdminCrud<GreetingCategory>(greetingCategoriesApi)
+  const [languages, setLanguages] = useState<string[]>([])
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<GreetingPoster | null>(null)
+  const [editingItem, setEditingItem] = useState<GreetingTemplate | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
-  const [deleteItem, setDeleteItem] = useState<GreetingPoster | null>(null)
+  const [deleteItem, setDeleteItem] = useState<GreetingTemplate | null>(null)
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterLanguage, setFilterLanguage] = useState('')
 
+  useEffect(() => {
+    greetingConfigApi.get().then(config => {
+      if (config?.supported_languages) setLanguages(config.supported_languages)
+    }).catch(() => { /* config not available yet */ })
+  }, [])
+
   const filtered = data.filter(p => {
     if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterCategory && p.category !== filterCategory) return false
+    if (filterCategory && String(p.category) !== filterCategory) return false
     if (filterLanguage && p.language !== filterLanguage) return false
     return true
   })
 
   const openAdd = () => {
     setEditingItem(null)
-    setForm(emptyForm)
+    setForm({ ...emptyForm, category: categories[0]?.id || 0, language: languages[0] || '' })
     setModalOpen(true)
   }
 
-  const openEdit = (item: GreetingPoster) => {
+  const openEdit = (item: GreetingTemplate) => {
     setEditingItem(item)
-    setForm({ image_url: item.image_url, title: item.title, category: item.category, language: item.language, is_premium: item.is_premium, has_editable_frame: item.has_editable_frame })
+    setForm({ image_url: item.image_url, title: item.title, category: item.category, language: item.language || '', is_premium: item.is_premium, has_editable_frame: item.has_editable_frame || false })
     setModalOpen(true)
   }
 
-  const openDelete = (item: GreetingPoster) => setDeleteItem(item)
+  const openDelete = (item: GreetingTemplate) => setDeleteItem(item)
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
@@ -91,6 +86,10 @@ export default function GreetingPostersPage() {
     }
   }
 
+  const getCategoryName = (categoryId: number) => {
+    return categories.find(c => c.id === categoryId)?.name || ''
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -98,7 +97,7 @@ export default function GreetingPostersPage() {
         <div className="flex items-center gap-3">
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
             <option value="">All Categories</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
             <option value="">All Languages</option>
@@ -125,10 +124,10 @@ export default function GreetingPostersPage() {
                   <h3 className="text-sm font-medium text-brand-text truncate flex-1">{item.title}</h3>
                   {item.is_premium && <Crown className="h-3.5 w-3.5 text-brand-gold shrink-0" />}
                 </div>
-                <p className="text-xs text-brand-text-muted mt-0.5">{item.category} &middot; {item.language}</p>
+                <p className="text-xs text-brand-text-muted mt-0.5">{getCategoryName(item.category)} &middot; {item.language || 'N/A'}</p>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.status === 'active' ? 'bg-status-success/20 text-status-success' : item.status === 'draft' ? 'bg-status-info/20 text-status-info' : 'bg-brand-dark-hover text-brand-text-muted'}`}>
-                    {item.status}
+                    {item.status || 'active'}
                   </span>
                   {item.has_editable_frame && <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-gold/20 text-brand-gold">Editable</span>}
                 </div>
@@ -156,8 +155,8 @@ export default function GreetingPostersPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>

@@ -86,6 +86,11 @@ export const servicesApi = crud('services')
 
 export const greetingCategoriesApi = crud('greeting-categories')
 export const greetingTemplatesApi = crud('greeting-templates')
+export const customersApi = crud('customers')
+export const greetingConfigApi = {
+  get: () => api.get('/api/admin/greeting-config/1/').then(r => r.data),
+  update: (data: any) => api.patch('/api/admin/greeting-config/1/', data).then(r => r.data),
+}
 
 export const stickerPacksApi = crud('sticker-packs')
 export const stickersApi = crud('stickers')
@@ -94,6 +99,11 @@ export const stickerBannersApi = crud('sticker-banners')
 export const adTemplatesApi = crud('ad-templates')
 export const productsApi = crud('products')
 export const generatedAdsApi = crud('generated-ads')
+export const adCategoriesApi = crud('ad-categories')
+export const adConfigApi = {
+  get: () => api.get('/api/admin/ad-config/1/').then(r => r.data),
+  update: (data: any) => api.patch('/api/admin/ad-config/1/', data).then(r => r.data),
+}
 
 export const tutorialsApi = crud('tutorials')
 export const contactSubmissionsApi = crud('contact-submissions')

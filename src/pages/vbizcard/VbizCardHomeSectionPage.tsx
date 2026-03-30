@@ -12,18 +12,22 @@ import { useNavigate } from 'react-router-dom'
 const DISPLAY_BADGE: Record<string, string> = {
   small: 'bg-blue-500/20 text-blue-400',
   large: 'bg-purple-500/20 text-purple-400',
+  below_industry: 'bg-green-500/20 text-green-400',
+  below_occasion: 'bg-orange-500/20 text-orange-400',
 }
 
 interface FormState {
   title: string
   category_slug: string
-  display_type: 'small' | 'large'
+  display_type: 'small' | 'large' | 'below_industry' | 'below_occasion'
+  is_trending: boolean
+  preview_count: number
   sort_order: number
   is_active: boolean
 }
 
 const emptyForm: FormState = {
-  title: '', category_slug: '', display_type: 'small', sort_order: 0, is_active: true,
+  title: '', category_slug: '', display_type: 'small', is_trending: false, preview_count: 2, sort_order: 0, is_active: true,
 }
 
 export default function VbizCardHomeSectionPage() {
@@ -60,7 +64,8 @@ export default function VbizCardHomeSectionPage() {
     setEditingItem(item)
     setForm({
       title: item.title, category_slug: item.category_slug,
-      display_type: item.display_type, sort_order: item.sort_order, is_active: item.is_active,
+      display_type: item.display_type, is_trending: item.is_trending ?? false, preview_count: item.preview_count ?? 2,
+      sort_order: item.sort_order, is_active: item.is_active,
     })
     setModalOpen(true)
   }
@@ -160,9 +165,12 @@ export default function VbizCardHomeSectionPage() {
     {
       key: 'display_type', title: 'Display',
       render: (item) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DISPLAY_BADGE[item.display_type] ?? ''}`}>
-          {item.display_type}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${DISPLAY_BADGE[item.display_type] ?? ''}`}>
+            {item.display_type}
+          </span>
+          {item.is_trending && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-500/20 text-red-400">Trending</span>}
+        </div>
       ),
     },
     {
@@ -233,19 +241,34 @@ export default function VbizCardHomeSectionPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Display Type</label>
-            <select value={form.display_type} onChange={e => setForm(f => ({ ...f, display_type: e.target.value as 'small' | 'large' }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+            <select value={form.display_type} onChange={e => setForm(f => ({ ...f, display_type: e.target.value as FormState['display_type'] }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
               <option value="small">Small Cards (compact thumbnails)</option>
               <option value="large">Large Cards (full business card preview)</option>
+              <option value="below_industry">Below Industry (after industry circles)</option>
+              <option value="below_occasion">Below Occasion (after occasion chips)</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
-            <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
-            <p className="text-xs text-brand-text-muted mt-1">Lower numbers appear first on the home screen</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
+              <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+              <p className="text-xs text-brand-text-muted mt-1">Lower numbers appear first</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Preview Count</label>
+              <input type="number" value={form.preview_count} onChange={e => setForm(f => ({ ...f, preview_count: Number(e.target.value) }))} min={1} max={12} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+              <p className="text-xs text-brand-text-muted mt-1">Templates shown before "View All"</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Active (visible on app)</label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+              <label className="text-sm text-brand-text-muted">Active (visible on app)</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={form.is_trending} onChange={e => setForm(f => ({ ...f, is_trending: e.target.checked }))} className="rounded" />
+              <label className="text-sm text-brand-text-muted">Trending Section</label>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false) }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>

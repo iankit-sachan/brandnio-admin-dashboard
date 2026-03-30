@@ -32,7 +32,9 @@ export interface VbizCardHomeSection {
   id: number
   title: string
   category_slug: string
-  display_type: 'small' | 'large'
+  display_type: 'small' | 'large' | 'below_industry' | 'below_occasion'
+  is_trending: boolean
+  preview_count: number
   is_active: boolean
   sort_order: number
   created_at: string
@@ -46,6 +48,7 @@ export interface VbizCardPromoBanner {
   badge_text: string
   badge_subtitle: string
   background_color: string
+  background_image_url: string
   is_active: boolean
   sort_order: number
   created_at: string

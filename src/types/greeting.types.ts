@@ -6,6 +6,9 @@ export interface GreetingCategory {
   sort_order: number
   is_active: boolean
   template_count: number
+  default_caption: string
+  accent_color: string
+  banner_text: string
 }
 
 export interface GreetingTemplate {
@@ -20,4 +23,31 @@ export interface GreetingTemplate {
   tags: string[]
   download_count: number
   created_at: string
+  section_type: 'send' | 'exclusive' | 'browse'
+  canvas_width: number
+  canvas_height: number
+  language?: string
+  has_editable_frame?: boolean
+  status?: 'active' | 'draft' | 'archived'
+}
+
+export interface Customer {
+  id: number
+  name: string
+  phone: string
+  dob: string | null
+  anniversary: string | null
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface GreetingConfig {
+  canvas_width: number
+  canvas_height: number
+  upcoming_event_days: number
+  grid_columns: number
+  page_size: number
+  supported_languages: string[]
+  date_format: string
 }

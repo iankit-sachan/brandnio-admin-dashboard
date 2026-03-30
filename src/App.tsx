@@ -53,6 +53,8 @@ const PlanListPage = lazy(() => import('./pages/subscriptions/PlanListPage'))
 // Greetings
 const GreetingCategoryListPage = lazy(() => import('./pages/greetings/GreetingCategoryListPage'))
 const GreetingTemplateListPage = lazy(() => import('./pages/greetings/GreetingTemplateListPage'))
+const GreetingConfigPage = lazy(() => import('./pages/greetings/GreetingConfigPage'))
+const CustomerListPage = lazy(() => import('./pages/greetings/CustomerListPage'))
 
 // Stickers
 const StickerPackListPage = lazy(() => import('./pages/stickers/StickerPackListPage'))
@@ -74,6 +76,8 @@ const NotificationHistoryPage = lazy(() => import('./pages/notifications/Notific
 // Product Ads
 const AdTemplateListPage = lazy(() => import('./pages/product-ads/AdTemplateListPage'))
 const GeneratedAdMonitorPage = lazy(() => import('./pages/product-ads/GeneratedAdMonitorPage'))
+const AdCategoryListPage = lazy(() => import('./pages/product-ads/AdCategoryListPage'))
+const AdConfigPage = lazy(() => import('./pages/product-ads/AdConfigPage'))
 
 // Content
 const TutorialListPage = lazy(() => import('./pages/content/TutorialListPage'))
@@ -187,6 +191,8 @@ export default function App() {
                 {/* Greetings */}
                 <Route path="/greetings/categories" element={<GreetingCategoryListPage />} />
                 <Route path="/greetings/templates" element={<GreetingTemplateListPage />} />
+                <Route path="/greetings/config" element={<GreetingConfigPage />} />
+                <Route path="/greetings/customers" element={<CustomerListPage />} />
 
                 {/* Stickers */}
                 <Route path="/stickers" element={<StickerPackListPage />} />
@@ -208,6 +214,8 @@ export default function App() {
                 {/* Product Ads */}
                 <Route path="/product-ads/templates" element={<AdTemplateListPage />} />
                 <Route path="/product-ads" element={<GeneratedAdMonitorPage />} />
+                <Route path="/product-ads/categories" element={<AdCategoryListPage />} />
+                <Route path="/product-ads/config" element={<AdConfigPage />} />
 
                 {/* Content */}
                 <Route path="/content/tutorials" element={<TutorialListPage />} />

@@ -5,34 +5,32 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
-import { greetingCategoriesApi } from '../../services/admin-api'
+import { adCategoriesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-import type { GreetingCategory } from '../../types'
+import type { ProductAdCategory } from '../../types'
 
 interface FormState {
   icon_url: string | null
   name: string
   slug: string
+  description: string
   sort_order: number
   is_active: boolean
-  default_caption: string
-  accent_color: string
-  banner_text: string
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, default_caption: '', accent_color: '#FFC107', banner_text: '' }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', description: '', sort_order: 0, is_active: true }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
-export default function GreetingCategoryListPage() {
+export default function AdCategoryListPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<GreetingCategory>(greetingCategoriesApi)
+  const { data, loading, create, update, remove } = useAdminCrud<ProductAdCategory>(adCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<GreetingCategory | null>(null)
+  const [editingItem, setEditingItem] = useState<ProductAdCategory | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
-  const [deleteItem, setDeleteItem] = useState<GreetingCategory | null>(null)
+  const [deleteItem, setDeleteItem] = useState<ProductAdCategory | null>(null)
 
   const openAdd = () => {
     setEditingItem(null)
@@ -40,22 +38,20 @@ export default function GreetingCategoryListPage() {
     setModalOpen(true)
   }
 
-  const openEdit = (item: GreetingCategory) => {
+  const openEdit = (item: ProductAdCategory) => {
     setEditingItem(item)
     setForm({
       icon_url: item.icon_url,
       name: item.name,
       slug: item.slug,
+      description: item.description || '',
       sort_order: item.sort_order,
       is_active: item.is_active,
-      default_caption: item.default_caption || '',
-      accent_color: item.accent_color || '#FFC107',
-      banner_text: item.banner_text || '',
     })
     setModalOpen(true)
   }
 
-  const openDelete = (item: GreetingCategory) => setDeleteItem(item)
+  const openDelete = (item: ProductAdCategory) => setDeleteItem(item)
 
   const handleSubmit = async () => {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
@@ -85,18 +81,11 @@ export default function GreetingCategoryListPage() {
     }
   }
 
-  const columns: Column<GreetingCategory>[] = [
-    { key: 'name', title: 'Category', sortable: true },
+  const columns: Column<ProductAdCategory>[] = [
+    { key: 'name', title: 'Name', sortable: true },
     { key: 'slug', title: 'Slug' },
     { key: 'template_count', title: 'Templates', sortable: true },
     { key: 'sort_order', title: 'Order', sortable: true },
-    { key: 'accent_color', title: 'Accent Color', render: (c) => (
-      <div className="flex items-center gap-2">
-        <div className="w-5 h-5 rounded border border-brand-dark-border" style={{ backgroundColor: c.accent_color || '#FFC107' }} />
-        <span className="text-brand-text-muted text-xs">{c.accent_color || '-'}</span>
-      </div>
-    )},
-    { key: 'banner_text', title: 'Banner Text', render: (c) => <span className="text-brand-text-muted text-xs truncate max-w-[150px] block">{c.banner_text || '-'}</span> },
     { key: 'is_active', title: 'Status', render: (c) => c.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
@@ -109,7 +98,7 @@ export default function GreetingCategoryListPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-brand-text">Greeting Categories</h1>
+        <h1 className="text-2xl font-bold text-brand-text">Ad Categories</h1>
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Category</button>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
@@ -128,23 +117,12 @@ export default function GreetingCategoryListPage() {
             <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 resize-none" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
             <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Default Caption</label>
-            <textarea value={form.default_caption} onChange={e => setForm(f => ({ ...f, default_caption: e.target.value }))} rows={3} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 resize-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Accent Color</label>
-            <div className="flex items-center gap-3">
-              <input type="color" value={form.accent_color} onChange={e => setForm(f => ({ ...f, accent_color: e.target.value }))} className="w-10 h-10 rounded border border-brand-dark-border cursor-pointer bg-transparent" />
-              <input value={form.accent_color} onChange={e => setForm(f => ({ ...f, accent_color: e.target.value }))} placeholder="#FFC107" className="flex-1 bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Banner Text</label>
-            <input value={form.banner_text} onChange={e => setForm(f => ({ ...f, banner_text: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />

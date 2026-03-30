@@ -39,3 +39,30 @@ export interface GeneratedAd {
   credits_charged: number
   created_at: string
 }
+
+export interface ProductAdCategory {
+  id: number
+  name: string
+  slug: string
+  icon_url: string
+  description: string
+  sort_order: number
+  is_active: boolean
+  template_count: number
+  created_at?: string
+}
+
+export interface ProductAdConfig {
+  max_image_size_mb: number
+  supported_formats: string[]
+  poll_timeout_seconds: number
+  poll_interval_seconds: number
+  grid_columns: number
+  max_recent_count: number
+  credits_per_ad: number
+  currency_symbol: string
+  download_folder: string
+  filename_prefix: string
+  aspect_ratio_choices: string[]
+  updated_at: string
+}
