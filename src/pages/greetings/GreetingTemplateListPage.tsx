@@ -13,6 +13,7 @@ interface FormState {
   thumbnail_url: string | null
   image_url: string | null
   title: string
+  description: string
   category: number
   is_premium: boolean
   tags: string
@@ -21,7 +22,7 @@ interface FormState {
   canvas_height: number
 }
 
-const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', category: 1, is_premium: false, tags: '', section_type: 'browse', canvas_width: 1080, canvas_height: 1080 }
+const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', description: '', category: 1, is_premium: false, tags: '', section_type: 'browse', canvas_width: 1080, canvas_height: 1080 }
 
 export default function GreetingTemplateListPage() {
   const { addToast } = useToast()
@@ -44,6 +45,7 @@ export default function GreetingTemplateListPage() {
       thumbnail_url: item.thumbnail_url,
       image_url: item.image_url,
       title: item.title,
+      description: (item as any).description || '',
       category: item.category,
       is_premium: item.is_premium,
       tags: (item.tags || []).join(', '),
@@ -122,6 +124,10 @@ export default function GreetingTemplateListPage() {
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Description</label>
+            <textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Short description for exclusive cards" className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

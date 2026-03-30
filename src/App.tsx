@@ -60,6 +60,7 @@ const CustomerListPage = lazy(() => import('./pages/greetings/CustomerListPage')
 const StickerPackListPage = lazy(() => import('./pages/stickers/StickerPackListPage'))
 const StickerDetailPage = lazy(() => import('./pages/stickers/StickerDetailPage'))
 const StickerBannerPage = lazy(() => import('./pages/stickers/StickerBannerPage'))
+const EditorStickerPage = lazy(() => import('./pages/stickers/EditorStickerPage'))
 
 // Services
 const ServiceCategoryListPage = lazy(() => import('./pages/services/ServiceCategoryListPage'))
@@ -78,6 +79,7 @@ const AdTemplateListPage = lazy(() => import('./pages/product-ads/AdTemplateList
 const GeneratedAdMonitorPage = lazy(() => import('./pages/product-ads/GeneratedAdMonitorPage'))
 const AdCategoryListPage = lazy(() => import('./pages/product-ads/AdCategoryListPage'))
 const AdConfigPage = lazy(() => import('./pages/product-ads/AdConfigPage'))
+const ProductListPage = lazy(() => import('./pages/product-ads/ProductListPage'))
 
 // Content
 const TutorialListPage = lazy(() => import('./pages/content/TutorialListPage'))
@@ -92,6 +94,8 @@ const AIToolsConfigPage = lazy(() => import('./pages/ai-tools/AIToolsConfigPage'
 const BgRemovalCreditsPage = lazy(() => import('./pages/ai-tools/BgRemovalCreditsPage'))
 const FaqPage = lazy(() => import('./pages/ai-tools/FaqPage'))
 const TestimonialsPage = lazy(() => import('./pages/ai-tools/TestimonialsPage'))
+const CreditTransactionsPage = lazy(() => import('./pages/ai-tools/CreditTransactionsPage'))
+const AIToolListPage = lazy(() => import('./pages/ai-tools/AIToolListPage'))
 
 // Poster Home Sections
 const PosterHomeSectionsPage = lazy(() => import('./pages/posters/PosterHomeSectionsPage'))
@@ -121,6 +125,15 @@ const VbizCardTemplatePage = lazy(() => import('./pages/vbizcard/VbizCardTemplat
 const VbizCardHomeSectionPage = lazy(() => import('./pages/vbizcard/VbizCardHomeSectionPage'))
 const VbizCardPromoBannerPage = lazy(() => import('./pages/vbizcard/VbizCardPromoBannerPage'))
 const VbizCardTestimonialPage = lazy(() => import('./pages/vbizcard/VbizCardTestimonialPage'))
+
+// Free Status
+const StatusCategoryListPage = lazy(() => import('./pages/statuses/StatusCategoryListPage'))
+const StatusQuoteListPage = lazy(() => import('./pages/statuses/StatusQuoteListPage'))
+
+// Feeds
+const FeedItemListPage = lazy(() => import('./pages/feeds/FeedItemListPage'))
+const FeedBannerListPage = lazy(() => import('./pages/feeds/FeedBannerListPage'))
+const FeedConfigPage = lazy(() => import('./pages/feeds/FeedConfigPage'))
 
 // Settings
 const TaglinesPage = lazy(() => import('./pages/settings/TaglinesPage'))
@@ -198,6 +211,7 @@ export default function App() {
                 <Route path="/stickers" element={<StickerPackListPage />} />
                 <Route path="/stickers/:packId/stickers" element={<StickerDetailPage />} />
                 <Route path="/sticker-banners" element={<StickerBannerPage />} />
+                <Route path="/editor-stickers" element={<EditorStickerPage />} />
 
                 {/* Services */}
                 <Route path="/services/categories" element={<ServiceCategoryListPage />} />
@@ -216,6 +230,7 @@ export default function App() {
                 <Route path="/product-ads" element={<GeneratedAdMonitorPage />} />
                 <Route path="/product-ads/categories" element={<AdCategoryListPage />} />
                 <Route path="/product-ads/config" element={<AdConfigPage />} />
+                <Route path="/product-ads/products" element={<ProductListPage />} />
 
                 {/* Content */}
                 <Route path="/content/tutorials" element={<TutorialListPage />} />
@@ -230,6 +245,8 @@ export default function App() {
                 <Route path="/ai-tools/bg-credits" element={<BgRemovalCreditsPage />} />
                 <Route path="/ai-tools/faqs" element={<FaqPage />} />
                 <Route path="/ai-tools/testimonials" element={<TestimonialsPage />} />
+                <Route path="/ai-tools/credit-transactions" element={<CreditTransactionsPage />} />
+                <Route path="/ai-tools/manage" element={<AIToolListPage />} />
 
                 {/* Content Types */}
                 <Route path="/content-types/greetings" element={<GreetingPostersPage />} />
@@ -247,6 +264,15 @@ export default function App() {
                 <Route path="/vbizcard/home-sections" element={<VbizCardHomeSectionPage />} />
                 <Route path="/vbizcard/promo-banners" element={<VbizCardPromoBannerPage />} />
                 <Route path="/vbizcard/testimonials" element={<VbizCardTestimonialPage />} />
+
+                {/* Free Status */}
+                <Route path="/statuses/categories" element={<StatusCategoryListPage />} />
+                <Route path="/statuses/quotes" element={<StatusQuoteListPage />} />
+
+                {/* Feeds */}
+                <Route path="/feeds/items" element={<FeedItemListPage />} />
+                <Route path="/feeds/banners" element={<FeedBannerListPage />} />
+                <Route path="/feeds/config" element={<FeedConfigPage />} />
 
                 {/* Settings */}
                 <Route path="/settings/taglines" element={<TaglinesPage />} />

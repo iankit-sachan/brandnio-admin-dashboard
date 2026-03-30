@@ -18,7 +18,8 @@ import {
   Megaphone, PenTool,
   BookOpen, Mail, Handshake, FileCheck, Store,
   IdCard, GalleryHorizontalEnd, LayoutList, Maximize2,
-  ChevronRight, ChevronDown, Home,
+  ChevronRight, ChevronDown, Home, Rss,
+  Receipt,
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
@@ -102,6 +103,23 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: 'FREE STATUS',
+    defaultOpen: false,
+    items: [
+      { label: 'Status Categories', icon: Tags, path: '/statuses/categories' },
+      { label: 'Status Quotes', icon: Type, path: '/statuses/quotes' },
+    ],
+  },
+  {
+    title: 'FEEDS',
+    defaultOpen: false,
+    items: [
+      { label: 'Feed Items', icon: Rss, path: '/feeds/items' },
+      { label: 'Feed Banners', icon: Image, path: '/feeds/banners' },
+      { label: 'Feed Config', icon: Settings, path: '/feeds/config' },
+    ],
+  },
+  {
     title: 'MEDIA & ADS',
     defaultOpen: false,
     items: [
@@ -111,7 +129,9 @@ const navSections: NavSection[] = [
       { label: 'Generated Ads', icon: Megaphone, path: '/product-ads' },
       { label: 'Ad Categories', icon: Tags, path: '/product-ads/categories' },
       { label: 'Ad Config', icon: Settings, path: '/product-ads/config' },
+      { label: 'Products', icon: Package, path: '/product-ads/products' },
       { label: 'Sticker Packs', icon: Package, path: '/stickers' },
+      { label: 'Editor Stickers', icon: Palette, path: '/editor-stickers' },
     ],
   },
   {
@@ -148,6 +168,14 @@ const navSections: NavSection[] = [
       { label: 'Credit Plans', icon: CreditCard, path: '/ai-tools/bg-credits' },
       { label: 'FAQs', icon: FileText, path: '/ai-tools/faqs' },
       { label: 'Testimonials', icon: MessageSquare, path: '/ai-tools/testimonials' },
+      { label: 'Credit Transactions', icon: Receipt, path: '/ai-tools/credit-transactions' },
+    ],
+  },
+  {
+    title: 'AI TOOLS',
+    defaultOpen: false,
+    items: [
+      { label: 'Manage AI Tools', icon: Wrench, path: '/ai-tools/manage' },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -23,13 +23,16 @@ interface FormState {
   is_premium: boolean
 }
 
-const stickerCategories = ['Emoji', 'Business', 'Festival', 'Fun']
-
 const emptyForm: FormState = { cover_image_url: null, name: '', category: 'Emoji', is_premium: false }
 
 export default function StickersPage() {
   const { addToast } = useToast()
   const { data, loading, create, update, remove } = useAdminCrud<StickerPack>(stickerPacksApi)
+
+  const stickerCategories = useMemo(() => {
+    const cats = data?.map((p: any) => p.category).filter(Boolean) ?? []
+    return [...new Set(cats)] as string[]
+  }, [data])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<StickerPack | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)

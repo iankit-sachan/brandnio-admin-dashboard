@@ -45,3 +45,23 @@ export interface StickerBanner {
   is_active: boolean
   created_at: string
 }
+
+export interface EditorStickerCategory {
+  id: number
+  name: string
+  slug: string
+  sort_order: number
+  is_active: boolean
+  sticker_count?: number
+  created_at: string
+}
+
+export interface EditorStickerItem {
+  id: number
+  category: number
+  name: string
+  image_url: string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}

@@ -95,6 +95,8 @@ export const greetingConfigApi = {
 export const stickerPacksApi = crud('sticker-packs')
 export const stickersApi = crud('stickers')
 export const stickerBannersApi = crud('sticker-banners')
+export const editorStickerCategoriesApi = crud('editor-sticker-categories')
+export const editorStickersApi = crud('editor-stickers')
 
 export const adTemplatesApi = crud('ad-templates')
 export const productsApi = crud('products')
@@ -163,3 +165,16 @@ export const videoTemplatesApi = crud('video-templates')
 
 // ── AI Tool Config ──────────────────────────────────────────
 export const aiToolConfigApi = crud('ai-tools/config')
+export const aiToolsApi = crud('ai-tools')
+
+// ── Free Status ─────────────────────────────────────────────
+export const statusCategoriesApi = crud('status-categories')
+export const statusQuotesApi = crud('status-quotes')
+
+// ── Feed Management ─────────────────────────────────────────
+export const feedItemsApi = crud('feed-items')
+export const feedBannersApi = crud('feed-banners')
+export const feedConfigApi = {
+  get: () => api.get('/api/admin/feed-config/1/').then(r => r.data),
+  update: (data: any) => api.patch('/api/admin/feed-config/1/', data).then(r => r.data),
+}
