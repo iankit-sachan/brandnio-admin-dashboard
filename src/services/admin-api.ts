@@ -107,6 +107,11 @@ export const adConfigApi = {
   update: (data: any) => api.patch('/api/admin/ad-config/1/', data).then(r => r.data),
 }
 
+export const slideshowConfigApi = {
+  get: () => api.get('/api/admin/slideshow-config/1/').then(r => r.data),
+  update: (data: any) => api.patch('/api/admin/slideshow-config/1/', data).then(r => r.data),
+}
+
 export const tutorialsApi = crud('tutorials')
 export const contactSubmissionsApi = crud('contact-submissions')
 export const partnerInquiriesApi = crud('partner-inquiries')

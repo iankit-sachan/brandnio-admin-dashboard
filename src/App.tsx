@@ -79,6 +79,7 @@ const AdTemplateListPage = lazy(() => import('./pages/product-ads/AdTemplateList
 const GeneratedAdMonitorPage = lazy(() => import('./pages/product-ads/GeneratedAdMonitorPage'))
 const AdCategoryListPage = lazy(() => import('./pages/product-ads/AdCategoryListPage'))
 const AdConfigPage = lazy(() => import('./pages/product-ads/AdConfigPage'))
+const SlideshowConfigPage = lazy(() => import('./pages/slideshow/SlideshowConfigPage'))
 const ProductListPage = lazy(() => import('./pages/product-ads/ProductListPage'))
 
 // Content
@@ -231,6 +232,9 @@ export default function App() {
                 <Route path="/product-ads/categories" element={<AdCategoryListPage />} />
                 <Route path="/product-ads/config" element={<AdConfigPage />} />
                 <Route path="/product-ads/products" element={<ProductListPage />} />
+
+                {/* Slideshow (Image to Video) */}
+                <Route path="/slideshow/config" element={<SlideshowConfigPage />} />
 
                 {/* Content */}
                 <Route path="/content/tutorials" element={<TutorialListPage />} />

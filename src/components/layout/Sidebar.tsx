@@ -129,6 +129,7 @@ const navSections: NavSection[] = [
       { label: 'Generated Ads', icon: Megaphone, path: '/product-ads' },
       { label: 'Ad Categories', icon: Tags, path: '/product-ads/categories' },
       { label: 'Ad Config', icon: Settings, path: '/product-ads/config' },
+      { label: 'Slideshow Config', icon: Settings, path: '/slideshow/config' },
       { label: 'Products', icon: Package, path: '/product-ads/products' },
       { label: 'Sticker Packs', icon: Package, path: '/stickers' },
       { label: 'Editor Stickers', icon: Palette, path: '/editor-stickers' },
