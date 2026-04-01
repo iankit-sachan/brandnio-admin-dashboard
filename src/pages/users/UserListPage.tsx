@@ -12,12 +12,26 @@ const PLACEHOLDER_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#e4e3d7"/><text x="20" y="26" text-anchor="middle" font-size="18" fill="#554336" font-family="sans-serif">?</text></svg>'
 )
 
+interface EditForm {
+  name: string
+  phone: string
+  avatar_url: string
+  plan: string
+  credits: number
+  total_downloads: number
+  total_shares: number
+  is_premium: boolean
+}
+
 export default function UserListPage() {
   const { addToast } = useToast()
   const { data, loading, setData } = useAdminCrud<User>(usersApi)
   const [search, setSearch] = useState('')
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [avatarInput, setAvatarInput] = useState('')
+  const [form, setForm] = useState<EditForm>({
+    name: '', phone: '', avatar_url: '', plan: 'free',
+    credits: 0, total_downloads: 0, total_shares: 0, is_premium: false,
+  })
   const [saving, setSaving] = useState(false)
 
   const filtered = data.filter(u =>
@@ -26,34 +40,28 @@ export default function UserListPage() {
 
   const openEditModal = (user: User) => {
     setEditingUser(user)
-    setAvatarInput(user.avatar_url || '')
+    setForm({
+      name: user.name || '',
+      phone: user.phone || '',
+      avatar_url: user.avatar_url || '',
+      plan: (user as any).plan || 'free',
+      credits: (user as any).credits || 0,
+      total_downloads: (user as any).total_downloads || 0,
+      total_shares: (user as any).total_shares || 0,
+      is_premium: user.is_premium || false,
+    })
   }
 
-  const handleSaveAvatar = async () => {
+  const handleSave = async () => {
     if (!editingUser) return
     setSaving(true)
     try {
-      const updated = await usersApi.update(editingUser.id, { avatar_url: avatarInput })
-      setData(prev => prev.map(u => u.id === editingUser.id ? { ...u, avatar_url: avatarInput } : u))
+      const updated = await usersApi.update(editingUser.id, form)
+      setData(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...form } : u))
       setEditingUser(null)
-      addToast('Avatar updated successfully')
+      addToast('User updated successfully')
     } catch {
-      addToast('Failed to update avatar', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteAvatar = async () => {
-    if (!editingUser) return
-    setSaving(true)
-    try {
-      await usersApi.update(editingUser.id, { avatar_url: '' })
-      setData(prev => prev.map(u => u.id === editingUser.id ? { ...u, avatar_url: '' } : u))
-      setEditingUser(null)
-      addToast('Avatar removed')
-    } catch {
-      addToast('Failed to remove avatar', 'error')
+      addToast('Failed to update user', 'error')
     } finally {
       setSaving(false)
     }
@@ -75,7 +83,7 @@ export default function UserListPage() {
     },
     { key: 'name', title: 'Name', sortable: true },
     { key: 'phone', title: 'Phone', sortable: true },
-    { key: 'plan', title: 'Plan', sortable: true, render: (u) => <StatusBadge status={u.plan as string} /> },
+    { key: 'plan', title: 'Plan', sortable: true, render: (u) => <StatusBadge status={(u as any).plan || 'free'} /> },
     { key: 'credits', title: 'Credits', sortable: true },
     {
       key: 'is_premium',
@@ -93,7 +101,7 @@ export default function UserListPage() {
           onClick={() => openEditModal(u)}
           className="text-xs px-3 py-1 rounded bg-amber-700/20 text-amber-400 hover:bg-amber-700/40 transition-colors"
         >
-          Edit Avatar
+          Edit
         </button>
       ),
     },
@@ -113,55 +121,93 @@ export default function UserListPage() {
         </div>
       )}
 
-      {/* ── Edit Avatar Modal ── */}
+      {/* ── Full Edit Modal ── */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e1e2e] rounded-2xl p-6 w-full max-w-md border border-gray-700 shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-1">Edit Avatar</h2>
-            <p className="text-sm text-gray-400 mb-4">{editingUser.name} ({editingUser.phone})</p>
+          <div className="bg-[#1e1e2e] rounded-2xl p-6 w-full max-w-lg border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-white mb-1">Edit User</h2>
+            <p className="text-sm text-gray-400 mb-4">{editingUser.email}</p>
 
-            {/* Current avatar preview */}
+            {/* Avatar preview */}
             <div className="flex justify-center mb-4">
               <img
-                src={avatarInput || PLACEHOLDER_AVATAR}
+                src={form.avatar_url || PLACEHOLDER_AVATAR}
                 alt="Preview"
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-600"
+                className="w-16 h-16 rounded-full object-cover border-2 border-gray-600"
                 onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_AVATAR }}
               />
             </div>
 
-            {/* URL input */}
-            <label className="block mb-4">
-              <span className="text-xs text-gray-400">Avatar URL</span>
-              <input
-                type="text"
-                value={avatarInput}
-                onChange={(e) => setAvatarInput(e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-                className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </label>
+            <div className="space-y-3">
+              {/* Name + Phone */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-gray-400">Name</span>
+                  <input type="text" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-gray-400">Phone</span>
+                  <input type="text" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+                </label>
+              </div>
 
-            {/* Action buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveAvatar}
-                disabled={saving}
-                className="flex-1 py-2 bg-amber-700 text-white rounded-lg font-medium text-sm hover:bg-amber-800 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
+              {/* Avatar URL */}
+              <label className="block">
+                <span className="text-xs text-gray-400">Avatar URL</span>
+                <input type="text" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                  value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} />
+              </label>
+
+              {/* Plan + Premium */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs text-gray-400">Plan</span>
+                  <select className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.plan} onChange={e => setForm({ ...form, plan: e.target.value })}>
+                    <option value="free">Free</option>
+                    <option value="basic">Basic</option>
+                    <option value="pro">Pro</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 mt-5">
+                  <input type="checkbox" checked={form.is_premium}
+                    onChange={e => setForm({ ...form, is_premium: e.target.checked })}
+                    className="rounded border-gray-600 bg-[#2a2a3e]" />
+                  <span className="text-sm text-white">Premium</span>
+                </label>
+              </div>
+
+              {/* Credits + Downloads + Shares */}
+              <div className="grid grid-cols-3 gap-3">
+                <label className="block">
+                  <span className="text-xs text-gray-400">AI Credits</span>
+                  <input type="number" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.credits} onChange={e => setForm({ ...form, credits: +e.target.value })} />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-gray-400">Downloads</span>
+                  <input type="number" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.total_downloads} onChange={e => setForm({ ...form, total_downloads: +e.target.value })} />
+                </label>
+                <label className="block">
+                  <span className="text-xs text-gray-400">Shares</span>
+                  <input type="number" className="mt-1 block w-full bg-[#2a2a3e] border border-gray-600 rounded-lg px-3 py-2 text-sm text-white"
+                    value={form.total_shares} onChange={e => setForm({ ...form, total_shares: +e.target.value })} />
+                </label>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-5">
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 py-2 bg-amber-700 text-white rounded-lg font-medium text-sm hover:bg-amber-800 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
-              <button
-                onClick={handleDeleteAvatar}
-                disabled={saving}
-                className="px-4 py-2 bg-red-700/20 text-red-400 rounded-lg text-sm hover:bg-red-700/40"
-              >
-                Remove
-              </button>
-              <button
-                onClick={() => setEditingUser(null)}
-                className="px-4 py-2 border border-gray-600 text-gray-400 rounded-lg text-sm hover:bg-gray-800"
-              >
+              <button onClick={() => setEditingUser(null)}
+                className="px-4 py-2 border border-gray-600 text-gray-400 rounded-lg text-sm hover:bg-gray-800">
                 Cancel
               </button>
             </div>

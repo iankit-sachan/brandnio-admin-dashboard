@@ -15,6 +15,8 @@ export interface User {
   referral_code: string
   referred_by: number | null
   credits: number
+  total_downloads: number
+  total_shares: number
   is_active: boolean
   is_deleted: boolean
   joined_at: string
