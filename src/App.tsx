@@ -80,6 +80,8 @@ const GeneratedAdMonitorPage = lazy(() => import('./pages/product-ads/GeneratedA
 const AdCategoryListPage = lazy(() => import('./pages/product-ads/AdCategoryListPage'))
 const AdConfigPage = lazy(() => import('./pages/product-ads/AdConfigPage'))
 const SlideshowConfigPage = lazy(() => import('./pages/slideshow/SlideshowConfigPage'))
+const MallConfigPage = lazy(() => import('./pages/brand-mall/MallConfigPage'))
+const SpotlightPage = lazy(() => import('./pages/brand-mall/SpotlightPage'))
 const ProductListPage = lazy(() => import('./pages/product-ads/ProductListPage'))
 
 // Content
@@ -235,6 +237,10 @@ export default function App() {
 
                 {/* Slideshow (Image to Video) */}
                 <Route path="/slideshow/config" element={<SlideshowConfigPage />} />
+
+                {/* Brand Mall */}
+                <Route path="/brand-mall/config" element={<MallConfigPage />} />
+                <Route path="/brand-mall/spotlight" element={<SpotlightPage />} />
 
                 {/* Content */}
                 <Route path="/content/tutorials" element={<TutorialListPage />} />

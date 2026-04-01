@@ -130,6 +130,8 @@ const navSections: NavSection[] = [
       { label: 'Ad Categories', icon: Tags, path: '/product-ads/categories' },
       { label: 'Ad Config', icon: Settings, path: '/product-ads/config' },
       { label: 'Slideshow Config', icon: Settings, path: '/slideshow/config' },
+      { label: 'Mall Config', icon: Settings, path: '/brand-mall/config' },
+      { label: 'Mall Spotlight', icon: Settings, path: '/brand-mall/spotlight' },
       { label: 'Products', icon: Package, path: '/product-ads/products' },
       { label: 'Sticker Packs', icon: Package, path: '/stickers' },
       { label: 'Editor Stickers', icon: Palette, path: '/editor-stickers' },

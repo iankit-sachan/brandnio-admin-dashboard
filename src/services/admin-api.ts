@@ -118,6 +118,11 @@ export const partnerInquiriesApi = crud('partner-inquiries')
 export const policiesApi = crud('policies')
 export const mallCategoriesApi = crud('mall-categories')
 export const mallListingsApi = crud('mall-listings')
+export const mallSpotlightApi = crud('mall-spotlight')
+export const mallConfigApi = {
+  get: () => api.get('/api/admin/mall-config/1/').then(r => r.data),
+  update: (data: any) => api.patch('/api/admin/mall-config/1/', data).then(r => r.data),
+}
 export const politicianProfilesApi = crud('politician-profiles')
 export const politicianCategoriesApi = crud('politician-categories')
 export const popupPostersApi = crud('popup-posters')
