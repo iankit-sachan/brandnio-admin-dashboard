@@ -62,6 +62,7 @@ export const categoryRecycleBinApi = {
   permanentDelete: (id: number) => api.post(`/api/admin/poster-categories/${id}/permanent_delete/`).then(r => r.data),
 }
 export const postersApi = crud('posters')
+export const posterFramesApi = crud('poster-frames')
 export const festivalsApi = crud('festivals')
 export const autoPostersApi = crud('auto-posters')
 export const festivalPostersApi = crud('festival-posters')

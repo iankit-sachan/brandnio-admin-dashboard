@@ -66,7 +66,7 @@ const navSections: NavSection[] = [
       { label: 'Home Card Sections', icon: Grid3X3, path: '/posters/home-card-sections' },
       { label: 'All Posters', icon: Image, path: '/posters' },
       { label: 'Festival Posters', icon: PartyPopper, path: '/posters/festival' },
-      { label: 'Frame Posters', icon: Frame, path: '/posters/frames' },
+      { label: 'Frame Studio', icon: Frame, path: '/posters/frames' },
       { label: 'Business Posters', icon: Building2, path: '/posters/business' },
       { label: 'Business Category', icon: FolderOpen, path: '/posters/business-category' },
       { label: 'Create Tools', icon: PenTool, path: '/posters/create-tools' },
