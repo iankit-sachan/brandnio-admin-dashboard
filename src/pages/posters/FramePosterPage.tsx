@@ -89,6 +89,7 @@ const frameCategories = [
   { value: 'real_estate', label: 'Real Estate' },
   { value: 'education', label: 'Education' },
   { value: 'creative', label: 'Creative' },
+  { value: 'political', label: 'Political' },
 ]
 
 const elementTypes = [
