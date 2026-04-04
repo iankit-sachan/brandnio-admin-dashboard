@@ -11,6 +11,7 @@ import { postersApi, posterCategoriesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
+import QuickStats from '../../components/ui/QuickStats'
 import type { Poster, AspectRatio } from '../../types'
 
 interface FormState {
@@ -105,6 +106,7 @@ export default function PosterListPage() {
           <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
         </div>
       </div>
+      <QuickStats stats={[{ label: 'Total', count: totalCount }]} />
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
         <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />

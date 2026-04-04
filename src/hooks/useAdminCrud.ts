@@ -6,6 +6,7 @@
  *   const { data, loading, error, create, update, remove, refresh } = useAdminCrud(taglinesApi)
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { logActivity } from '../utils/activityLog'
 
 // Simple in-memory cache with 30s TTL to avoid re-fetching on tab navigation
 const CACHE_TTL = 30_000
@@ -101,6 +102,7 @@ export function useAdminCrud<T extends { id: number }>(
     const created = await apiService.create(item as Partial<T>)
     invalidateCache()
     setData(prev => [...prev, created])
+    logActivity('created', (apiService as { resourceName?: string }).resourceName || 'item', (item as Record<string, string>).name || (item as Record<string, string>).title || 'item')
     return created
   }, [apiService, invalidateCache])
 
@@ -108,6 +110,7 @@ export function useAdminCrud<T extends { id: number }>(
     const updated = await apiService.update(id, item as Partial<T>)
     invalidateCache()
     setData(prev => prev.map(d => d.id === id ? updated : d))
+    logActivity('updated', (apiService as { resourceName?: string }).resourceName || 'item', (item as Record<string, string>).name || (item as Record<string, string>).title || 'item')
     return updated
   }, [apiService, invalidateCache])
 
@@ -115,6 +118,7 @@ export function useAdminCrud<T extends { id: number }>(
     await apiService.delete(id)
     invalidateCache()
     setData(prev => prev.filter(d => d.id !== id))
+    logActivity('deleted', (apiService as { resourceName?: string }).resourceName || 'item', `ID ${id}`)
     return true
   }, [apiService, invalidateCache])
 

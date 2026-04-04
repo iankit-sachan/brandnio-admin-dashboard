@@ -8,6 +8,7 @@
  *           setPage, setSearch, create, update, remove, refresh } = useAdminPaginatedCrud(postersApi)
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { logActivity } from '../utils/activityLog'
 import type { PaginatedResponse } from '../services/admin-api'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,6 +98,7 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
 
   const create = useCallback(async (item: FormData): Promise<T | null> => {
     const created = await apiService.create(item as Partial<T>)
+    logActivity('created', (apiService as { resourceName?: string }).resourceName || 'item', (item as Record<string, string>).name || (item as Record<string, string>).title || 'item')
     // Refresh current page to show updated data
     fetchData(page, search)
     return created
@@ -104,12 +106,14 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
 
   const update = useCallback(async (id: number, item: FormData): Promise<T | null> => {
     const updated = await apiService.update(id, item as Partial<T>)
+    logActivity('updated', (apiService as { resourceName?: string }).resourceName || 'item', (item as Record<string, string>).name || (item as Record<string, string>).title || 'item')
     setData(prev => prev.map(d => d.id === id ? updated : d))
     return updated
   }, [apiService])
 
   const remove = useCallback(async (id: number): Promise<boolean> => {
     await apiService.delete(id)
+    logActivity('deleted', (apiService as { resourceName?: string }).resourceName || 'item', `ID ${id}`)
     // Refresh to update pagination counts
     fetchData(page, search)
     return true

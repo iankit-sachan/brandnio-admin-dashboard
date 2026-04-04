@@ -6,6 +6,7 @@ import {
   TrendingUp, FolderOpen, Trash2,
 } from 'lucide-react'
 import { KPICard } from '../components/ui/KPICard'
+import ActivityLogWidget from '../components/ui/ActivityLogWidget'
 import { dashboardApi } from '../services/admin-api'
 import { mockDashboardStats } from '../services/mock-data'
 import { formatNumber } from '../utils/formatters'
@@ -98,6 +99,9 @@ export default function DashboardPage() {
           )
         })}
       </div>
+
+      {/* Recent Activity Log */}
+      <ActivityLogWidget />
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

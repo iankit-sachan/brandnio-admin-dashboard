@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Menu, Users, Image, RotateCw, ChevronDown, LogOut } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import ClearCacheButton from '../ui/ClearCacheButton'
 
 export function TopBar() {
   const { logout } = useAuth()
@@ -45,8 +46,9 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* Right: Refresh + Admin profile */}
+      {/* Right: Publish + Refresh + Admin profile */}
       <div className="flex items-center gap-3">
+        <ClearCacheButton />
         <button
           onClick={handleRefresh}
           className="p-2 text-brand-text-muted hover:text-brand-text rounded-lg hover:bg-brand-dark-hover transition-colors"

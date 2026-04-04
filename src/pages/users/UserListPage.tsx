@@ -7,6 +7,7 @@ import { usersApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useToast } from '../../context/ToastContext'
 import { formatDate } from '../../utils/formatters'
+import QuickStats from '../../components/ui/QuickStats'
 import type { User } from '../../types'
 
 const PLACEHOLDER_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
@@ -109,6 +110,7 @@ export default function UserListPage() {
         <h1 className="text-2xl font-bold text-brand-text">Users</h1>
         <SearchInput value={search} onChange={setSearch} placeholder="Search users..." className="w-64" />
       </div>
+      <QuickStats stats={[{ label: 'Total', count: totalCount }]} />
       {loading ? (
         <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
       ) : (
