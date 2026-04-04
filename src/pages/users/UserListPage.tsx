@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { SearchInput } from '../../components/ui/SearchInput'
+import { Pagination } from '../../components/ui/Pagination'
 import { usersApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useToast } from '../../context/ToastContext'
 import { formatDate } from '../../utils/formatters'
 import type { User } from '../../types'
@@ -25,18 +26,13 @@ interface EditForm {
 
 export default function UserListPage() {
   const { addToast } = useToast()
-  const { data, loading, setData } = useAdminCrud<User>(usersApi)
-  const [search, setSearch] = useState('')
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, refresh } = useAdminPaginatedCrud<User>(usersApi)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [form, setForm] = useState<EditForm>({
     name: '', phone: '', avatar_url: '', plan: 'free',
     credits: 0, total_downloads: 0, total_shares: 0, is_premium: false,
   })
   const [saving, setSaving] = useState(false)
-
-  const filtered = data.filter(u =>
-    u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search)
-  )
 
   const openEditModal = (user: User) => {
     setEditingUser(user)
@@ -57,7 +53,7 @@ export default function UserListPage() {
     setSaving(true)
     try {
       const updated = await usersApi.update(editingUser.id, form)
-      setData(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...form } : u))
+      refresh()
       setEditingUser(null)
       addToast('User updated successfully')
     } catch {
@@ -117,7 +113,8 @@ export default function UserListPage() {
         <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
       ) : (
         <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-          <DataTable columns={columns} data={filtered} />
+          <DataTable columns={columns} data={data} />
+          <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
         </div>
       )}
 

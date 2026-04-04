@@ -3,10 +3,12 @@ import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { feedItemsApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import type { FeedItem } from '../../types'
 
 interface FormState {
@@ -45,15 +47,11 @@ const emptyForm: FormState = {
 
 export default function FeedItemListPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<FeedItem>(feedItemsApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<FeedItem>(feedItemsApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<FeedItem | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<FeedItem | null>(null)
-  const [search, setSearch] = useState('')
-  const [filterSectionType, setFilterSectionType] = useState('')
-  const [filterCategory, setFilterCategory] = useState('')
-  const [filterActive, setFilterActive] = useState('')
 
   const openAdd = () => {
     setEditingItem(null)
@@ -111,18 +109,6 @@ export default function FeedItemListPage() {
     }
   }
 
-  // Derive unique categories for filter
-  const uniqueCategories = [...new Set(data.map(d => d.category).filter(Boolean))]
-
-  // Filter data
-  const filtered = data.filter(item => {
-    if (search && !item.title.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterSectionType && item.section_type !== filterSectionType) return false
-    if (filterCategory && item.category !== filterCategory) return false
-    if (filterActive === 'active' && !item.is_active) return false
-    if (filterActive === 'inactive' && item.is_active) return false
-    return true
-  })
 
   const columns: Column<FeedItem>[] = [
     { key: 'title', title: 'Title', sortable: true },
@@ -147,36 +133,15 @@ export default function FeedItemListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Feed Items</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Feed Item</button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by title..."
-          className="bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-64"
-        />
-        <select value={filterSectionType} onChange={e => setFilterSectionType(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-          <option value="">All Sections</option>
-          <option value="trending">Trending</option>
-          <option value="inspiration">Inspiration</option>
-          <option value="category">Category</option>
-        </select>
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-          <option value="">All Categories</option>
-          {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={filterActive} onChange={e => setFilterActive(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search feed items..." className="w-64" />
+          <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Feed Item</button>
+        </div>
       </div>
 
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={filtered} />}
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Feed Item' : 'Add Feed Item'}>

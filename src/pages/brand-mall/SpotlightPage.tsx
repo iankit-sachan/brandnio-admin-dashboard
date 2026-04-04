@@ -26,7 +26,7 @@ const emptyForm: Omit<SpotlightCard, 'id'> = {
 
 export default function SpotlightPage() {
   const { addToast } = useToast()
-  const { items, loading, refresh, updateItem, createItem, deleteItem } = useAdminCrud<SpotlightCard>(mallSpotlightApi)
+  const { data: items, loading, refresh, update: updateItem, create: createItem, remove: deleteItemApi } = useAdminCrud<SpotlightCard>(mallSpotlightApi)
   const [editItem, setEditItem] = useState<SpotlightCard | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [isNew, setIsNew] = useState(false)
@@ -66,7 +66,7 @@ export default function SpotlightPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this spotlight card?')) return
     try {
-      await deleteItem(id)
+      await deleteItemApi(id)
       addToast('Deleted')
       refresh()
     } catch {
@@ -75,16 +75,16 @@ export default function SpotlightPage() {
   }
 
   const columns: Column<SpotlightCard>[] = [
-    { key: 'title', label: 'Title', render: r => <span className="font-medium">{r.title}</span> },
-    { key: 'icon_name', label: 'Icon' },
-    { key: 'cta_text', label: 'CTA' },
-    { key: 'sort_order', label: 'Order' },
-    { key: 'is_active', label: 'Active', render: r => (
+    { key: 'title', title: 'Title', render: r => <span className="font-medium">{r.title}</span> },
+    { key: 'icon_name', title: 'Icon' },
+    { key: 'cta_text', title: 'CTA' },
+    { key: 'sort_order', title: 'Order' },
+    { key: 'is_active', title: 'Active', render: r => (
       <span className={r.is_active ? 'text-green-600 font-bold' : 'text-red-500'}>
         {r.is_active ? 'Yes' : 'No'}
       </span>
     )},
-    { key: 'actions' as any, label: 'Actions', render: r => (
+    { key: 'actions' as any, title: 'Actions', render: r => (
       <div className="flex gap-2">
         <button onClick={() => openEdit(r)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Pencil size={16} /></button>
         <button onClick={() => handleDelete(r.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
@@ -102,10 +102,10 @@ export default function SpotlightPage() {
       </div>
       <p className="text-sm text-gray-500">Manage the spotlight cards shown below listings in Brand Mall.</p>
 
-      <DataTable columns={columns} data={items} loading={loading} emptyMessage="No spotlight cards yet" />
+      <DataTable columns={columns} data={items} loading={loading} />
 
       {editItem && (
-        <Modal title={isNew ? 'Add Spotlight Card' : 'Edit Spotlight Card'} onClose={() => setEditItem(null)}>
+        <Modal isOpen={!!editItem} title={isNew ? 'Add Spotlight Card' : 'Edit Spotlight Card'} onClose={() => setEditItem(null)}>
           <div className="space-y-3">
             <label className="block">
               <span className="text-xs text-gray-600">Title *</span>

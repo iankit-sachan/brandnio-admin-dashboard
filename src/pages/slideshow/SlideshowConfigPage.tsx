@@ -98,7 +98,7 @@ export default function SlideshowConfigPage() {
   )
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold">Slideshow Config (Image to Video)</h1>
       <p className="text-sm text-gray-500">Controls the Cinematic Studio feature in the Android app. Changes take effect on next app launch.</p>
 

@@ -13,7 +13,7 @@ interface FormState {
   business_name: string
   category: string
   quote: string
-  logo_url: string
+  logo_url: string | null
   sort_order: number
   is_active: boolean
 }

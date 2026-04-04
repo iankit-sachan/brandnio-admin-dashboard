@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, loading: true }))
     try {
       const user = await authApi.login(username, password)
-      localStorage.setItem('admin_auth', JSON.stringify({ token: user.token }))
+      localStorage.setItem('admin_auth', JSON.stringify({ token: user.token || 'session' }))
       localStorage.setItem('admin_user', user.username)
       localStorage.setItem('admin_email', user.email)
       setState({

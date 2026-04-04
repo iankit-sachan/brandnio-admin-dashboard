@@ -68,7 +68,7 @@ export default function WatermarkPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Watermark Settings</h1>
 
-      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-6 max-w-2xl">
+      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-6 max-w-3xl">
         <ImageUpload label="Watermark Image" value={imageUrl} onChange={v => setImageUrl(v)} />
 
         <div>

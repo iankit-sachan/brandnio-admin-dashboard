@@ -72,6 +72,8 @@ export const mockUsers: User[] = Array.from({ length: 20 }, (_, i) => ({
   credits: Math.floor(Math.random() * 500),
   is_active: true,
   is_deleted: false,
+  total_downloads: Math.floor(Math.random() * 200),
+  total_shares: Math.floor(Math.random() * 100),
   joined_at: `2025-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}T00:00:00Z`,
   updated_at: '2026-03-15T00:00:00Z',
 }))
@@ -232,7 +234,7 @@ export const mockServices: NearbyService[] = Array.from({ length: 10 }, (_, i) =
 
 
 export const mockStickerPacks: StickerPack[] = Array.from({ length: 8 }, (_, i) => ({
-  id: i + 1, name: `Sticker Pack ${i + 1}`, slug: `sticker-pack-${i + 1}`, cover_image_url: null, category: ['emoji', 'business', 'festival', 'fun'][i % 4], is_premium: i % 3 === 0, download_count: Math.floor(Math.random() * 5000), sort_order: i + 1, sticker_count: Math.floor(Math.random() * 20) + 5, is_active: true, created_at: '2025-06-01T00:00:00Z',
+  id: i + 1, name: `Sticker Pack ${i + 1}`, slug: `sticker-pack-${i + 1}`, description: `A fun sticker pack #${i + 1}`, cover_image_url: null, icon_url: null, category: ['emoji', 'business', 'festival', 'fun'][i % 4], tabs: 'all', is_premium: i % 3 === 0, download_count: Math.floor(Math.random() * 5000), sort_order: i + 1, sticker_count: Math.floor(Math.random() * 20) + 5, is_active: true, created_at: '2025-06-01T00:00:00Z', updated_at: '2025-06-01T00:00:00Z',
 }))
 
 

@@ -6,16 +6,34 @@ import api from './api'
 
 // ── Generic CRUD helper ──────────────────────────────────────────
 
+// Paginated response shape from DRF
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function crud<T = any>(resource: string) {
   const base = `/api/admin/${resource}/`
   return {
-    list:   (params?: Record<string, string>) => api.get(base, { params }).then(r => {
+    list:   (params?: Record<string, string | number | undefined>) => api.get(base, { params }).then(r => {
       const d = r.data
       // Handle both plain arrays and DRF paginated responses
       if (Array.isArray(d)) return d as T[]
       if (d && typeof d === 'object' && 'results' in d && Array.isArray(d.results)) return d.results as T[]
       return [] as T[]
+    }),
+    listPaginated: (params?: Record<string, string | number | undefined>) => api.get(base, { params }).then(r => {
+      const d = r.data
+      // Return full paginated response for pages that need pagination
+      if (d && typeof d === 'object' && 'results' in d) {
+        return d as PaginatedResponse<T>
+      }
+      // Wrap plain array in paginated shape
+      const arr = Array.isArray(d) ? d : []
+      return { count: arr.length, next: null, previous: null, results: arr as T[] }
     }),
     get:    (id: number) => api.get<T>(`${base}${id}/`).then(r => r.data),
     create: (data: Partial<T>) => api.post<T>(base, data).then(r => r.data),
@@ -39,7 +57,7 @@ export const uploadApi = {
 
 export const authApi = {
   login:  (username: string, password: string) =>
-    api.post<{ username: string; email: string }>('/api/admin/login/', { username, password }).then(r => r.data),
+    api.post<{ username: string; email: string; token?: string }>('/api/admin/login/', { username, password }).then(r => r.data),
   logout: () => api.post('/api/admin/logout/').then(r => r.data),
   me:     () => api.get<{ username: string; email: string }>('/api/admin/me/').then(r => r.data),
 }
@@ -156,10 +174,10 @@ export const homeCardSectionsApi = crud<any>('home-card-sections')
 export const promoAnnouncementsApi = crud<any>('promo-announcements')
 
 // ── BG Removal ───────────────────────────────────────────────────
-export const bgRemovalCreditsApi = crud('bg-credit-plans')
-export const bgRemovalFaqsApi = crud('bg-faqs')
+export const bgRemovalCreditsApi = crud('credit-plans')
+export const bgRemovalFaqsApi = crud('bg-removal-faqs')
 export const bgRemovalBannersApi = crud('bg-removal-banners')
-export const bgRemovalTestimonialsApi = crud('bg-testimonials')
+export const bgRemovalTestimonialsApi = crud('bg-removal-testimonials')
 
 // ── Create Tools ────────────────────────────────────────────────
 export const createToolsApi = crud('create-tools')
@@ -189,3 +207,32 @@ export const feedConfigApi = {
   get: () => api.get('/api/admin/feed-config/1/').then(r => r.data),
   update: (data: any) => api.patch('/api/admin/feed-config/1/', data).then(r => r.data),
 }
+
+// ── Card Wizard ─────────────────────────────────────────────
+export const wizardConfigsApi = crud('wizard-configs')
+export const wizardFeaturesApi = crud('wizard-features')
+export const wizardFormFieldsApi = crud('wizard-form-fields')
+export const wizardSocialChannelsApi = crud('wizard-social-channels')
+export const wizardPaymentGatewaysApi = crud('wizard-payment-gateways')
+export const userCardDataApi = crud('user-card-data')
+
+// ── Logo Maker ──────────────────────────────────────────────
+export const logoConfigsApi = crud('logo-configs')
+export const logoIndustriesApi = crud('logo-industries')
+export const logoStylesApi = crud('logo-styles')
+export const logoColorsApi = crud('logo-colors')
+export const userLogosApi = crud('user-logos')
+
+// ── Collage ─────────────────────────────────────────────────
+export const collageConfigApi = crud('collage-config')
+export const collageLayoutsApi = crud('collage-layouts')
+export const collageAspectRatiosApi = crud('collage-aspect-ratios')
+export const collageEditorTabsApi = crud('collage-editor-tabs')
+
+// ── Business & Misc ─────────────────────────────────────────
+export const businessIndustriesApi = crud('business-industries')
+export const socialPlatformsApi = crud('social-platforms')
+export const businessSetupConfigApi = crud('business-setup-config')
+export const contactConfigApi = crud('contact-config')
+export const languageOptionsApi = crud('language-options')
+export const formatCategoriesApi = crud('format-categories')

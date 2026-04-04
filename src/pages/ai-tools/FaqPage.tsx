@@ -56,24 +56,24 @@ export default function FaqPage() {
 
   const handleSave = async () => {
     if (!form.question.trim() || !form.answer.trim()) {
-      addToast({ type: 'error', message: 'Question and answer are required' })
+      addToast('Question and answer are required', 'error')
       return
     }
     try {
       if (editingItem) await update(editingItem.id, form)
       else await create(form)
-      addToast({ type: 'success', message: editingItem ? 'FAQ updated' : 'FAQ created' })
+      addToast(editingItem ? 'FAQ updated' : 'FAQ created', 'success')
       setModalOpen(false)
-    } catch { addToast({ type: 'error', message: 'Save failed' }) }
+    } catch { addToast('Save failed', 'error') }
   }
 
   const handleDelete = async () => {
     if (!deleteItem) return
     try {
       await remove(deleteItem.id)
-      addToast({ type: 'success', message: 'FAQ deleted' })
+      addToast('FAQ deleted', 'success')
       setDeleteItem(null)
-    } catch { addToast({ type: 'error', message: 'Delete failed' }) }
+    } catch { addToast('Delete failed', 'error') }
   }
 
   const actions = (item: FaqItem) => (

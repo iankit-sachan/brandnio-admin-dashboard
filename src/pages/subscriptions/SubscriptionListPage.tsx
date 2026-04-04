@@ -1,7 +1,9 @@
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { StatusBadge } from '../../components/ui/StatusBadge'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { subscriptionsApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import type { Subscription } from '../../types'
 
@@ -15,16 +17,20 @@ const columns: Column<Subscription>[] = [
 ]
 
 export default function SubscriptionListPage() {
-  const { data, loading } = useAdminCrud<Subscription>(subscriptionsApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch } = useAdminPaginatedCrud<Subscription>(subscriptionsApi)
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-brand-text">Payments & Subscriptions</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-brand-text">Payments & Subscriptions</h1>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions..." className="w-64" />
+      </div>
       {loading ? (
         <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
       ) : (
         <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
           <DataTable columns={columns} data={data} />
+          <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
         </div>
       )}
     </div>

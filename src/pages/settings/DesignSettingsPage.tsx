@@ -64,7 +64,7 @@ export default function DesignSettingsPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-brand-text">Design Settings</h1>
 
-      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-6 max-w-2xl">
+      <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-6 max-w-3xl">
         <div>
           <label className="block text-sm font-medium text-brand-text-muted mb-1.5">App Primary Color</label>
           <div className="flex items-center gap-3">

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Users, CreditCard, XCircle, Briefcase, Landmark,
   Image, PartyPopper, Frame, Building2, FolderOpen,
@@ -20,6 +20,11 @@ import {
   IdCard, GalleryHorizontalEnd, LayoutList, Maximize2,
   ChevronRight, ChevronDown, Home, Rss,
   Receipt,
+  CreditCard as CardIcon, Share2, FormInput, Wallet,
+  Paintbrush, Factory, Gem, Pipette,
+  LayoutGrid, RatioIcon, SlidersHorizontal,
+  Globe, Languages, FolderKanban,
+  Database,
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
@@ -182,6 +187,57 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: 'CARD WIZARD',
+    defaultOpen: false,
+    items: [
+      { label: 'Wizard Configs', icon: Settings, path: '/card-wizard/configs' },
+      { label: 'Wizard Features', icon: Gem, path: '/card-wizard/features' },
+      { label: 'Form Fields', icon: FormInput, path: '/card-wizard/form-fields' },
+      { label: 'Social Channels', icon: Share2, path: '/card-wizard/social-channels' },
+      { label: 'Payment Gateways', icon: Wallet, path: '/card-wizard/payment-gateways' },
+      { label: 'User Card Data', icon: Database, path: '/card-wizard/user-data' },
+    ],
+  },
+  {
+    title: 'LOGO MAKER',
+    defaultOpen: false,
+    items: [
+      { label: 'Logo Configs', icon: Settings, path: '/logo-maker/configs' },
+      { label: 'Logo Industries', icon: Factory, path: '/logo-maker/industries' },
+      { label: 'Logo Styles', icon: Paintbrush, path: '/logo-maker/styles' },
+      { label: 'Logo Colors', icon: Pipette, path: '/logo-maker/colors' },
+      { label: 'User Logos', icon: Database, path: '/logo-maker/user-logos' },
+    ],
+  },
+  {
+    title: 'COLLAGE',
+    defaultOpen: false,
+    items: [
+      { label: 'Collage Config', icon: Settings, path: '/collage/config' },
+      { label: 'Collage Layouts', icon: LayoutGrid, path: '/collage/layouts' },
+      { label: 'Aspect Ratios', icon: RatioIcon, path: '/collage/aspect-ratios' },
+      { label: 'Editor Tabs', icon: SlidersHorizontal, path: '/collage/editor-tabs' },
+    ],
+  },
+  {
+    title: 'BUSINESS',
+    defaultOpen: false,
+    items: [
+      { label: 'Business Industries', icon: Factory, path: '/business/industries' },
+      { label: 'Social Platforms', icon: Globe, path: '/business/social-platforms' },
+      { label: 'Setup Config', icon: Settings, path: '/business/setup-config' },
+    ],
+  },
+  {
+    title: 'MISC',
+    defaultOpen: false,
+    items: [
+      { label: 'Contact Config', icon: Mail, path: '/misc/contact-config' },
+      { label: 'Languages', icon: Languages, path: '/misc/languages' },
+      { label: 'Format Categories', icon: FolderKanban, path: '/misc/format-categories' },
+    ],
+  },
+  {
     title: 'SETTINGS',
     defaultOpen: false,
     items: [
@@ -199,15 +255,47 @@ const navSections: NavSection[] = [
   },
 ]
 
-const DEFAULT_OPEN = new Set(
-  navSections.filter(s => s.defaultOpen).map(s => s.title)
-)
+/** Check if a section contains a link matching the current path */
+function sectionContainsPath(section: NavSection, pathname: string): boolean {
+  return section.items.some(item =>
+    item.path === '/'
+      ? pathname === '/'
+      : pathname === item.path || pathname.startsWith(item.path + '/')
+  )
+}
+
+function computeOpenSections(pathname: string): Set<string> {
+  const open = new Set<string>()
+  for (const section of navSections) {
+    if (section.defaultOpen || sectionContainsPath(section, pathname)) {
+      open.add(section.title)
+    }
+  }
+  return open
+}
 
 export function Sidebar() {
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
-  const [openSections, setOpenSections] = useState<Set<string>>(DEFAULT_OPEN)
+  const [openSections, setOpenSections] = useState<Set<string>>(() =>
+    computeOpenSections(location.pathname)
+  )
   const { logout } = useAuth()
   const navigate = useNavigate()
+
+  // Auto-expand section when navigating to a link inside a collapsed section
+  useEffect(() => {
+    for (const section of navSections) {
+      if (sectionContainsPath(section, location.pathname) && !openSections.has(section.title)) {
+        setOpenSections(prev => {
+          const next = new Set(prev)
+          next.add(section.title)
+          return next
+        })
+        break
+      }
+    }
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()

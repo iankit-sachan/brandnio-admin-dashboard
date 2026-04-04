@@ -29,7 +29,7 @@ export default function SendNotificationPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold text-brand-text">Send Notification</h1>
       <form onSubmit={handleSend} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-4">
         <ImageUpload label="Notification Image (optional)" value={imageUrl} onChange={v => setImageUrl(v)} />

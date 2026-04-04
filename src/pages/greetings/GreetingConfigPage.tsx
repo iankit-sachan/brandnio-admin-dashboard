@@ -53,7 +53,7 @@ export default function GreetingConfigPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold text-brand-text">Greeting Config</h1>
 
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-5">

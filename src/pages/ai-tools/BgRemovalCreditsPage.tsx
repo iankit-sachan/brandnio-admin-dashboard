@@ -61,18 +61,18 @@ export default function BgRemovalCreditsPage() {
     try {
       if (editingItem) await update(editingItem.id, form)
       else await create(form)
-      addToast({ type: 'success', message: editingItem ? 'Plan updated' : 'Plan created' })
+      addToast(editingItem ? 'Plan updated' : 'Plan created', 'success')
       setModalOpen(false)
-    } catch { addToast({ type: 'error', message: 'Save failed' }) }
+    } catch { addToast('Save failed', 'error') }
   }
 
   const handleDelete = async () => {
     if (!deleteItem) return
     try {
       await remove(deleteItem.id)
-      addToast({ type: 'success', message: 'Plan deleted' })
+      addToast('Plan deleted', 'success')
       setDeleteItem(null)
-    } catch { addToast({ type: 'error', message: 'Delete failed' }) }
+    } catch { addToast('Delete failed', 'error') }
   }
 
   const actions = (item: CreditPlan) => (

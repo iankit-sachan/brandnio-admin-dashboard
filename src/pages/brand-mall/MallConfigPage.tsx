@@ -56,7 +56,7 @@ export default function MallConfigPage() {
   if (loading) return <div className="p-8 text-center text-gray-500">Loading config...</div>
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <h1 className="text-2xl font-bold">Brand Mall Config</h1>
       <p className="text-sm text-gray-500">Controls the Brand Mall hero banner, header, and global settings. Changes reflect instantly in the app.</p>
 

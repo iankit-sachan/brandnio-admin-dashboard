@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { ToastContainer } from './components/ui/Toast'
@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
 // Auth
 const LoginPage = lazy(() => import('./pages/LoginPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // Main
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -145,6 +146,37 @@ const WatermarkPage = lazy(() => import('./pages/settings/WatermarkPage'))
 const DesignSettingsPage = lazy(() => import('./pages/settings/DesignSettingsPage'))
 const PoliciesPage = lazy(() => import('./pages/settings/PoliciesPage'))
 const DeleteRequestsPage = lazy(() => import('./pages/settings/DeleteRequestsPage'))
+
+// Card Wizard
+const WizardConfigsPage = lazy(() => import('./pages/card-wizard/WizardConfigsPage'))
+const WizardFeaturesPage = lazy(() => import('./pages/card-wizard/WizardFeaturesPage'))
+const WizardFormFieldsPage = lazy(() => import('./pages/card-wizard/WizardFormFieldsPage'))
+const WizardSocialChannelsPage = lazy(() => import('./pages/card-wizard/WizardSocialChannelsPage'))
+const WizardPaymentGatewaysPage = lazy(() => import('./pages/card-wizard/WizardPaymentGatewaysPage'))
+const UserCardDataPage = lazy(() => import('./pages/card-wizard/UserCardDataPage'))
+
+// Logo Maker
+const LogoConfigsPage = lazy(() => import('./pages/logo-maker/LogoConfigsPage'))
+const LogoIndustriesPage = lazy(() => import('./pages/logo-maker/LogoIndustriesPage'))
+const LogoStylesPage = lazy(() => import('./pages/logo-maker/LogoStylesPage'))
+const LogoColorsPage = lazy(() => import('./pages/logo-maker/LogoColorsPage'))
+const UserLogosPage = lazy(() => import('./pages/logo-maker/UserLogosPage'))
+
+// Collage
+const CollageConfigPage = lazy(() => import('./pages/collage/CollageConfigPage'))
+const CollageLayoutsPage = lazy(() => import('./pages/collage/CollageLayoutsPage'))
+const CollageAspectRatiosPage = lazy(() => import('./pages/collage/CollageAspectRatiosPage'))
+const CollageEditorTabsPage = lazy(() => import('./pages/collage/CollageEditorTabsPage'))
+
+// Business
+const BusinessIndustriesPage = lazy(() => import('./pages/business/BusinessIndustriesPage'))
+const SocialPlatformsPage = lazy(() => import('./pages/business/SocialPlatformsPage'))
+const BusinessSetupConfigPage = lazy(() => import('./pages/business/BusinessSetupConfigPage'))
+
+// Misc
+const ContactConfigPage = lazy(() => import('./pages/misc/ContactConfigPage'))
+const LanguageOptionsPage = lazy(() => import('./pages/misc/LanguageOptionsPage'))
+const FormatCategoriesPage = lazy(() => import('./pages/misc/FormatCategoriesPage'))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -291,8 +323,39 @@ export default function App() {
                 <Route path="/settings/design" element={<DesignSettingsPage />} />
                 <Route path="/settings/policies" element={<PoliciesPage />} />
                 <Route path="/settings/delete-requests" element={<DeleteRequestsPage />} />
+
+                {/* Card Wizard */}
+                <Route path="/card-wizard/configs" element={<WizardConfigsPage />} />
+                <Route path="/card-wizard/features" element={<WizardFeaturesPage />} />
+                <Route path="/card-wizard/form-fields" element={<WizardFormFieldsPage />} />
+                <Route path="/card-wizard/social-channels" element={<WizardSocialChannelsPage />} />
+                <Route path="/card-wizard/payment-gateways" element={<WizardPaymentGatewaysPage />} />
+                <Route path="/card-wizard/user-data" element={<UserCardDataPage />} />
+
+                {/* Logo Maker */}
+                <Route path="/logo-maker/configs" element={<LogoConfigsPage />} />
+                <Route path="/logo-maker/industries" element={<LogoIndustriesPage />} />
+                <Route path="/logo-maker/styles" element={<LogoStylesPage />} />
+                <Route path="/logo-maker/colors" element={<LogoColorsPage />} />
+                <Route path="/logo-maker/user-logos" element={<UserLogosPage />} />
+
+                {/* Collage */}
+                <Route path="/collage/config" element={<CollageConfigPage />} />
+                <Route path="/collage/layouts" element={<CollageLayoutsPage />} />
+                <Route path="/collage/aspect-ratios" element={<CollageAspectRatiosPage />} />
+                <Route path="/collage/editor-tabs" element={<CollageEditorTabsPage />} />
+
+                {/* Business */}
+                <Route path="/business/industries" element={<BusinessIndustriesPage />} />
+                <Route path="/business/social-platforms" element={<SocialPlatformsPage />} />
+                <Route path="/business/setup-config" element={<BusinessSetupConfigPage />} />
+
+                {/* Misc */}
+                <Route path="/misc/contact-config" element={<ContactConfigPage />} />
+                <Route path="/misc/languages" element={<LanguageOptionsPage />} />
+                <Route path="/misc/format-categories" element={<FormatCategoriesPage />} />
               </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </SuspenseWrapper>
         </ToastProvider>

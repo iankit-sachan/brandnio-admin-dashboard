@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
 import { Trash2 } from 'lucide-react'
 import { productsApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import type { Product } from '../../types'
 
 export default function ProductListPage() {
   const { addToast } = useToast()
-  const { data, loading, remove } = useAdminCrud<Product>(productsApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, remove } = useAdminPaginatedCrud<Product>(productsApi)
   const [deleteItem, setDeleteItem] = useState<Product | null>(null)
 
   const handleDelete = async () => {
@@ -41,12 +43,16 @@ export default function ProductListPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-text">Products</h1>
-        <p className="text-sm text-brand-text-muted mt-1">User-created products for ad generation</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-text">Products</h1>
+          <p className="text-sm text-brand-text-muted mt-1">User-created products for ad generation</p>
+        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search products..." className="w-64" />
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Product" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />

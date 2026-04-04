@@ -3,10 +3,12 @@ import { FileUpload } from '../../components/ui/FileUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { musicTracksApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import type { MusicTrack, MusicCategory } from '../../types'
 
 interface FormState {
@@ -21,7 +23,7 @@ const emptyForm: FormState = { file_url: null, name: '', duration: 30, category:
 
 export default function MusicTrackListPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<MusicTrack>(musicTracksApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<MusicTrack>(musicTracksApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MusicTrack | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -85,10 +87,14 @@ export default function MusicTrackListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Music Tracks</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Track</button>
+        <div className="flex items-center gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search tracks..." className="w-64" />
+          <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Track</button>
+        </div>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Track' : 'Add Track'}>

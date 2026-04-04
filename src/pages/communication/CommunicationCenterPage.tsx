@@ -112,7 +112,7 @@ export default function CommunicationCenterPage() {
       </div>
 
       {activeTab === 'send' && (
-        <form onSubmit={handleSend} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-4 max-w-2xl">
+        <form onSubmit={handleSend} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 space-y-4 max-w-3xl">
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Notification title..." className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />

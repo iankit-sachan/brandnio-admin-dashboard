@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2, Search } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { customersApi } from '../../services/admin-api'
-import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import type { Customer } from '../../types'
 
 interface FormState {
@@ -20,18 +22,11 @@ const emptyForm: FormState = { name: '', phone: '', dob: '', anniversary: '', no
 
 export default function CustomerListPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<Customer>(customersApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Customer>(customersApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Customer | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<Customer | null>(null)
-  const [search, setSearch] = useState('')
-
-  const filtered = data.filter(c => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q)
-  })
 
   const openAdd = () => {
     setEditingItem(null)
@@ -106,15 +101,13 @@ export default function CustomerListPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Customers</h1>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone..." className="pl-10 pr-4 py-2 bg-brand-dark border border-brand-dark-border rounded-lg text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-64" />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by name or phone..." className="w-64" />
           <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Customer</button>
         </div>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={filtered} />}
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Customer' : 'Add Customer'}>

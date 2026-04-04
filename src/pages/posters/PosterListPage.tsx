@@ -3,9 +3,12 @@ import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Pagination } from '../../components/ui/Pagination'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { postersApi, posterCategoriesApi } from '../../services/admin-api'
+import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
 import type { Poster, AspectRatio } from '../../types'
@@ -23,7 +26,7 @@ const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', 
 
 export default function PosterListPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<Poster>(postersApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi)
   const { data: categories } = useAdminCrud(posterCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Poster | null>(null)
@@ -72,6 +75,13 @@ export default function PosterListPage() {
   }
 
   const columns: Column<Poster>[] = [
+    { key: 'thumbnail_url', title: 'Image', render: (p) => (
+      p.thumbnail_url || p.image_url ? (
+        <img src={p.thumbnail_url || p.image_url || ''} alt={p.title} className="w-12 h-12 rounded object-cover" />
+      ) : (
+        <div className="w-12 h-12 rounded bg-gray-700 flex items-center justify-center text-gray-400 text-xs">No img</div>
+      )
+    )},
     { key: 'title', title: 'Title', sortable: true },
     { key: 'category_name', title: 'Category', sortable: true },
     { key: 'aspect_ratio', title: 'Ratio' },
@@ -90,10 +100,14 @@ export default function PosterListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Poster Templates</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
+        <div className="flex items-center gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search posters..." className="w-64" />
+          <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
+        </div>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Poster' : 'Add Poster'}>
