@@ -761,7 +761,7 @@ export default function FramePosterPage() {
               </div>
               {/* Color preview */}
               <div className="flex gap-1 mt-2">
-                {(frame.config_json?.style?.colors || []).slice(0, 5).map((c, i) => (
+                {(frame.config_json?.style?.colors || []).slice(0, 5).map((c: string, i: number) => (
                   <div key={i} className="w-4 h-4 rounded-full border border-brand-dark-border" style={{ backgroundColor: c }} />
                 ))}
               </div>
