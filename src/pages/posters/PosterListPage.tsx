@@ -6,7 +6,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Layers } from 'lucide-react'
+import TemplateLayerEditor from './TemplateLayerEditor'
 import { postersApi, posterCategoriesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
@@ -33,6 +34,7 @@ export default function PosterListPage() {
   const [editingItem, setEditingItem] = useState<Poster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<Poster | null>(null)
+  const [layerEditorPoster, setLayerEditorPoster] = useState<Poster | null>(null)
 
   const openAdd = () => {
     setEditingItem(null)
@@ -75,6 +77,11 @@ export default function PosterListPage() {
     }
   }
 
+  const handleSaveTemplateLayers = async (posterId: number, templateData: { layers: unknown[] }) => {
+    await update(posterId, { template_data: templateData } as any)
+    setLayerEditorPoster(null)
+  }
+
   const columns: Column<Poster>[] = [
     { key: 'thumbnail_url', title: 'Image', render: (p) => (
       p.thumbnail_url || p.image_url ? (
@@ -86,13 +93,20 @@ export default function PosterListPage() {
     { key: 'title', title: 'Title', sortable: true },
     { key: 'category_name', title: 'Category', sortable: true },
     { key: 'aspect_ratio', title: 'Ratio' },
+    { key: 'template_data', title: 'Layers', render: (p) => {
+      const count = ((p.template_data as any)?.layers as unknown[])?.length || 0
+      return count > 0
+        ? <span className="px-2 py-0.5 rounded-full text-xs bg-brand-gold/10 text-brand-gold">{count} layers</span>
+        : <span className="text-brand-text-muted text-xs">None</span>
+    }},
     { key: 'is_premium', title: 'Premium', render: (p) => p.is_premium ? <span className="text-brand-gold">Premium</span> : <span className="text-brand-text-muted">Free</span> },
     { key: 'download_count', title: 'Downloads', sortable: true, render: (p) => formatNumber(p.download_count as number) },
     { key: 'share_count', title: 'Shares', sortable: true, render: (p) => formatNumber(p.share_count as number) },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
-        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
-        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); setLayerEditorPoster(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit Layers"><Layers className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
       </div>
     )},
   ]
@@ -155,6 +169,15 @@ export default function PosterListPage() {
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Poster" message={`Are you sure you want to delete "${deleteItem?.title}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+
+      {layerEditorPoster && (
+        <TemplateLayerEditor
+          isOpen={!!layerEditorPoster}
+          onClose={() => setLayerEditorPoster(null)}
+          poster={layerEditorPoster}
+          onSave={handleSaveTemplateLayers}
+        />
+      )}
     </div>
   )
 }
