@@ -4,6 +4,7 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
 import { posterFramesApi } from '../../services/admin-api'
+import api from '../../services/api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 
 // ── Types matching Django PosterFrame model ────────────────────
@@ -445,6 +446,8 @@ export default function FramePosterPage() {
   const [deleteItem, setDeleteItem] = useState<PosterFrame | null>(null)
   const [jsonMode, setJsonMode] = useState(false)
   const [jsonText, setJsonText] = useState('')
+  const [frameFile, setFrameFile] = useState<File | null>(null)
+  const [framePreviewUrl, setFramePreviewUrl] = useState<string>('')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -466,6 +469,8 @@ export default function FramePosterPage() {
     setEditingItem(null)
     setForm({ ...emptyForm })
     setJsonMode(false)
+    setFrameFile(null)
+    setFramePreviewUrl('')
     setModalOpen(true)
   }
 
@@ -484,6 +489,8 @@ export default function FramePosterPage() {
       thumbnail_url: item.thumbnail_url || '',
     })
     setJsonMode(false)
+    setFrameFile(null)
+    setFramePreviewUrl('')
     setModalOpen(true)
   }
 
@@ -516,6 +523,41 @@ export default function FramePosterPage() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
+
+    if (frameFile) {
+      // File upload: use FormData
+      const fd = new FormData()
+      fd.append('frame_image', frameFile)
+      fd.append('name', form.name)
+      fd.append('type', form.type)
+      fd.append('category', form.category)
+      fd.append('aspect_ratio', form.aspect_ratio)
+      fd.append('is_premium', String(form.is_premium))
+      fd.append('is_active', String(form.is_active))
+      fd.append('sort_order', String(form.sort_order))
+
+      try {
+        if (editingItem) {
+          await api.patch(`/api/admin/poster-frames/${editingItem.id}/`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        } else {
+          await api.post('/api/admin/poster-frames/', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        }
+        addToast(editingItem ? 'Frame updated' : 'Frame created')
+        setModalOpen(false)
+        setEditingItem(null)
+        setFrameFile(null)
+        setFramePreviewUrl('')
+        // Refresh data
+        window.location.reload()
+      } catch (err: any) {
+        addToast(err?.response?.data?.detail || 'Save failed', 'error')
+      }
+      return
+    }
 
     // If JSON mode, parse JSON
     let configToSave = form.config_json
@@ -780,6 +822,25 @@ export default function FramePosterPage() {
                   {form.thumbnail_url && (
                     <img src={form.thumbnail_url} alt="Preview" className="mt-2 h-20 rounded border border-brand-dark-border object-contain" />
                   )}
+                </div>
+                <div className="col-span-2">
+                  <label className={labelClass}>Upload Frame PNG</label>
+                  <input
+                    type="file"
+                    accept="image/png"
+                    onChange={e => {
+                      const file = e.target.files?.[0] || null
+                      setFrameFile(file)
+                      if (file) {
+                        setFramePreviewUrl(URL.createObjectURL(file))
+                      }
+                    }}
+                    className={inputClass}
+                  />
+                  {framePreviewUrl && (
+                    <img src={framePreviewUrl} alt="Frame preview" className="mt-2 h-32 rounded border border-brand-dark-border object-contain" />
+                  )}
+                  <p className="text-xs text-brand-text-muted mt-1">Upload PNG overlay. Config will be auto-generated from image dimensions.</p>
                 </div>
                 <div className="flex items-center gap-4 pt-5">
                   <label className="flex items-center gap-2 text-sm text-brand-text cursor-pointer">
