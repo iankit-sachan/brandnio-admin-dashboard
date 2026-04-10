@@ -38,15 +38,8 @@ function crud<T = any>(resource: string) {
     get:    (id: number) => api.get<T>(`${base}${id}/`).then(r => r.data),
     create: (data: Partial<T>) => api.post<T>(base, data).then(r => r.data),
     update: (id: number, data: Partial<T>) => api.patch<T>(`${base}${id}/`, data).then(r => r.data),
-    delete: (id: number) => api.delete(`${base}${id}/`).then(r => r.data).catch(err => {
-      // 204 No Content is success for DELETE — don't reject
-      if (err?.response?.status === 204) return null
-      throw err
-    }),
-    bulkDelete: (ids: number[]) => Promise.all(ids.map(id => api.delete(`${base}${id}/`).catch(err => {
-      if (err?.response?.status === 204) return null
-      throw err
-    }))),
+    delete: (id: number) => api.delete(`${base}${id}/`).then(r => r.data ?? null),
+    bulkDelete: (ids: number[]) => Promise.all(ids.map(id => api.delete(`${base}${id}/`).then(r => r.data ?? null))),
   }
 }
 

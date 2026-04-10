@@ -33,7 +33,7 @@ export default function MallListingModerationPage() {
   const handleEditSubmit = async () => {
     if (!editingItem) return
     try {
-      await update(editingItem.id, { images: editForm.image_url ? [editForm.image_url, ...editingItem.images.slice(1)] : editingItem.images, title: editForm.title, is_featured: editForm.is_featured } as Partial<MallListing>)
+      await update(editingItem.id, { images: editForm.image_url ? [editForm.image_url, ...(editingItem.images?.slice(1) || [])] : editingItem.images, title: editForm.title, is_featured: editForm.is_featured } as Partial<MallListing>)
       addToast('Listing updated successfully')
       setEditModalOpen(false)
     } catch {

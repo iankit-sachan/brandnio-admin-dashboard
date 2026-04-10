@@ -1,8 +1,14 @@
 import { format, formatDistanceToNow } from 'date-fns'
 
-export function formatDate(date: string | null): string {
+export function formatDate(date: string | null | undefined): string {
   if (!date) return '—'
-  return format(new Date(date), 'dd MMM yyyy')
+  try {
+    const d = new Date(date)
+    if (isNaN(d.getTime())) return '—'
+    return format(d, 'dd MMM yyyy')
+  } catch {
+    return '—'
+  }
 }
 
 export function formatDateTime(date: string | null): string {

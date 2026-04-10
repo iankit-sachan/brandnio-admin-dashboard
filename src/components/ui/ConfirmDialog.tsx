@@ -20,10 +20,15 @@ export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, conf
     if (!isOpen) setConfirming(false)
   }, [isOpen])
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (confirming) return
     setConfirming(true)
-    onConfirm()
+    try {
+      await onConfirm()
+    } catch { /* caller handles */ }
+    finally {
+      setConfirming(false)
+    }
   }
 
   return (

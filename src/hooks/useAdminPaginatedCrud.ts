@@ -89,7 +89,10 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
 
   const setSearch = useCallback((q: string) => {
     setSearchRaw(q)
-    setPage(1) // Reset to first page on search change
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = window.setTimeout(() => {
+      setPage(1)
+    }, 300)
   }, [])
 
   const refresh = useCallback(() => {

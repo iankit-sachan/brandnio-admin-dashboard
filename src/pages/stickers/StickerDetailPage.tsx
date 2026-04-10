@@ -46,6 +46,7 @@ export default function StickerDetailPage() {
   const [deleteItem, setDeleteItem] = useState<Sticker | null>(null)
 
   const fetchStickers = () => {
+    if (!packId) return
     setLoading(true)
     api.get(`/api/admin/stickers/?pack=${packId}`).then(res => {
       const items = Array.isArray(res.data) ? res.data : res.data.results || []

@@ -65,7 +65,7 @@ export default function GreetingTemplateListPage() {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
     const payload = {
       ...form,
-      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+      tags: (form.tags || '').split(',').map(t => t.trim()).filter(Boolean),
     }
     try {
       if (editingItem) {

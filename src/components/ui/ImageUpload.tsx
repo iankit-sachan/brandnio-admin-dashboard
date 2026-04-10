@@ -34,7 +34,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
       return
     }
     setUploading(true)
-    setError(null)
+    setError('')
     try {
       const url = await uploadApi.upload(file)
       onChange(url)
@@ -42,6 +42,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
       setError('Upload failed')
     } finally {
       setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
