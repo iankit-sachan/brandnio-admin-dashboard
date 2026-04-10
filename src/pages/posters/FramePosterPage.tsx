@@ -501,10 +501,12 @@ export default function FramePosterPage() {
         type: item.type,
         category: item.category,
         is_premium: item.is_premium,
-        is_active: false,
+        is_active: true,
         sort_order: item.sort_order + 1,
         color_preset: item.color_preset,
         config_json: item.config_json,
+        aspect_ratio: item.aspect_ratio,
+        thumbnail_url: item.thumbnail_url,
       } as Partial<PosterFrame>)
       addToast('Frame duplicated!')
     } catch {
