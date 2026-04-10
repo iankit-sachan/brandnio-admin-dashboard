@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2, Layers } from 'lucide-react'
+import { Pencil, Trash2, Layers, CheckSquare } from 'lucide-react'
 import TemplateLayerEditor from './TemplateLayerEditor'
 import { postersApi, posterCategoriesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
@@ -35,6 +35,41 @@ export default function PosterListPage() {
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<Poster | null>(null)
   const [layerEditorPoster, setLayerEditorPoster] = useState<Poster | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === data.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(data.map(d => d.id)))
+    }
+  }, [data, selectedIds.size])
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    try {
+      const ids = Array.from(selectedIds)
+      await Promise.all(ids.map(id => remove(id).catch(() => null)))
+      addToast(`Deleted ${ids.length} posters`)
+      setSelectedIds(new Set())
+      setBulkDeleteOpen(false)
+    } catch {
+      addToast('Some deletes failed', 'error')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   const openAdd = () => {
     setEditingItem(null)
@@ -83,6 +118,9 @@ export default function PosterListPage() {
   }
 
   const columns: Column<Poster>[] = [
+    { key: 'select' as any, title: '', render: (p) => (
+      <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded cursor-pointer" onClick={e => e.stopPropagation()} />
+    )},
     { key: 'thumbnail_url', title: 'Image', render: (p) => (
       p.thumbnail_url || p.image_url ? (
         <img src={p.thumbnail_url || p.image_url || ''} alt={p.title} className="w-12 h-12 rounded object-cover" />
@@ -120,6 +158,20 @@ export default function PosterListPage() {
           <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-brand-dark-card rounded-xl border border-brand-gold/30">
+          <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-brand-text hover:text-brand-gold transition-colors">
+            <CheckSquare className="h-4 w-4" />
+            {selectedIds.size === data.length ? 'Deselect All' : 'Select All'}
+          </button>
+          <span className="text-sm text-brand-text-muted">{selectedIds.size} selected</span>
+          <button onClick={() => setBulkDeleteOpen(true)} className="ml-auto px-4 py-1.5 bg-status-error text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2">
+            <Trash2 className="h-4 w-4" /> Delete Selected
+          </button>
+        </div>
+      )}
       <QuickStats stats={[{ label: 'Total', count: totalCount }]} />
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
@@ -169,6 +221,8 @@ export default function PosterListPage() {
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Poster" message={`Are you sure you want to delete "${deleteItem?.title}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+
+      <ConfirmDialog isOpen={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)} onConfirm={handleBulkDelete} title="Bulk Delete" message={`Delete ${selectedIds.size} poster(s)? This cannot be undone.`} confirmText={bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`} variant="danger" />
 
       {layerEditorPoster && (
         <TemplateLayerEditor
