@@ -149,6 +149,7 @@ const sectionTitle = 'text-sm font-semibold text-brand-text flex items-center ga
 
 function FramePreview({ config, width = 200, height = 200 }: { config: FrameConfig; width?: number; height?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const isImageOverlay = config?.type === 'image_overlay' || !config?.style
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -168,6 +169,16 @@ function FramePreview({ config, width = 200, height = 200 }: { config: FrameConf
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('Poster Content', width / 2, height / 2 - 20)
+
+    // Image overlay frames don't have style — show label instead
+    if (isImageOverlay) {
+      ctx.fillStyle = 'rgba(63, 95, 146, 0.15)'
+      ctx.fillRect(0, height - 40, width, 40)
+      ctx.fillStyle = '#3F5F92'
+      ctx.font = 'bold 11px sans-serif'
+      ctx.fillText('Image Overlay Frame', width / 2, height - 18)
+      return
+    }
 
     const style = config.style
     const stripH = height * style.height / 1000
@@ -246,7 +257,7 @@ function FramePreview({ config, width = 200, height = 200 }: { config: FrameConf
         }
       })
     }
-  }, [config, width, height])
+  }, [config, width, height, isImageOverlay])
 
   return (
     <canvas

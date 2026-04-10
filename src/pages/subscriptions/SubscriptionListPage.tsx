@@ -8,7 +8,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters'
 import type { Subscription } from '../../types'
 
 const columns: Column<Subscription>[] = [
-  { key: 'user_name', title: 'User', sortable: true },
+  { key: 'user_email', title: 'User', sortable: true },
   { key: 'plan_name', title: 'Plan', sortable: true },
   { key: 'amount', title: 'Amount', sortable: true, render: (s) => formatCurrency(s.amount as number) },
   { key: 'status', title: 'Status', render: (s) => <StatusBadge status={s.status as string} /> },

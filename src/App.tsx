@@ -177,6 +177,9 @@ const BusinessSetupConfigPage = lazy(() => import('./pages/business/BusinessSetu
 const ContactConfigPage = lazy(() => import('./pages/misc/ContactConfigPage'))
 const LanguageOptionsPage = lazy(() => import('./pages/misc/LanguageOptionsPage'))
 const FormatCategoriesPage = lazy(() => import('./pages/misc/FormatCategoriesPage'))
+const ExploreFeaturesPage = lazy(() => import('./pages/misc/ExploreFeaturesPage'))
+const EditorStickerCategoriesPage = lazy(() => import('./pages/misc/EditorStickerCategoriesPage'))
+const MallCategoriesPage = lazy(() => import('./pages/misc/MallCategoriesPage'))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -354,6 +357,9 @@ export default function App() {
                 <Route path="/misc/contact-config" element={<ContactConfigPage />} />
                 <Route path="/misc/languages" element={<LanguageOptionsPage />} />
                 <Route path="/misc/format-categories" element={<FormatCategoriesPage />} />
+                <Route path="/misc/explore-features" element={<ExploreFeaturesPage />} />
+                <Route path="/misc/editor-sticker-categories" element={<EditorStickerCategoriesPage />} />
+                <Route path="/misc/mall-categories" element={<MallCategoriesPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

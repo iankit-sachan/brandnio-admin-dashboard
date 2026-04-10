@@ -107,8 +107,15 @@ export const greetingCategoriesApi = crud('greeting-categories')
 export const greetingTemplatesApi = crud('greeting-templates')
 export const customersApi = crud('customers')
 export const greetingConfigApi = {
-  get: () => api.get('/api/admin/greeting-config/1/').then(r => r.data),
-  update: (data: any) => api.patch('/api/admin/greeting-config/1/', data).then(r => r.data),
+  get: () => api.get('/api/admin/greeting-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/greeting-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/greeting-config/${id}/`, data).then(r => r.data)
+  }),
 }
 
 export const stickerPacksApi = crud('sticker-packs')
@@ -122,13 +129,27 @@ export const productsApi = crud('products')
 export const generatedAdsApi = crud('generated-ads')
 export const adCategoriesApi = crud('ad-categories')
 export const adConfigApi = {
-  get: () => api.get('/api/admin/ad-config/1/').then(r => r.data),
-  update: (data: any) => api.patch('/api/admin/ad-config/1/', data).then(r => r.data),
+  get: () => api.get('/api/admin/ad-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/ad-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/ad-config/${id}/`, data).then(r => r.data)
+  }),
 }
 
 export const slideshowConfigApi = {
-  get: () => api.get('/api/admin/slideshow-config/1/').then(r => r.data),
-  update: (data: any) => api.patch('/api/admin/slideshow-config/1/', data).then(r => r.data),
+  get: () => api.get('/api/admin/slideshow-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/slideshow-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/slideshow-config/${id}/`, data).then(r => r.data)
+  }),
 }
 
 export const tutorialsApi = crud('tutorials')
@@ -139,8 +160,15 @@ export const mallCategoriesApi = crud('mall-categories')
 export const mallListingsApi = crud('mall-listings')
 export const mallSpotlightApi = crud('mall-spotlight')
 export const mallConfigApi = {
-  get: () => api.get('/api/admin/mall-config/1/').then(r => r.data),
-  update: (data: any) => api.patch('/api/admin/mall-config/1/', data).then(r => r.data),
+  get: () => api.get('/api/admin/mall-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/mall-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/mall-config/${id}/`, data).then(r => r.data)
+  }),
 }
 export const politicianProfilesApi = crud('politician-profiles')
 export const politicianCategoriesApi = crud('politician-categories')
@@ -204,8 +232,15 @@ export const statusQuotesApi = crud('status-quotes')
 export const feedItemsApi = crud('feed-items')
 export const feedBannersApi = crud('feed-banners')
 export const feedConfigApi = {
-  get: () => api.get('/api/admin/feed-config/1/').then(r => r.data),
-  update: (data: any) => api.patch('/api/admin/feed-config/1/', data).then(r => r.data),
+  get: () => api.get('/api/admin/feed-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/feed-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/feed-config/${id}/`, data).then(r => r.data)
+  }),
 }
 
 // ── Card Wizard ─────────────────────────────────────────────
@@ -218,6 +253,17 @@ export const userCardDataApi = crud('user-card-data')
 
 // ── Logo Maker ──────────────────────────────────────────────
 export const logoConfigsApi = crud('logo-configs')
+export const logoConfigsSingletonApi = {
+  get: () => api.get('/api/admin/logo-configs/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/logo-configs/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/logo-configs/${id}/`, data).then(r => r.data)
+  }),
+}
 export const logoIndustriesApi = crud('logo-industries')
 export const logoStylesApi = crud('logo-styles')
 export const logoColorsApi = crud('logo-colors')
@@ -225,6 +271,17 @@ export const userLogosApi = crud('user-logos')
 
 // ── Collage ─────────────────────────────────────────────────
 export const collageConfigApi = crud('collage-config')
+export const collageConfigSingletonApi = {
+  get: () => api.get('/api/admin/collage-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/collage-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/collage-config/${id}/`, data).then(r => r.data)
+  }),
+}
 export const collageLayoutsApi = crud('collage-layouts')
 export const collageAspectRatiosApi = crud('collage-aspect-ratios')
 export const collageEditorTabsApi = crud('collage-editor-tabs')
@@ -233,6 +290,39 @@ export const collageEditorTabsApi = crud('collage-editor-tabs')
 export const businessIndustriesApi = crud('business-industries')
 export const socialPlatformsApi = crud('social-platforms')
 export const businessSetupConfigApi = crud('business-setup-config')
+export const businessSetupConfigSingletonApi = {
+  get: () => api.get('/api/admin/business-setup-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/business-setup-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/business-setup-config/${id}/`, data).then(r => r.data)
+  }),
+}
 export const contactConfigApi = crud('contact-config')
+export const contactConfigSingletonApi = {
+  get: () => api.get('/api/admin/contact-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    return items[0] || {}
+  }),
+  update: (data: any) => api.get('/api/admin/contact-config/').then(r => {
+    const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
+    const id = items[0]?.id || 1
+    return api.patch(`/api/admin/contact-config/${id}/`, data).then(r => r.data)
+  }),
+}
 export const languageOptionsApi = crud('language-options')
 export const formatCategoriesApi = crud('format-categories')
+
+// ── Explore Features ───────────────────────────────────────
+export const exploreFeaturesApi = crud('explore-features')
+
+// ── BG Removal Config ──────────────────────────────────────
+export const bgRemovalConfigApi = {
+  get: () => api.get('/api/admin/bg-removal-config/').then(r => r.data),
+  update: (id: number, data: any) => api.patch(`/api/admin/bg-removal-config/${id}/`, data).then(r => r.data),
+  list: () => api.get('/api/admin/bg-removal-config/').then(r => r.data),
+}
+

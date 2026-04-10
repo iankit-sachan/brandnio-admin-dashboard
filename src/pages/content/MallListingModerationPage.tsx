@@ -65,9 +65,8 @@ export default function MallListingModerationPage() {
 
   const columns: Column<MallListing>[] = [
     { key: 'title', title: 'Listing', sortable: true },
-    { key: 'user_name', title: 'Seller', sortable: true },
-    { key: 'category_name', title: 'Category' },
-    { key: 'price', title: 'Price', sortable: true, render: (l) => formatCurrency(l.price as number) },
+    { key: 'user_email', title: 'Seller', sortable: true },
+    { key: 'price', title: 'Price', sortable: true, render: (l) => formatCurrency(Number(l.price)) },
     { key: 'city', title: 'City', sortable: true },
     { key: 'is_featured', title: 'Featured', render: (l) => l.is_featured ? <span className="text-brand-gold">Featured</span> : <span className="text-brand-text-muted">No</span> },
     { key: 'is_active', title: 'Status', render: (l) => l.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },

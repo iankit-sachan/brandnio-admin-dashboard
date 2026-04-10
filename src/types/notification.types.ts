@@ -4,10 +4,10 @@ export type DevicePlatform = 'android' | 'ios' | 'web'
 export interface Notification {
   id: number
   user: number | null
-  user_name: string
+  user_email: string
   title: string
   body: string
-  type: NotificationType
+  notification_type: NotificationType
   image_url: string | null
   action_url: string | null
   is_read: boolean

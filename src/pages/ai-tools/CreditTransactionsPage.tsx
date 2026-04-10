@@ -34,7 +34,7 @@ export default function CreditTransactionsPage() {
 
   const columns: Column<CreditTransaction>[] = [
     { key: 'id', title: 'ID' },
-    { key: 'user_name', title: 'User', sortable: true },
+    { key: 'user_email', title: 'User', sortable: true },
     { key: 'transaction_type', title: 'Type', render: (t) => (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColors[t.transaction_type] || 'bg-gray-500/20 text-gray-400'}`}>
         {t.transaction_type}

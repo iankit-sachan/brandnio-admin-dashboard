@@ -81,9 +81,8 @@ export default function FestivalListPage() {
   const columns: Column<Festival>[] = [
     { key: 'name', title: 'Festival', sortable: true },
     { key: 'date', title: 'Date', sortable: true, render: (f) => formatDate(f.date as string) },
-    { key: 'poster_count', title: 'Posters', sortable: true },
     { key: 'is_active', title: 'Status', render: (f) => f.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },
-    { key: 'is_upcoming', title: 'Upcoming', render: (f) => f.is_upcoming ? <span className="text-brand-gold">Yes</span> : <span className="text-brand-text-muted">No</span> },
+    { key: 'date' as keyof Festival, title: 'Upcoming', render: (f) => new Date(f.date) > new Date() ? <span className="text-brand-gold">Yes</span> : <span className="text-brand-text-muted">No</span> },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
         <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>

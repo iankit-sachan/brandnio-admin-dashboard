@@ -63,7 +63,6 @@ export interface HomeBanner {
   gradient_end_color: string | null
   target_category_slug: string | null
   target_category_name: string | null
-  placement: 'top_carousel' | 'inline' | 'category_section'
   position_after_section: number
   sort_order: number
   is_active: boolean
@@ -82,4 +81,34 @@ export interface FestivalPoster {
   scheduled_date: string
   scheduled_time: string
   created_at: string
+}
+
+export interface HomeCard {
+  id: number
+  card_type: string
+  title: string
+  image_url: string
+  redirect_slug: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface HomeCardSection {
+  id: number
+  section_key: string
+  title: string
+  subtitle: string
+  badge_text: string
+  cta_text: string
+  redirect_slug: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface PromoAnnouncement {
+  id: number
+  text: string
+  subtitle: string
+  is_active: boolean
+  sort_order: number
 }

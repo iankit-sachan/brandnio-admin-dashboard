@@ -10,7 +10,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 interface BusinessProfile {
   id: number
   business_name: string
-  owner_name: string
+  user_name: string
   city: string
   phone: string
   email: string
@@ -20,7 +20,7 @@ interface BusinessProfile {
 
 interface FormState {
   business_name: string
-  owner_name: string
+  user_name: string
   city: string
   phone: string
   email: string
@@ -28,7 +28,7 @@ interface FormState {
   is_verified: boolean
 }
 
-const emptyForm: FormState = { business_name: '', owner_name: '', city: '', phone: '', email: '', website: '', is_verified: false }
+const emptyForm: FormState = { business_name: '', user_name: '', city: '', phone: '', email: '', website: '', is_verified: false }
 
 export default function BusinessProfilesPage() {
   const { addToast } = useToast()
@@ -46,7 +46,7 @@ export default function BusinessProfilesPage() {
 
   const openEdit = (item: BusinessProfile) => {
     setEditingItem(item)
-    setForm({ business_name: item.business_name, owner_name: item.owner_name, city: item.city, phone: item.phone, email: item.email, website: item.website, is_verified: item.is_verified })
+    setForm({ business_name: item.business_name, user_name: item.user_name, city: item.city, phone: item.phone, email: item.email, website: item.website, is_verified: item.is_verified })
     setModalOpen(true)
   }
 
@@ -54,7 +54,7 @@ export default function BusinessProfilesPage() {
 
   const handleSubmit = async () => {
     if (!form.business_name.trim()) { addToast('Business name is required', 'error'); return }
-    if (!form.owner_name.trim()) { addToast('Owner name is required', 'error'); return }
+    if (!form.user_name.trim()) { addToast('Owner name is required', 'error'); return }
     try {
       if (editingItem) {
         await update(editingItem.id, form)
@@ -82,7 +82,7 @@ export default function BusinessProfilesPage() {
 
   const columns: Column<BusinessProfile>[] = [
     { key: 'business_name', title: 'Business Name', sortable: true },
-    { key: 'owner_name', title: 'Owner', sortable: true },
+    { key: 'user_name', title: 'Owner', sortable: true },
     { key: 'city', title: 'City', sortable: true },
     { key: 'phone', title: 'Phone' },
     { key: 'email', title: 'Email' },
@@ -126,7 +126,7 @@ export default function BusinessProfilesPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Owner Name</label>
-            <input value={form.owner_name} onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} className={inputClass} />
+            <input value={form.user_name} onChange={e => setForm(f => ({ ...f, user_name: e.target.value }))} className={inputClass} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

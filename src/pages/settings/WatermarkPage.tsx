@@ -4,15 +4,17 @@ import { useToast } from '../../context/ToastContext'
 import { watermarkSettingsApi } from '../../services/admin-api'
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'
-type WatermarkSize = 'small' | 'medium' | 'large'
 
 interface WatermarkSettings {
   id: number
   image_url: string | null
+  text: string
   position: Position
-  opacity: number
-  size: WatermarkSize
+  opacity: number  // 0.0 - 1.0 from API
+  size: number     // integer from API (e.g. 15)
   free_users_only: boolean
+  is_active: boolean
+  updated_at: string
 }
 
 export default function WatermarkPage() {
@@ -22,7 +24,7 @@ export default function WatermarkPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [position, setPosition] = useState<Position>('bottom-right')
   const [opacity, setOpacity] = useState(70)
-  const [size, setSize] = useState<WatermarkSize>('medium')
+  const [size, setSize] = useState(15)
   const [freeUsersOnly, setFreeUsersOnly] = useState(true)
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export default function WatermarkPage() {
         setSettingsId(s.id)
         setImageUrl(s.image_url)
         setPosition(s.position)
-        setOpacity(s.opacity)
+        setOpacity(Math.round(s.opacity * 100))  // API returns 0.0-1.0, display as 0-100%
         setSize(s.size)
         setFreeUsersOnly(s.free_users_only)
       }
@@ -42,7 +44,7 @@ export default function WatermarkPage() {
 
   const handleSave = async () => {
     try {
-      const payload = { image_url: imageUrl, position, opacity, size, free_users_only: freeUsersOnly }
+      const payload = { image_url: imageUrl, position, opacity: opacity / 100, size, free_users_only: freeUsersOnly }  // Convert 0-100% back to 0.0-1.0 for API
       if (settingsId) {
         await watermarkSettingsApi.update(settingsId, payload)
       } else {
@@ -102,12 +104,22 @@ export default function WatermarkPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Watermark Size</label>
-          <select value={size} onChange={e => setSize(e.target.value as WatermarkSize)} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
+          <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+            Watermark Size: <span className="text-brand-gold">{size}%</span>
+          </label>
+          <input
+            type="range"
+            min={5}
+            max={50}
+            value={size}
+            onChange={e => setSize(parseInt(e.target.value))}
+            className="w-full h-2 bg-brand-dark rounded-lg appearance-none cursor-pointer accent-brand-gold"
+          />
+          <div className="flex justify-between text-xs text-brand-text-muted mt-1">
+            <span>5%</span>
+            <span>25%</span>
+            <span>50%</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

@@ -9,23 +9,27 @@ import { useAdminCrud } from '../../hooks/useAdminCrud'
 interface Plan {
   id: number
   name: string
-  price: number
+  slug: string
+  description: string
+  price: string        // API returns string e.g. "1996.00"
+  price_original: string
   duration: string
+  duration_days: number
   features: string[]
   is_active: boolean
-  is_popular: boolean
+  is_trial: boolean
+  sort_order: number
 }
 
 interface FormState {
   name: string
-  price: number
+  price: string
   duration: string
   features: string
   is_active: boolean
-  is_popular: boolean
 }
 
-const emptyForm: FormState = { name: '', price: 0, duration: 'month', features: '', is_active: true, is_popular: false }
+const emptyForm: FormState = { name: '', price: '0.00', duration: 'monthly', features: '', is_active: true }
 
 export default function PaymentPlansPage() {
   const { addToast } = useToast()
@@ -36,7 +40,7 @@ export default function PaymentPlansPage() {
   const [deleteItem, setDeleteItem] = useState<Plan | null>(null)
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
-  const openEdit = (plan: Plan) => { setEditingItem(plan); setForm({ name: plan.name, price: plan.price, duration: plan.duration, features: plan.features.join(', '), is_active: plan.is_active, is_popular: plan.is_popular }); setModalOpen(true) }
+  const openEdit = (plan: Plan) => { setEditingItem(plan); setForm({ name: plan.name, price: plan.price, duration: plan.duration, features: plan.features.join(', '), is_active: plan.is_active }); setModalOpen(true) }
   const openDelete = (plan: Plan) => setDeleteItem(plan)
 
   const togglePlan = async (plan: Plan) => {
@@ -53,10 +57,10 @@ export default function PaymentPlansPage() {
     const features = form.features.split(',').map(f => f.trim()).filter(Boolean)
     try {
       if (editingItem) {
-        await update(editingItem.id, { name: form.name, price: form.price, duration: form.duration, features, is_active: form.is_active, is_popular: form.is_popular } as Partial<Plan>)
+        await update(editingItem.id, { name: form.name, price: form.price, duration: form.duration, features, is_active: form.is_active } as Partial<Plan>)
         addToast('Plan updated successfully')
       } else {
-        await create({ name: form.name, price: form.price, duration: form.duration, features, is_active: form.is_active, is_popular: form.is_popular } as Partial<Plan>)
+        await create({ name: form.name, price: form.price, duration: form.duration, features, is_active: form.is_active } as Partial<Plan>)
         addToast('Plan created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
@@ -86,13 +90,13 @@ export default function PaymentPlansPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map(plan => (
           <div key={plan.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-6 relative">
-            {plan.is_popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-brand-gold text-gray-900 text-xs font-bold rounded-full">POPULAR</span>
+            {plan.is_trial && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-brand-gold text-gray-900 text-xs font-bold rounded-full">TRIAL</span>
             )}
             <h3 className="text-lg font-bold text-brand-text">{plan.name}</h3>
             <div className="mt-2">
-              <span className="text-3xl font-bold text-brand-gold">{plan.price === 0 ? 'Free' : `\u20B9${plan.price}`}</span>
-              {plan.price > 0 && <span className="text-brand-text-muted text-sm">/{plan.duration}</span>}
+              <span className="text-3xl font-bold text-brand-gold">{parseFloat(plan.price) === 0 ? 'Free' : `\u20B9${parseFloat(plan.price).toLocaleString()}`}</span>
+              {parseFloat(plan.price) > 0 && <span className="text-brand-text-muted text-sm">/{plan.duration}</span>}
             </div>
             <ul className="mt-4 space-y-2">
               {plan.features.map(f => (
@@ -132,30 +136,23 @@ export default function PaymentPlansPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Price (INR)</label>
-            <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            <input type="number" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Duration</label>
             <select value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value="month">Month</option>
-              <option value="quarter">Quarter</option>
-              <option value="year">Year</option>
-              <option value="forever">Forever</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Features (comma-separated)</label>
             <textarea value={form.features} onChange={e => setForm(f => ({ ...f, features: e.target.value }))} rows={3} placeholder="Feature 1, Feature 2, Feature 3..." className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-              <label className="text-sm text-brand-text-muted">Active</label>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" checked={form.is_popular} onChange={e => setForm(f => ({ ...f, is_popular: e.target.checked }))} className="rounded" />
-              <label className="text-sm text-brand-text-muted">Popular</label>
-            </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+            <label className="text-sm text-brand-text-muted">Active</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>

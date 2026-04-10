@@ -6,14 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { promoAnnouncementsApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-
-interface PromoAnnouncement {
-  id: number
-  text: string
-  subtitle: string
-  is_active: boolean
-  sort_order: number
-}
+import type { PromoAnnouncement } from '../../types'
 
 interface FormState {
   text: string

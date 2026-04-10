@@ -68,21 +68,26 @@ export interface MallCategory {
 export interface MallListing {
   id: number
   user: number
-  user_name: string
+  user_email: string
   category: number
-  category_name: string
   title: string
+  subtitle: string
   description: string
-  price: number
-  discount_price: number | null
+  price: string
+  discount_price: string | null
   images: string[]
   contact_phone: string
   contact_whatsapp: string
   city: string
+  turnaround_hours: number
+  service_highlight_badge: string
+  inclusions: Array<{ icon: string; title: string; description: string }>
+  feature_tags: Array<{ icon: string; label: string }>
   is_featured: boolean
   is_active: boolean
   view_count: number
   created_at: string
+  updated_at: string
 }
 
 export interface PoliticianProfile {

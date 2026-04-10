@@ -10,11 +10,14 @@ type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 interface DeleteRequest {
   id: number
+  user: number
+  user_email: string
   user_name: string
-  email: string
-  request_date: string
   reason: string
   status: RequestStatus
+  admin_notes: string
+  reviewed_at: string | null
+  created_at: string
 }
 
 const statusColors: Record<RequestStatus, string> = {
@@ -50,8 +53,8 @@ export default function DeleteRequestsPage() {
 
   const columns: Column<DeleteRequest>[] = [
     { key: 'user_name', title: 'User Name', sortable: true },
-    { key: 'email', title: 'Email', sortable: true },
-    { key: 'request_date', title: 'Request Date', sortable: true },
+    { key: 'user_email', title: 'Email', sortable: true },
+    { key: 'created_at', title: 'Request Date', sortable: true },
     { key: 'reason', title: 'Reason' },
     { key: 'status', title: 'Status', sortable: true, render: (item) => (
       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[item.status]}`}>

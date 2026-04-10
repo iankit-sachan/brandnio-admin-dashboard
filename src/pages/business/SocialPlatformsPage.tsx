@@ -5,9 +5,8 @@ import type { Column } from '../../components/ui/DataTable'
 const columns: Column<any>[] = [
   { key: 'id', title: 'ID', sortable: true },
   { key: 'name', title: 'Name', sortable: true },
-  { key: 'icon', title: 'Icon', render: (item) => <span className="text-brand-text-muted">{item.icon || '--'}</span> },
-  { key: 'base_url', title: 'Base URL', render: (item) => <span className="text-brand-text-muted line-clamp-1 max-w-xs">{item.base_url || '--'}</span> },
-  { key: 'display_order', title: 'Order', sortable: true },
+  { key: 'icon_name', title: 'Icon', render: (item) => <span className="text-brand-text-muted">{item.icon_name || '--'}</span> },
+  { key: 'sort_order', title: 'Order', sortable: true },
   { key: 'is_active', title: 'Active', render: (item) => (
     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
       {item.is_active ? 'Active' : 'Inactive'}
@@ -17,9 +16,8 @@ const columns: Column<any>[] = [
 
 const fields: FieldDef[] = [
   { key: 'name', label: 'Name', type: 'text', required: true },
-  { key: 'icon', label: 'Icon', type: 'text' },
-  { key: 'base_url', label: 'Base URL', type: 'url' },
-  { key: 'display_order', label: 'Display Order', type: 'number' },
+  { key: 'icon_name', label: 'Icon Name', type: 'text' },
+  { key: 'sort_order', label: 'Sort Order', type: 'number' },
   { key: 'is_active', label: 'Active', type: 'checkbox' },
 ]
 

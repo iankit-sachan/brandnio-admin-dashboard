@@ -6,18 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { homeCardSectionsApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-
-interface HomeCardSection {
-  id: number
-  section_key: string
-  title: string
-  subtitle: string
-  badge_text: string
-  cta_text: string
-  redirect_slug: string
-  sort_order: number
-  is_active: boolean
-}
+import type { HomeCardSection } from '../../types'
 
 interface FormState {
   section_key: string

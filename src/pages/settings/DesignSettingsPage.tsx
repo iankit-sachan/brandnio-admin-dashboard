@@ -5,10 +5,11 @@ import { designSettingsApi } from '../../services/admin-api'
 interface DesignSettings {
   id: number
   primary_color: string
-  bg_color: string
-  font: string
+  background_color: string
+  font_family: string
   poster_quality: string
   enable_animations: boolean
+  updated_at: string
 }
 
 export default function DesignSettingsPage() {
@@ -28,8 +29,8 @@ export default function DesignSettingsPage() {
         const s = items[0]
         setSettingsId(s.id)
         setPrimaryColor(s.primary_color)
-        setBgColor(s.bg_color)
-        setFont(s.font)
+        setBgColor(s.background_color)
+        setFont(s.font_family)
         setPosterQuality(s.poster_quality)
         setEnableAnimations(s.enable_animations)
       }
@@ -38,7 +39,7 @@ export default function DesignSettingsPage() {
 
   const handleSave = async () => {
     try {
-      const payload = { primary_color: primaryColor, bg_color: bgColor, font, poster_quality: posterQuality, enable_animations: enableAnimations }
+      const payload = { primary_color: primaryColor, background_color: bgColor, font_family: font, poster_quality: posterQuality, enable_animations: enableAnimations }
       if (settingsId) {
         await designSettingsApi.update(settingsId, payload)
       } else {

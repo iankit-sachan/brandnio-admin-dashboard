@@ -6,16 +6,7 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { homeCardsApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-
-interface HomeCard {
-  id: number
-  card_type: string
-  title: string
-  image_url: string
-  redirect_slug: string
-  sort_order: number
-  is_active: boolean
-}
+import type { HomeCard } from '../../types'
 
 interface FormState {
   card_type: string

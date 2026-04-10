@@ -10,24 +10,34 @@ import { Pencil, Trash2 } from 'lucide-react'
 
 interface PoliticalProfile {
   id: number
-  name: string
-  party: string
+  user: number
+  user_email: string
+  user_name: string
+  party_name: string
+  party_logo_url: string
+  designation: string
   constituency: string
   state: string
-  image_url: string | null
-  is_active: boolean
+  bio: string
+  is_verified: boolean
+  post_count: number
+  follower_count: number
+  created_at: string
+  updated_at: string
 }
 
 interface FormState {
-  name: string
-  party: string
+  user_name: string
+  party_name: string
+  designation: string
   constituency: string
   state: string
-  image_url: string | null
-  is_active: boolean
+  bio: string
+  party_logo_url: string
+  is_verified: boolean
 }
 
-const emptyForm: FormState = { name: '', party: '', constituency: '', state: '', image_url: null, is_active: true }
+const emptyForm: FormState = { user_name: '', party_name: '', designation: '', constituency: '', state: '', bio: '', party_logo_url: '', is_verified: true }
 
 export default function PoliticalProfilesPage() {
   const { addToast } = useToast()
@@ -45,15 +55,15 @@ export default function PoliticalProfilesPage() {
 
   const openEdit = (item: PoliticalProfile) => {
     setEditingItem(item)
-    setForm({ name: item.name, party: item.party, constituency: item.constituency, state: item.state, image_url: item.image_url, is_active: item.is_active })
+    setForm({ user_name: item.user_name, party_name: item.party_name, designation: item.designation, constituency: item.constituency, state: item.state, bio: item.bio, party_logo_url: item.party_logo_url, is_verified: item.is_verified })
     setModalOpen(true)
   }
 
   const openDelete = (item: PoliticalProfile) => setDeleteItem(item)
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) { addToast('Leader name is required', 'error'); return }
-    if (!form.party.trim()) { addToast('Party is required', 'error'); return }
+    if (!form.user_name.trim()) { addToast('Leader name is required', 'error'); return }
+    if (!form.party_name.trim()) { addToast('Party is required', 'error'); return }
     try {
       if (editingItem) {
         await update(editingItem.id, form)
@@ -80,19 +90,20 @@ export default function PoliticalProfilesPage() {
   }
 
   const columns: Column<PoliticalProfile>[] = [
-    { key: 'name', title: 'Leader Name', sortable: true },
-    { key: 'party', title: 'Party', sortable: true, render: (p) => <span className="font-medium text-brand-gold">{p.party}</span> },
+    { key: 'user_name', title: 'Leader Name', sortable: true },
+    { key: 'party_name', title: 'Party', sortable: true, render: (p) => <span className="font-medium text-brand-gold">{p.party_name}</span> },
+    { key: 'designation', title: 'Designation' },
     { key: 'constituency', title: 'Constituency', sortable: true },
     { key: 'state', title: 'State', sortable: true },
     {
-      key: 'image_url', title: 'Image', render: (p) => p.image_url
-        ? <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded-full object-cover" />
-        : <div className="h-8 w-8 rounded-full bg-brand-dark-hover flex items-center justify-center text-xs text-brand-text-muted">{p.name.charAt(0)}</div>,
+      key: 'party_logo_url', title: 'Party Logo', render: (p) => p.party_logo_url
+        ? <img src={p.party_logo_url} alt={p.user_name} className="h-8 w-8 rounded-full object-cover" />
+        : <div className="h-8 w-8 rounded-full bg-brand-dark-hover flex items-center justify-center text-xs text-brand-text-muted">{p.user_name.charAt(0)}</div>,
     },
     {
-      key: 'is_active', title: 'Status', render: (p) => p.is_active
-        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-success/10 text-status-success">Active</span>
-        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-error/10 text-status-error">Inactive</span>,
+      key: 'is_verified', title: 'Status', render: (p) => p.is_verified
+        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-success/10 text-status-success">Verified</span>
+        : <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-status-error/10 text-status-error">Unverified</span>,
     },
     {
       key: 'actions', title: 'Actions', render: (item) => (
@@ -122,28 +133,38 @@ export default function PoliticalProfilesPage() {
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Political Profile' : 'Add Political Profile'}>
         <div className="space-y-4">
-          <ImageUpload label="Leader Photo" value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} aspectHint="300x300" />
+          <ImageUpload label="Party Logo" value={form.party_logo_url} onChange={v => setForm(f => ({ ...f, party_logo_url: v ?? '' }))} aspectHint="300x300" />
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Leader Name</label>
-            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputClass} />
+            <input value={form.user_name} onChange={e => setForm(f => ({ ...f, user_name: e.target.value }))} className={inputClass} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Party</label>
-              <input value={form.party} onChange={e => setForm(f => ({ ...f, party: e.target.value }))} className={inputClass} placeholder="e.g. BJP, INC, AAP" />
+              <input value={form.party_name} onChange={e => setForm(f => ({ ...f, party_name: e.target.value }))} className={inputClass} placeholder="e.g. BJP, INC, AAP" />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Designation</label>
+              <input value={form.designation} onChange={e => setForm(f => ({ ...f, designation: e.target.value }))} className={inputClass} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Constituency</label>
               <input value={form.constituency} onChange={e => setForm(f => ({ ...f, constituency: e.target.value }))} className={inputClass} />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">State</label>
+              <input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} className={inputClass} />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">State</label>
-            <input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} className={inputClass} />
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Bio</label>
+            <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} rows={3} className={inputClass} />
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Active</label>
+            <input type="checkbox" checked={form.is_verified} onChange={e => setForm(f => ({ ...f, is_verified: e.target.checked }))} className="rounded" />
+            <label className="text-sm text-brand-text-muted">Verified</label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
@@ -152,7 +173,7 @@ export default function PoliticalProfilesPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Political Profile" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Political Profile" message={`Are you sure you want to delete "${deleteItem?.user_name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
     </div>
   )
 }

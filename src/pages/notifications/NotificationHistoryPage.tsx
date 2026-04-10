@@ -5,9 +5,9 @@ import { formatDate } from '../../utils/formatters'
 import type { Notification } from '../../types'
 
 const columns: Column<Notification>[] = [
-  { key: 'user_name', title: 'User', sortable: true },
+  { key: 'user_email', title: 'User', sortable: true },
   { key: 'title', title: 'Title', sortable: true },
-  { key: 'type', title: 'Type', render: (n) => <span className="capitalize">{n.type as string}</span> },
+  { key: 'notification_type', title: 'Type', render: (n) => <span className="capitalize">{n.notification_type as string}</span> },
   { key: 'is_read', title: 'Read', render: (n) => n.is_read ? <span className="text-status-success">Yes</span> : <span className="text-brand-text-muted">No</span> },
   { key: 'created_at', title: 'Sent', sortable: true, render: (n) => formatDate(n.created_at as string) },
 ]

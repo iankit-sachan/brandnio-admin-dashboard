@@ -22,7 +22,6 @@ interface FormState {
   gradient_end_color: string
   target_category_slug: string
   target_category_name: string
-  placement: 'top_carousel' | 'inline' | 'category_section'
   position_after_section: number
   sort_order: number
   is_active: boolean
@@ -42,7 +41,6 @@ const emptyForm: FormState = {
   gradient_end_color: '',
   target_category_slug: '',
   target_category_name: '',
-  placement: 'top_carousel',
   position_after_section: 0,
   sort_order: 0,
   is_active: true,
@@ -77,7 +75,6 @@ export default function HomeBannerPage() {
       gradient_end_color: item.gradient_end_color || '',
       target_category_slug: item.target_category_slug || '',
       target_category_name: item.target_category_name || '',
-      placement: item.placement || 'top_carousel',
       position_after_section: item.position_after_section ?? 0,
       sort_order: item.sort_order,
       is_active: item.is_active,
@@ -166,14 +163,8 @@ export default function HomeBannerPage() {
     },
     { key: 'title', title: 'Title', sortable: true, render: (item) => <span className="font-medium text-brand-text">{item.title}</span> },
     {
-      key: 'placement', title: 'Placement',
-      render: (item) => {
-        const label = item.placement === 'category_section' ? 'Category Section'
-          : item.placement === 'inline' ? 'Inline' : 'Top Carousel'
-        const color = item.placement === 'category_section' ? 'bg-purple-500/20 text-purple-400'
-          : item.placement === 'inline' ? 'bg-blue-500/20 text-blue-400' : 'bg-brand-gold/20 text-brand-gold'
-        return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>{label}</span>
-      },
+      key: 'position_after_section', title: 'Position',
+      render: (item) => <span className="text-brand-text-muted">After section {item.position_after_section}</span>,
     },
     {
       key: 'target_category_name', title: 'Category',
@@ -290,34 +281,18 @@ export default function HomeBannerPage() {
             </div>
           </div>
 
-          {/* Placement */}
+          {/* Position After Section */}
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Placement</label>
-            <select
-              value={form.placement}
-              onChange={e => setForm(f => ({ ...f, placement: e.target.value as FormState['placement'] }))}
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Position After Section</label>
+            <input
+              type="number"
+              value={form.position_after_section}
+              onChange={e => setForm(f => ({ ...f, position_after_section: Number(e.target.value) }))}
+              min={0}
               className={inputClass}
-            >
-              <option value="top_carousel">Top Carousel</option>
-              <option value="inline">Inline</option>
-              <option value="category_section">Category Section</option>
-            </select>
+            />
+            <p className="text-xs text-brand-text-muted mt-1">0 = after first section, 1 = after second, etc.</p>
           </div>
-
-          {/* Position After Section (only for category_section) */}
-          {form.placement === 'category_section' && (
-            <div>
-              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Show after section #</label>
-              <input
-                type="number"
-                value={form.position_after_section}
-                onChange={e => setForm(f => ({ ...f, position_after_section: Number(e.target.value) }))}
-                min={0}
-                className={inputClass}
-              />
-              <p className="text-xs text-brand-text-muted mt-1">0 = after first section, 1 = after second, etc.</p>
-            </div>
-          )}
 
           {/* Sort Order */}
           <div>
