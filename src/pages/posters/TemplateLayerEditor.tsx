@@ -37,14 +37,31 @@ interface TemplateLayer {
   font_color: string
   is_bold: boolean
   is_italic: boolean
+  is_underline: boolean
+  letter_spacing: number
   text_align: 'left' | 'center' | 'right'
   line_spacing: number
+  text_stroke_width: number
   // Shape
   shape_type: string
   shape_color: string
   // Image
   image_url: string
   scale_type: string
+  // Effects
+  blend_mode: string
+  shadow_enabled: boolean
+  shadow_radius: number
+  shadow_color: string
+  shadow_offset_x: number
+  shadow_offset_y: number
+  // Shape gradient
+  shape_gradient_enabled: boolean
+  shape_gradient_start: string
+  shape_gradient_end: string
+  shape_gradient_angle: number
+  // Grouping
+  group_id: string
 }
 
 interface TemplateData {
@@ -85,9 +102,16 @@ function createDefaultLayer(type: TemplateLayer['type'], zIndex: number): Templa
     rotation: 0, opacity: 1, z_index: zIndex,
     is_visible: true, is_locked: false,
     font_size: 24, font_family: 'sans-serif', font_color: '#FFFFFF',
-    is_bold: false, is_italic: false, text_align: 'center', line_spacing: 1.2,
+    is_bold: false, is_italic: false, is_underline: false,
+    letter_spacing: 0, text_align: 'center', line_spacing: 1.2, text_stroke_width: 0,
     shape_type: 'rectangle', shape_color: '#F5A623',
     image_url: '', scale_type: 'centerCrop',
+    blend_mode: 'normal',
+    shadow_enabled: false, shadow_radius: 8, shadow_color: '#40000000',
+    shadow_offset_x: 2, shadow_offset_y: 4,
+    shape_gradient_enabled: false, shape_gradient_start: '', shape_gradient_end: '',
+    shape_gradient_angle: 0,
+    group_id: '',
   }
   if (type === 'text') return { ...base, content: 'Tap to edit' }
   if (type === 'image') return { ...base, x: 10, y: 10, width: 80, height: 60 }
