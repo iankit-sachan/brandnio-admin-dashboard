@@ -14,6 +14,7 @@ interface EditorStickerCategory {
   id: number
   name: string
   slug: string
+  icon_url: string
   sort_order: number
   is_active: boolean
   sticker_count?: number
@@ -33,6 +34,7 @@ interface EditorStickerItem {
 interface CategoryFormState {
   name: string
   slug: string
+  icon_url: string | null
   sort_order: number
   is_active: boolean
 }
@@ -44,7 +46,7 @@ interface StickerFormState {
   is_active: boolean
 }
 
-const emptyCategoryForm: CategoryFormState = { name: '', slug: '', sort_order: 0, is_active: true }
+const emptyCategoryForm: CategoryFormState = { name: '', slug: '', icon_url: null, sort_order: 0, is_active: true }
 const emptyStickerForm: StickerFormState = { image_url: null, name: '', sort_order: 0, is_active: true }
 
 function slugify(text: string) {
@@ -107,7 +109,7 @@ export default function EditorStickerPage() {
 
   const openEditCategory = (item: EditorStickerCategory) => {
     setEditingCategory(item)
-    setCatForm({ name: item.name, slug: item.slug, sort_order: item.sort_order, is_active: item.is_active })
+    setCatForm({ name: item.name, slug: item.slug, icon_url: item.icon_url || null, sort_order: item.sort_order, is_active: item.is_active })
     setCatModalOpen(true)
   }
 
@@ -189,6 +191,11 @@ export default function EditorStickerPage() {
   // ── Category table columns ───────────────────────────────────────
 
   const categoryColumns: Column<EditorStickerCategory>[] = [
+    { key: 'icon_url', title: 'Icon', render: (item) =>
+      item.icon_url
+        ? <img src={item.icon_url} alt={item.name} className="h-8 w-8 rounded object-cover" />
+        : <div className="h-8 w-8 rounded bg-brand-dark-border flex items-center justify-center text-brand-text-muted text-xs">{item.name.charAt(0)}</div>
+    },
     { key: 'name', title: 'Name', sortable: true },
     { key: 'slug', title: 'Slug', sortable: true },
     { key: 'sticker_count', title: 'Stickers', sortable: true, render: (item) => <span>{item.sticker_count ?? 0}</span> },
@@ -296,6 +303,12 @@ export default function EditorStickerPage() {
         title={editingCategory ? 'Edit Category' : 'Add Category'}
       >
         <div className="space-y-4">
+          <ImageUpload
+            label="Category Icon"
+            value={catForm.icon_url}
+            onChange={v => setCatForm(f => ({ ...f, icon_url: v }))}
+            aspectHint="Square, 128x128"
+          />
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>
             <input
