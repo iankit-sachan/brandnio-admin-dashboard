@@ -52,13 +52,14 @@ interface PosterFrame {
   id: number
   name: string
   type: string
-  config_json: FrameConfig
+  config_json: FrameConfig | any
   thumbnail_url: string
   category: string
   color_preset: string[]
   is_premium: boolean
   is_active: boolean
   sort_order: number
+  aspect_ratio: string
   created_at: string
 }
 
@@ -71,6 +72,8 @@ interface FormState {
   sort_order: number
   color_preset: string[]
   config_json: FrameConfig
+  aspect_ratio: string
+  thumbnail_url: string
 }
 
 // ── Constants ──────────────────────────────────────────────────
@@ -80,6 +83,14 @@ const frameTypes = [
   { value: 'top_strip', label: 'Top Strip', desc: 'Banner at top' },
   { value: 'side_strip', label: 'Side Strip', desc: 'Vertical sidebar' },
   { value: 'full', label: 'Full Frame', desc: 'Border around entire poster' },
+  { value: 'image_overlay', label: 'Image Overlay', desc: 'PNG layers from FramePack' },
+]
+
+const aspectRatios = [
+  { value: '1:1', label: '1:1 Square' },
+  { value: '4:5', label: '4:5 Portrait' },
+  { value: '9:16', label: '9:16 Story' },
+  { value: '16:9', label: '16:9 Landscape' },
 ]
 
 const frameCategories = [
@@ -139,6 +150,8 @@ const emptyForm: FormState = {
   sort_order: 0,
   color_preset: [],
   config_json: { ...emptyConfig },
+  aspect_ratio: '1:1',
+  thumbnail_url: '',
 }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
@@ -147,7 +160,7 @@ const sectionTitle = 'text-sm font-semibold text-brand-text flex items-center ga
 
 // ── Helper: Canvas Preview ─────────────────────────────────────
 
-function FramePreview({ config, width = 200, height = 200 }: { config: FrameConfig; width?: number; height?: number }) {
+function FramePreview({ config, width = 240, height = 300 }: { config: FrameConfig; width?: number; height?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isImageOverlay = config?.type === 'image_overlay' || !config?.style
 
@@ -157,31 +170,35 @@ function FramePreview({ config, width = 200, height = 200 }: { config: FrameConf
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear
+    // Clear with a realistic poster-like gradient background
     ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#f0f0f0'
+    const bgGrad = ctx.createLinearGradient(0, 0, width, height)
+    bgGrad.addColorStop(0, '#a8c0d8')
+    bgGrad.addColorStop(0.5, '#7a9bb5')
+    bgGrad.addColorStop(1, '#5a7a94')
+    ctx.fillStyle = bgGrad
     ctx.fillRect(0, 0, width, height)
 
-    // Draw poster placeholder
-    ctx.fillStyle = '#e0e0e0'
-    ctx.fillRect(0, 0, width, height)
-    ctx.fillStyle = '#ccc'
-    ctx.font = '12px sans-serif'
+    // Draw subtle poster content placeholder
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'
+    ctx.font = '11px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('Poster Content', width / 2, height / 2 - 20)
+    ctx.fillText('Poster Content', width / 2, height / 2 - 10)
 
     // Image overlay frames don't have style — show label instead
     if (isImageOverlay) {
-      ctx.fillStyle = 'rgba(63, 95, 146, 0.15)'
-      ctx.fillRect(0, height - 40, width, 40)
-      ctx.fillStyle = '#3F5F92'
-      ctx.font = 'bold 11px sans-serif'
-      ctx.fillText('Image Overlay Frame', width / 2, height - 18)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'
+      ctx.fillRect(0, height - 50, width, 50)
+      ctx.fillStyle = '#FFFFFF'
+      ctx.font = 'bold 12px sans-serif'
+      ctx.fillText('Image Overlay Frame', width / 2, height - 22)
       return
     }
 
     const style = config.style
-    const stripH = height * style.height / 1000
+    // Scale strip height: config.style.height is in px (e.g., 130), map to preview proportionally
+    // Use at least 20% of canvas height so strips are clearly visible in preview
+    const stripH = Math.max(height * 0.2, height * style.height / 600)
 
     let top = 0
     if (config.type === 'bottom_strip') top = height - stripH
@@ -433,15 +450,17 @@ export default function FramePosterPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [ratioFilter, setRatioFilter] = useState('')
 
   const filteredData = useMemo(() => {
     return data.filter(f => {
       if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false
       if (categoryFilter && f.category !== categoryFilter) return false
       if (typeFilter && f.type !== typeFilter) return false
+      if (ratioFilter && f.aspect_ratio !== ratioFilter) return false
       return true
     })
-  }, [data, search, categoryFilter, typeFilter])
+  }, [data, search, categoryFilter, typeFilter, ratioFilter])
 
   const openAdd = () => {
     setEditingItem(null)
@@ -461,6 +480,8 @@ export default function FramePosterPage() {
       sort_order: item.sort_order,
       color_preset: item.color_preset || [],
       config_json: item.config_json || { ...emptyConfig },
+      aspect_ratio: item.aspect_ratio || '1:1',
+      thumbnail_url: item.thumbnail_url || '',
     })
     setJsonMode(false)
     setModalOpen(true)
@@ -519,6 +540,8 @@ export default function FramePosterPage() {
       sort_order: form.sort_order,
       color_preset: form.color_preset,
       config_json: configToSave,
+      aspect_ratio: form.aspect_ratio,
+      thumbnail_url: form.thumbnail_url,
     }
 
     try {
@@ -621,15 +644,23 @@ export default function FramePosterPage() {
           <option value="">All Categories</option>
           {frameCategories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
+        <select value={ratioFilter} onChange={e => setRatioFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+          <option value="">All Ratios</option>
+          {aspectRatios.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
       </div>
 
       {/* Frame Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredData.map(frame => (
           <div key={frame.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group">
-            {/* Preview */}
-            <div className="aspect-square bg-neutral-900 relative overflow-hidden flex items-center justify-center p-3">
-              <FramePreview config={frame.config_json} width={200} height={200} />
+            {/* Preview — show thumbnail for image_overlay, canvas preview for legacy */}
+            <div className="aspect-[4/5] bg-neutral-800 relative overflow-hidden flex items-center justify-center p-2">
+              {frame.thumbnail_url ? (
+                <img src={frame.thumbnail_url} alt={frame.name} className="w-full h-full object-contain rounded-lg" />
+              ) : (
+                <FramePreview config={frame.config_json} width={240} height={300} />
+              )}
 
               {/* Hover actions */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -659,10 +690,21 @@ export default function FramePosterPage() {
                 )}
               </div>
 
-              {/* Type badge */}
-              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs bg-brand-dark/80 text-brand-text-muted">
-                {frame.type.replace('_', ' ')}
-              </span>
+              {/* Type + ratio badges */}
+              <div className="absolute top-2 left-2 flex flex-col gap-1">
+                <span className="px-2 py-0.5 rounded-full text-xs bg-brand-dark/80 text-brand-text-muted">
+                  {frame.type.replace('_', ' ')}
+                </span>
+                {frame.aspect_ratio && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${
+                    frame.aspect_ratio === '1:1' ? 'bg-purple-600/80' :
+                    frame.aspect_ratio === '4:5' ? 'bg-green-600/80' :
+                    frame.aspect_ratio === '9:16' ? 'bg-red-600/80' : 'bg-gray-600/80'
+                  }`}>
+                    {frame.aspect_ratio}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Info */}
@@ -723,8 +765,21 @@ export default function FramePosterPage() {
                   </select>
                 </div>
                 <div>
+                  <label className={labelClass}>Aspect Ratio</label>
+                  <select value={form.aspect_ratio} onChange={e => setForm(f => ({ ...f, aspect_ratio: e.target.value }))} className={inputClass}>
+                    {aspectRatios.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className={labelClass}>Sort Order</label>
                   <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className={inputClass} />
+                </div>
+                <div className="col-span-2">
+                  <label className={labelClass}>Thumbnail URL</label>
+                  <input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className={inputClass} placeholder="http://13.203.77.238/media/frames/..." />
+                  {form.thumbnail_url && (
+                    <img src={form.thumbnail_url} alt="Preview" className="mt-2 h-20 rounded border border-brand-dark-border object-contain" />
+                  )}
                 </div>
                 <div className="flex items-center gap-4 pt-5">
                   <label className="flex items-center gap-2 text-sm text-brand-text cursor-pointer">
