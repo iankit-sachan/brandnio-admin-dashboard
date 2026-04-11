@@ -39,6 +39,7 @@ interface NavSection {
   color?: string
   items: NavItem[]
   defaultOpen?: boolean
+  group?: string  // Group label shown as divider above this section
 }
 
 const navSections: NavSection[] = [
@@ -55,6 +56,7 @@ const navSections: NavSection[] = [
   // ─── APP TABS (matches 5 bottom nav tabs in the app) ────
   {
     title: 'HOME TAB',
+    group: 'APP TABS',
     icon: Home,
     color: '#6637D9',
     defaultOpen: false,
@@ -148,6 +150,7 @@ const navSections: NavSection[] = [
   // ─── POSTER EDITOR ──────────────────────────────────────
   {
     title: 'POST EDITOR',
+    group: 'TOOLS',
     icon: PenSquare,
     color: '#0EA5E9',
     defaultOpen: false,
@@ -177,6 +180,7 @@ const navSections: NavSection[] = [
   // ─── ADMIN MANAGEMENT ───────────────────────────────────
   {
     title: 'USERS',
+    group: 'ADMIN',
     icon: Users,
     defaultOpen: false,
     items: [
@@ -306,6 +310,17 @@ export function Sidebar() {
           const isOpen = openSections.has(section.title)
           return (
             <div key={section.title}>
+              {/* Group divider label */}
+              {section.group && !collapsed && (
+                <div className="flex items-center gap-2 px-4 mt-5 mb-2">
+                  <div className="flex-1 h-px bg-brand-dark-border" />
+                  <span className="text-[10px] uppercase tracking-widest text-brand-text-muted font-medium">{section.group}</span>
+                  <div className="flex-1 h-px bg-brand-dark-border" />
+                </div>
+              )}
+              {section.group && collapsed && (
+                <div className="border-t border-brand-gold/30 my-3 mx-2" />
+              )}
               {/* Section header — clickable to toggle */}
               {!collapsed ? (
                 <button
