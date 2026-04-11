@@ -15,7 +15,7 @@ import {
   BookOpen, Mail, Handshake, Store,
   ChevronRight, ChevronDown, Home, Rss,
   Share2,
-  Paintbrush,
+  Paintbrush, PenSquare,
   Globe,
   BarChart3, Compass, FolderTree, Quote,
   PlusCircle, Layout, Star, Gift,
@@ -42,6 +42,7 @@ interface NavSection {
 }
 
 const navSections: NavSection[] = [
+  // ─── ADMIN ──────────────────────────────────────────────
   {
     title: 'DASHBOARD',
     icon: LayoutDashboard,
@@ -50,8 +51,10 @@ const navSections: NavSection[] = [
       { path: '/', label: 'Overview', icon: BarChart3 },
     ],
   },
+
+  // ─── APP TABS (matches 5 bottom nav tabs in the app) ────
   {
-    title: 'HOME',
+    title: 'HOME TAB',
     icon: Home,
     color: '#6637D9',
     defaultOpen: false,
@@ -60,58 +63,51 @@ const navSections: NavSection[] = [
       { path: '/posters/home-cards', label: 'Home Cards', icon: CreditCard },
       { path: '/posters/home-card-sections', label: 'Card Sections', icon: Layers },
       { path: '/posters/promo-announcements', label: 'Promo Announcements', icon: Megaphone },
-      { path: '/festivals', label: 'Festival Calendar', icon: Calendar },
-      { path: '/posters/festival', label: 'Festival Posters', icon: Image },
+      { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
+      { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
       { path: '/feeds/items', label: 'Feed Items', icon: Rss },
       { path: '/feeds/banners', label: 'Feed Banners', icon: Image },
       { path: '/feeds/config', label: 'Feed Config', icon: Settings },
-      { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
-      { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
     ],
   },
   {
-    title: 'CATEGORY',
+    title: 'CATEGORY TAB',
     icon: Grid,
     color: '#F5A623',
     defaultOpen: false,
     items: [
       { path: '/categories/general', label: 'All Categories', icon: FolderTree },
       { path: '/posters', label: 'All Posters', icon: Image },
-      { path: '/posters/frames', label: 'Poster Frames', icon: Frame },
       { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
       { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
       { path: '/statuses/quotes', label: 'Status Quotes', icon: Quote },
     ],
   },
   {
-    title: 'CREATE',
+    title: 'CREATE TAB',
     icon: PlusCircle,
     color: '#3F5F92',
     defaultOpen: false,
     items: [
-      { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
-      { path: '/posters/canvas-presets', label: 'Canvas Presets', icon: Layout },
-      { path: '/misc/format-categories', label: 'Format Categories', icon: Grid },
       { path: '/posters/create-banners', label: 'Screen Banners', icon: Image },
+      { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
       { path: '/stickers', label: 'Sticker Packs', icon: Smile },
-      { path: '/misc/editor-sticker-categories', label: 'Editor Sticker Cats', icon: Grid },
-      { path: '/editor-stickers', label: 'Editor Stickers', icon: Star },
+      { path: '/sticker-banners', label: 'Sticker Banners', icon: Image },
       { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift },
       { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
+      { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
       { path: '/posters/video-categories', label: 'Video Categories', icon: Video },
       { path: '/posters/video-templates', label: 'Video Templates', icon: Film },
-      { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
       { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout },
       { path: '/collage/config', label: 'Collage Config', icon: Settings },
       { path: '/logo-maker/industries', label: 'Logo Industries', icon: Palette },
       { path: '/logo-maker/styles', label: 'Logo Styles', icon: Paintbrush },
       { path: '/logo-maker/configs', label: 'Logo Config', icon: Settings },
       { path: '/slideshow/config', label: 'Slideshow Config', icon: PlayCircle },
-      { path: '/sticker-banners', label: 'Sticker Banners', icon: Image },
     ],
   },
   {
-    title: 'BUSINESS',
+    title: 'BUSINESS TAB',
     icon: Briefcase,
     color: '#745B3B',
     defaultOpen: false,
@@ -126,12 +122,10 @@ const navSections: NavSection[] = [
       { path: '/card-wizard/form-fields', label: 'Wizard Fields', icon: FileText },
       { path: '/card-wizard/social-channels', label: 'Wizard Socials', icon: Share2 },
       { path: '/card-wizard/payment-gateways', label: 'Wizard Payments', icon: CreditCard },
-      { path: '/business/industries', label: 'Business Industries', icon: Building },
-      { path: '/business/social-platforms', label: 'Social Platforms', icon: Share2 },
     ],
   },
   {
-    title: 'AI TOOLS',
+    title: 'AI TOOLS TAB',
     icon: Sparkles,
     color: '#22C55E',
     defaultOpen: false,
@@ -150,6 +144,37 @@ const navSections: NavSection[] = [
       { path: '/product-ads/config', label: 'Ad Config', icon: Settings },
     ],
   },
+
+  // ─── POSTER EDITOR ──────────────────────────────────────
+  {
+    title: 'POST EDITOR',
+    icon: PenSquare,
+    color: '#0EA5E9',
+    defaultOpen: false,
+    items: [
+      { path: '/posters/frames', label: 'Poster Frames', icon: Frame },
+      { path: '/posters/canvas-presets', label: 'Canvas Presets', icon: Layout },
+      { path: '/misc/format-categories', label: 'Format Categories', icon: Grid },
+      { path: '/misc/editor-sticker-categories', label: 'Editor Sticker Cats', icon: Grid },
+      { path: '/editor-stickers', label: 'Editor Stickers', icon: Star },
+      { path: '/settings/watermark', label: 'Watermark', icon: Droplets },
+      { path: '/settings/design', label: 'Design Settings', icon: Palette },
+    ],
+  },
+
+  // ─── FESTIVALS ──────────────────────────────────────────
+  {
+    title: 'FESTIVALS',
+    icon: Calendar,
+    color: '#E91E63',
+    defaultOpen: false,
+    items: [
+      { path: '/festivals', label: 'Festival Calendar', icon: Calendar },
+      { path: '/posters/festival', label: 'Festival Posters', icon: Image },
+    ],
+  },
+
+  // ─── ADMIN MANAGEMENT ───────────────────────────────────
   {
     title: 'USERS',
     icon: Users,
@@ -162,6 +187,8 @@ const navSections: NavSection[] = [
       { path: '/subscriptions/plans', label: 'Plans', icon: FileText },
       { path: '/users/active-plans', label: 'Active Plans', icon: CreditCard },
       { path: '/users/expired-plans', label: 'Expired Plans', icon: CreditCard },
+      { path: '/business/industries', label: 'Business Industries', icon: Building },
+      { path: '/business/social-platforms', label: 'Social Platforms', icon: Share2 },
     ],
   },
   {
@@ -186,7 +213,6 @@ const navSections: NavSection[] = [
       { path: '/services', label: 'Services', icon: Wrench },
       { path: '/reels/music', label: 'Music Tracks', icon: Music },
       { path: '/greetings/customers', label: 'Customers', icon: Users },
-      { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash },
     ],
   },
   {
@@ -194,14 +220,13 @@ const navSections: NavSection[] = [
     icon: Settings,
     defaultOpen: false,
     items: [
-      { path: '/settings/watermark', label: 'Watermark', icon: Droplets },
-      { path: '/settings/design', label: 'Design Settings', icon: Palette },
       { path: '/misc/languages', label: 'Languages', icon: Globe },
       { path: '/misc/contact-config', label: 'Contact Config', icon: Phone },
       { path: '/settings/taglines', label: 'Taglines', icon: Type },
       { path: '/settings/payment-plans', label: 'Payment Plans', icon: CreditCard },
       { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
       { path: '/business/setup-config', label: 'Business Setup', icon: Building },
+      { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash },
     ],
   },
 ]
