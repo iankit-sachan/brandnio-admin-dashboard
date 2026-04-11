@@ -8,7 +8,6 @@ import {
 import { KPICard } from '../components/ui/KPICard'
 import ActivityLogWidget from '../components/ui/ActivityLogWidget'
 import { dashboardApi } from '../services/admin-api'
-import { mockDashboardStats } from '../services/mock-data'
 import { formatNumber } from '../utils/formatters'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -26,12 +25,24 @@ const quickActions = [
   { label: 'Delete Requests', path: '/settings/delete-requests', icon: Trash2, color: 'bg-red-500' },
 ]
 
+const emptyStats = {
+  totalUsers: 0, activeSubscriptions: 0, expiredSubscriptions: 0,
+  revenueThisMonth: 0, creditsConsumedToday: 0, aiToolCallsToday: 0,
+  activeReelsProcessing: 0, businessProfiles: 0, totalPosters: 0,
+  userGrowth: [], revenueByPlan: [], aiToolUsage: [], subscriptionDistribution: [],
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState(mockDashboardStats)
+  const [stats, setStats] = useState(emptyStats)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    dashboardApi.stats().then(setStats).catch(() => {})
+    setLoading(true)
+    dashboardApi.stats()
+      .then(data => setStats({ ...emptyStats, ...data }))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   // Compute growth from userGrowth data

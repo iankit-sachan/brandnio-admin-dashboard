@@ -1,14 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Menu, Users, Image, RotateCw, ChevronDown, LogOut } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import ClearCacheButton from '../ui/ClearCacheButton'
+import { dashboardApi } from '../../services/admin-api'
 
 export function TopBar() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [userCount, setUserCount] = useState<number | null>(null)
+  const [posterCount, setPosterCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    dashboardApi.stats()
+      .then(data => {
+        setUserCount(data.totalUsers ?? 0)
+        setPosterCount(data.totalPosters ?? 0)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -38,11 +50,11 @@ export function TopBar() {
       <div className="flex items-center gap-3">
         <div className="bg-status-info/10 text-status-info rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-medium">
           <Users style={{ width: '14px', height: '14px' }} />
-          <span>Users: 12,847</span>
+          <span>Users: {userCount !== null ? userCount.toLocaleString() : '...'}</span>
         </div>
         <div className="bg-status-success/10 text-status-success rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-medium">
           <Image style={{ width: '14px', height: '14px' }} />
-          <span>Posters: 1,245</span>
+          <span>Posters: {posterCount !== null ? posterCount.toLocaleString() : '...'}</span>
         </div>
       </div>
 
