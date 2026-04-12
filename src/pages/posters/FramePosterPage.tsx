@@ -106,6 +106,19 @@ const frameCategories = [
   { value: 'political', label: 'Political' },
 ]
 
+const colorThemes = [
+  { name: 'Maroon', colors: ['#5E030C', '#8B0000'], text: '#FFFFFF' },
+  { name: 'Navy', colors: ['#1a237e', '#283593'], text: '#FFFFFF' },
+  { name: 'Gold', colors: ['#F5A623', '#D4941D'], text: '#1A1A2E' },
+  { name: 'Forest', colors: ['#1b5e20', '#2e7d32'], text: '#FFFFFF' },
+  { name: 'Purple', colors: ['#4a148c', '#6a1b9a'], text: '#FFFFFF' },
+  { name: 'Orange', colors: ['#e65100', '#f57c00'], text: '#FFFFFF' },
+  { name: 'Black', colors: ['#212121', '#424242'], text: '#FFFFFF' },
+  { name: 'White', colors: ['#FAFAFA', '#F5F5F5'], text: '#1A1A2E' },
+  { name: 'Teal', colors: ['#004d40', '#00695c'], text: '#FFFFFF' },
+  { name: 'Rose', colors: ['#880e4f', '#ad1457'], text: '#FFFFFF' },
+]
+
 const elementTypes = [
   { value: 'text', label: 'Text' },
   { value: 'icon', label: 'Icon' },
@@ -451,6 +464,8 @@ export default function FramePosterPage() {
   const [jsonText, setJsonText] = useState('')
   const [frameFile, setFrameFile] = useState<File | null>(null)
   const [framePreviewUrl, setFramePreviewUrl] = useState<string>('')
+  const [selectedFrames, setSelectedFrames] = useState<Set<number>>(new Set())
+  const [dupDropdown, setDupDropdown] = useState<number | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -543,6 +558,50 @@ export default function FramePosterPage() {
       addToast('Frame duplicated!')
     } catch {
       addToast('Duplicate failed', 'error')
+    }
+  }
+
+  const duplicateToRatio = async (sourceFrame: PosterFrame, targetRatio: string) => {
+    try {
+      const ratioSuffix = targetRatio.replace(':', '_')
+      const newName = `${sourceFrame.name.replace(/_\d+_\d+$/, '')}_${ratioSuffix}`
+
+      const baseDims: Record<string, { w: number; h: number }> = {
+        '1:1': { w: 1024, h: 1024 },
+        '4:5': { w: 1080, h: 1350 },
+        '9:16': { w: 1080, h: 1920 },
+        '16:9': { w: 1920, h: 1080 },
+      }
+      const dims = baseDims[targetRatio] || baseDims['1:1']
+
+      const newConfig = JSON.parse(JSON.stringify(sourceFrame.config_json))
+      if (newConfig.canvasSize) newConfig.canvasSize = dims.w
+      if (newConfig.canvasHeight) newConfig.canvasHeight = dims.h
+      if (newConfig.layers) {
+        for (const layer of newConfig.layers) {
+          if (layer.name === 'bg') {
+            layer.width = dims.w
+            layer.height = dims.h
+          }
+        }
+      }
+
+      await create({
+        name: newName,
+        type: sourceFrame.type,
+        category: sourceFrame.category,
+        aspect_ratio: targetRatio,
+        is_active: false,
+        is_premium: sourceFrame.is_premium,
+        sort_order: sourceFrame.sort_order,
+        color_preset: sourceFrame.color_preset,
+        config_json: newConfig,
+        thumbnail_url: sourceFrame.thumbnail_url,
+        overlay_image_url: sourceFrame.overlay_image_url || '',
+      } as any)
+      addToast(`Duplicated to ${targetRatio}`)
+    } catch {
+      addToast('Duplicate to ratio failed', 'error')
     }
   }
 
@@ -647,6 +706,17 @@ export default function FramePosterPage() {
     }
   }
 
+  const handleBulkActivate = async () => {
+    for (const id of selectedFrames) { await update(id, { is_active: true } as Partial<PosterFrame>) }
+    addToast(`${selectedFrames.size} frames activated`)
+    setSelectedFrames(new Set())
+  }
+  const handleBulkDeactivate = async () => {
+    for (const id of selectedFrames) { await update(id, { is_active: false } as Partial<PosterFrame>) }
+    addToast(`${selectedFrames.size} frames deactivated`)
+    setSelectedFrames(new Set())
+  }
+
   // Update style helper
   const updateStyle = useCallback((patch: Partial<FrameStyle>) => {
     setForm(f => ({
@@ -739,10 +809,26 @@ export default function FramePosterPage() {
         </select>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedFrames.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-brand-dark-card rounded-xl border border-brand-gold/30">
+          <span className="text-sm text-brand-text">{selectedFrames.size} selected</span>
+          <button onClick={handleBulkActivate} className="px-3 py-1.5 bg-status-success text-white text-sm rounded-lg">Activate All</button>
+          <button onClick={handleBulkDeactivate} className="px-3 py-1.5 bg-status-error text-white text-sm rounded-lg">Deactivate All</button>
+          <button onClick={() => setSelectedFrames(new Set())} className="px-3 py-1.5 bg-brand-dark-hover text-brand-text text-sm rounded-lg ml-auto">Clear</button>
+        </div>
+      )}
+
       {/* Frame Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredData.map(frame => (
-          <div key={frame.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group">
+          <div key={frame.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group relative">
+            <input
+              type="checkbox"
+              checked={selectedFrames.has(frame.id)}
+              onChange={(e) => { e.stopPropagation(); setSelectedFrames(prev => { const next = new Set(prev); if (next.has(frame.id)) next.delete(frame.id); else next.add(frame.id); return next }) }}
+              className="absolute top-2 left-2 z-10 rounded cursor-pointer"
+            />
             {/* Preview — show thumbnail for image_overlay, canvas preview for legacy */}
             <div className="aspect-[4/5] bg-neutral-800 relative overflow-hidden flex items-center justify-center p-2">
               {frame.thumbnail_url ? (
@@ -756,9 +842,19 @@ export default function FramePosterPage() {
                 <button onClick={() => openEdit(frame)} className="p-2 bg-brand-gold rounded-lg text-gray-900" title="Edit">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button onClick={() => duplicateFrame(frame)} className="p-2 bg-blue-500 rounded-lg text-white" title="Duplicate">
-                  <Copy className="h-4 w-4" />
-                </button>
+                <div className="relative">
+                  <button onClick={(e) => { e.stopPropagation(); setDupDropdown(dupDropdown === frame.id ? null : frame.id) }} className="p-2 bg-blue-500 rounded-lg text-white" title="Duplicate">
+                    <Copy className="h-4 w-4" />
+                  </button>
+                  {dupDropdown === frame.id && (
+                    <div className="absolute top-full left-0 mt-1 bg-brand-dark-card border border-brand-dark-border rounded-lg shadow-xl z-50 py-1 min-w-[140px]">
+                      <button onClick={() => { duplicateFrame(frame); setDupDropdown(null) }} className="w-full text-left px-3 py-1.5 text-xs text-brand-text hover:bg-brand-dark-hover">Same Ratio</button>
+                      {['1:1', '4:5', '9:16', '16:9'].filter(r => r !== frame.aspect_ratio).map(r => (
+                        <button key={r} onClick={() => { duplicateToRatio(frame, r); setDupDropdown(null) }} className="w-full text-left px-3 py-1.5 text-xs text-brand-text hover:bg-brand-dark-hover">To {r}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button onClick={() => toggleActive(frame)} className="p-2 bg-green-600 rounded-lg text-white" title={frame.is_active ? 'Deactivate' : 'Activate'}>
                   {frame.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
                 </button>
@@ -780,7 +876,7 @@ export default function FramePosterPage() {
               </div>
 
               {/* Type + ratio badges */}
-              <div className="absolute top-2 left-2 flex flex-col gap-1">
+              <div className="absolute top-8 left-2 flex flex-col gap-1">
                 <span className="px-2 py-0.5 rounded-full text-xs bg-brand-dark/80 text-brand-text-muted">
                   {(frame.type || 'unknown').replace('_', ' ')}
                 </span>
@@ -912,6 +1008,26 @@ export default function FramePosterPage() {
             {/* Style Config */}
             <div>
               <h3 className={sectionTitle}><Palette className="h-4 w-4 text-brand-gold" /> Style Configuration</h3>
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-brand-text-muted mb-2">Quick Themes</label>
+                <div className="flex flex-wrap gap-2">
+                  {colorThemes.map(theme => (
+                    <button
+                      key={theme.name}
+                      onClick={() => updateStyle({ colors: theme.colors, background: 'gradient' })}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-brand-dark-border text-xs hover:border-brand-gold/50 transition-colors"
+                      title={theme.name}
+                    >
+                      <div className="flex">
+                        {theme.colors.map((c, i) => (
+                          <div key={i} className="w-4 h-4 rounded-sm" style={{ backgroundColor: c, marginLeft: i > 0 ? -4 : 0 }} />
+                        ))}
+                      </div>
+                      <span className="text-brand-text-muted">{theme.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Background</label>
