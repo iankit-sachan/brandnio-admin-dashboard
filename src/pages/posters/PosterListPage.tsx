@@ -111,14 +111,23 @@ export default function PosterListPage() {
     }
   }
 
+  const [deleting, setDeleting] = useState(false)
   const handleDelete = async () => {
-    if (!deleteItem) return
+    if (!deleteItem || deleting) return
+    setDeleting(true)
     try {
       await remove(deleteItem.id)
       addToast('Poster deleted successfully')
+    } catch (err: any) {
+      // 404 means already deleted — treat as success
+      if (err?.response?.status === 404) {
+        addToast('Poster already deleted')
+      } else {
+        addToast('Delete failed. Please try again.', 'error')
+      }
+    } finally {
       setDeleteItem(null)
-    } catch {
-      addToast('Delete failed. Please try again.', 'error')
+      setDeleting(false)
     }
   }
 

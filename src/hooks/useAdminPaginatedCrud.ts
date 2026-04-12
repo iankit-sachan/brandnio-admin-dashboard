@@ -115,7 +115,12 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
   }, [apiService])
 
   const remove = useCallback(async (id: number): Promise<boolean> => {
-    await apiService.delete(id)
+    try {
+      await apiService.delete(id)
+    } catch (err: any) {
+      // 404 means already deleted — not an error
+      if (err?.response?.status !== 404) throw err
+    }
     logActivity('deleted', (apiService as { resourceName?: string }).resourceName || 'item', `ID ${id}`)
     // Refresh to update pagination counts
     fetchData(page, search)
