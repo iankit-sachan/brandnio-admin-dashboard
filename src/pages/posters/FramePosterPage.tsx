@@ -55,6 +55,7 @@ interface PosterFrame {
   type: string
   config_json: FrameConfig | any
   thumbnail_url: string
+  overlay_image_url: string
   category: string
   color_preset: string[]
   is_premium: boolean
@@ -75,6 +76,7 @@ interface FormState {
   config_json: FrameConfig
   aspect_ratio: string
   thumbnail_url: string
+  overlay_image_url: string
 }
 
 // ── Constants ──────────────────────────────────────────────────
@@ -153,6 +155,7 @@ const emptyForm: FormState = {
   config_json: { ...emptyConfig },
   aspect_ratio: '1:1',
   thumbnail_url: '',
+  overlay_image_url: '',
 }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
@@ -484,9 +487,15 @@ export default function FramePosterPage() {
       is_active: item.is_active,
       sort_order: item.sort_order,
       color_preset: item.color_preset || [],
-      config_json: item.config_json || { ...emptyConfig },
+      config_json: {
+        ...emptyConfig,
+        ...item.config_json,
+        style: { ...defaultStyle, ...(item.config_json?.style || {}) },
+        elements: item.config_json?.elements || [{ ...defaultElement }],
+      },
       aspect_ratio: item.aspect_ratio || '1:1',
       thumbnail_url: item.thumbnail_url || '',
+      overlay_image_url: item.overlay_image_url || '',
     })
     setJsonMode(false)
     setFrameFile(null)
@@ -507,6 +516,7 @@ export default function FramePosterPage() {
         config_json: item.config_json,
         aspect_ratio: item.aspect_ratio,
         thumbnail_url: item.thumbnail_url,
+        overlay_image_url: item.overlay_image_url,
       } as Partial<PosterFrame>)
       addToast('Frame duplicated!')
     } catch {
@@ -586,6 +596,7 @@ export default function FramePosterPage() {
       config_json: configToSave,
       aspect_ratio: form.aspect_ratio,
       thumbnail_url: form.thumbnail_url,
+      overlay_image_url: form.overlay_image_url,
     }
 
     try {
@@ -737,7 +748,7 @@ export default function FramePosterPage() {
               {/* Type + ratio badges */}
               <div className="absolute top-2 left-2 flex flex-col gap-1">
                 <span className="px-2 py-0.5 rounded-full text-xs bg-brand-dark/80 text-brand-text-muted">
-                  {frame.type.replace('_', ' ')}
+                  {(frame.type || 'unknown').replace('_', ' ')}
                 </span>
                 {frame.aspect_ratio && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${
@@ -823,6 +834,13 @@ export default function FramePosterPage() {
                   <input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className={inputClass} placeholder="http://13.203.77.238/media/frames/..." />
                   {form.thumbnail_url && (
                     <img src={form.thumbnail_url} alt="Preview" className="mt-2 h-20 rounded border border-brand-dark-border object-contain" />
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <label className={labelClass}>Overlay Image URL <span className="text-brand-text-muted font-normal">(single transparent PNG rendered on top of poster)</span></label>
+                  <input value={form.overlay_image_url} onChange={e => setForm(f => ({ ...f, overlay_image_url: e.target.value }))} className={inputClass} placeholder="http://13.203.77.238/media/frames/..." />
+                  {form.overlay_image_url && (
+                    <img src={form.overlay_image_url} alt="Overlay" className="mt-2 h-24 rounded border border-brand-dark-border object-contain bg-neutral-700" />
                   )}
                 </div>
                 <div className="col-span-2">
