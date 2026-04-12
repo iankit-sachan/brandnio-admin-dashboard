@@ -457,16 +457,38 @@ export default function FramePosterPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [ratioFilter, setRatioFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('active')
+  const [sizeFilter, setSizeFilter] = useState('')
+
+  // Extract unique canvas sizes from frame configs
+  const availableSizes = useMemo(() => {
+    const sizes = new Set<string>()
+    data.forEach(f => {
+      const config = f.config_json as any
+      const w = config?.canvasSize || config?.layers?.[0]?.width
+      const h = config?.canvasHeight || config?.layers?.[0]?.height
+      if (w && h) sizes.add(`${w}x${h}`)
+    })
+    return Array.from(sizes).sort()
+  }, [data])
 
   const filteredData = useMemo(() => {
     return data.filter(f => {
       if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false
       if (categoryFilter && f.category !== categoryFilter) return false
-      if (typeFilter && f.type !== typeFilter) return false
+      if (typeFilter && (f.type || '') !== typeFilter) return false
       if (ratioFilter && f.aspect_ratio !== ratioFilter) return false
+      if (statusFilter === 'active' && !f.is_active) return false
+      if (statusFilter === 'inactive' && f.is_active) return false
+      if (sizeFilter) {
+        const config = f.config_json as any
+        const w = config?.canvasSize || config?.layers?.[0]?.width
+        const h = config?.canvasHeight || config?.layers?.[0]?.height
+        if (`${w}x${h}` !== sizeFilter) return false
+      }
       return true
     })
-  }, [data, search, categoryFilter, typeFilter, ratioFilter])
+  }, [data, search, categoryFilter, typeFilter, ratioFilter, statusFilter, sizeFilter])
 
   const openAdd = () => {
     setEditingItem(null)
@@ -680,6 +702,9 @@ export default function FramePosterPage() {
         <div className="flex items-center gap-2 text-sm text-brand-text-muted">
           <span className="px-2 py-1 rounded bg-brand-dark-card">{data.length} frames</span>
           <span className="px-2 py-1 rounded bg-status-success/10 text-status-success">{data.filter(f => f.is_active).length} active</span>
+          {filteredData.length !== data.length && (
+            <span className="px-2 py-1 rounded bg-brand-gold/10 text-brand-gold">Showing {filteredData.length}</span>
+          )}
         </div>
       </div>
 
@@ -702,6 +727,15 @@ export default function FramePosterPage() {
         <select value={ratioFilter} onChange={e => setRatioFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Ratios</option>
           {aspectRatios.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+          <option value="">All Status</option>
+          <option value="active">Active Only</option>
+          <option value="inactive">Inactive Only</option>
+        </select>
+        <select value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+          <option value="">All Sizes</option>
+          {availableSizes.map(s => <option key={s} value={s}>{s}px</option>)}
         </select>
       </div>
 
