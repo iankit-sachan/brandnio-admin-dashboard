@@ -107,6 +107,7 @@ const PosterHomeSectionsPage = lazy(() => import('./pages/posters/PosterHomeSect
 
 // Home Banners
 const HomeBannerPage = lazy(() => import('./pages/posters/HomeBannerPage'))
+const CategoryBannerPage = lazy(() => import('./pages/posters/CategoryBannerPage'))
 
 // Promo Announcements
 const PromoAnnouncementPage = lazy(() => import('./pages/posters/PromoAnnouncementPage'))
@@ -219,6 +220,7 @@ export default function App() {
                 <Route path="/posters/business-category" element={<BusinessCategoryPage />} />
                 <Route path="/posters/home-sections" element={<PosterHomeSectionsPage />} />
                 <Route path="/posters/home-banners" element={<HomeBannerPage />} />
+                <Route path="/posters/category-banners" element={<CategoryBannerPage />} />
                 <Route path="/posters/promo-announcements" element={<PromoAnnouncementPage />} />
                 <Route path="/posters/home-cards" element={<HomeCardPage />} />
                 <Route path="/posters/home-card-sections" element={<HomeCardSectionPage />} />

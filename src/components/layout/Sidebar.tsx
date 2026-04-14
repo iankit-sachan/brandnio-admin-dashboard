@@ -80,6 +80,7 @@ const navSections: NavSection[] = [
       { path: '/categories/general', label: 'All Categories', icon: FolderTree },
       { path: '/posters', label: 'Poster Templates', icon: Image },
       { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
+      { path: '/posters/category-banners', label: 'Category Banners', icon: Image },
       { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
       { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
       { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
