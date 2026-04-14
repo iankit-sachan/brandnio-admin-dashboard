@@ -27,6 +27,7 @@ interface FormState {
   position_after_section: number
   sort_order: number
   is_active: boolean
+  alsoShowOnHome: boolean
 }
 
 const emptyForm: FormState = {
@@ -47,6 +48,7 @@ const emptyForm: FormState = {
   position_after_section: 1,
   sort_order: 0,
   is_active: true,
+  alsoShowOnHome: false,
 }
 
 export default function CategoryBannerPage() {
@@ -85,6 +87,7 @@ export default function CategoryBannerPage() {
       position_after_section: item.position_after_section || 1,
       sort_order: item.sort_order || 0,
       is_active: item.is_active,
+      alsoShowOnHome: data.some((b: any) => b.placement === 'inline' && b.title === item.title && b.id !== item.id),
     })
     setModalOpen(true)
   }
@@ -92,7 +95,8 @@ export default function CategoryBannerPage() {
   const handleSubmit = async () => {
     if (!form.preview_image_1.trim()) { addToast('At least one image is required', 'error'); return }
     try {
-      const payload = { ...form, placement: 'category_section' }
+      const { alsoShowOnHome, ...rest } = form
+      const payload = { ...rest, placement: 'category_section' }
       if (editingItem) {
         await update(editingItem.id, payload as any)
         addToast('Category banner updated')
@@ -100,6 +104,19 @@ export default function CategoryBannerPage() {
         await create(payload as any)
         addToast('Category banner created')
       }
+
+      // Also create/sync on Home Tab if checked
+      if (alsoShowOnHome) {
+        const homePayload = { ...rest, placement: 'inline' }
+        const existingCopy = data.find((b: any) => b.placement === 'inline' && b.title === form.title && b.id !== editingItem?.id)
+        if (existingCopy) {
+          await update(existingCopy.id, homePayload as any)
+        } else {
+          await create(homePayload as any)
+        }
+        addToast('Also added to Home Tab')
+      }
+
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
     } catch (err: any) {
       const detail = err?.response?.data
@@ -230,9 +247,15 @@ export default function CategoryBannerPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Active (visible on app)</label>
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+              Active (visible on app)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.alsoShowOnHome} onChange={e => setForm(f => ({ ...f, alsoShowOnHome: e.target.checked }))} className="rounded accent-indigo-500" />
+              Also show on Home Tab
+            </label>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

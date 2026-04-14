@@ -23,9 +23,11 @@ interface FormState {
   gradient_end_color: string
   target_category_slug: string
   target_category_name: string
+  placement: string
   position_after_section: number
   sort_order: number
   is_active: boolean
+  alsoShowOnCategory: boolean
 }
 
 const emptyForm: FormState = {
@@ -42,9 +44,11 @@ const emptyForm: FormState = {
   gradient_end_color: '',
   target_category_slug: '',
   target_category_name: '',
+  placement: 'inline',
   position_after_section: 0,
   sort_order: 0,
   is_active: true,
+  alsoShowOnCategory: false,
 }
 
 export default function HomeBannerPage() {
@@ -76,9 +80,11 @@ export default function HomeBannerPage() {
       gradient_end_color: item.gradient_end_color || '',
       target_category_slug: item.target_category_slug || '',
       target_category_name: item.target_category_name || '',
+      placement: (item as any).placement || 'inline',
       position_after_section: item.position_after_section ?? 0,
       sort_order: item.sort_order,
       is_active: item.is_active,
+      alsoShowOnCategory: data.some((b: any) => b.placement === 'category_section' && b.title === item.title && b.id !== item.id),
     })
     setModalOpen(true)
   }
@@ -86,13 +92,30 @@ export default function HomeBannerPage() {
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
     try {
+      const { alsoShowOnCategory, ...payload } = form
+      const homePayload = { ...payload, placement: 'inline' }
+
       if (editingItem) {
-        await update(editingItem.id, form)
+        await update(editingItem.id, homePayload as any)
         addToast('Home banner updated successfully')
       } else {
-        await create(form)
+        await create(homePayload as any)
         addToast('Home banner created successfully')
       }
+
+      // Also create/sync on Category Tab if checked
+      if (alsoShowOnCategory) {
+        const categoryPayload = { ...payload, placement: 'category_section' }
+        // Check if a category copy already exists (by matching title)
+        const existingCopy = data.find((b: any) => b.placement === 'category_section' && b.title === form.title && b.id !== editingItem?.id)
+        if (existingCopy) {
+          await update(existingCopy.id, categoryPayload as any)
+        } else {
+          await create(categoryPayload as any)
+        }
+        addToast('Also added to Category Tab')
+      }
+
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
     } catch {
       addToast('Operation failed. Please try again.', 'error')
@@ -302,10 +325,16 @@ export default function HomeBannerPage() {
             <p className="text-xs text-brand-text-muted mt-1">Lower numbers appear first on the home screen</p>
           </div>
 
-          {/* Active */}
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Active (visible on app)</label>
+          {/* Active + Also show on Category */}
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+              Active (visible on app)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.alsoShowOnCategory} onChange={e => setForm(f => ({ ...f, alsoShowOnCategory: e.target.checked }))} className="rounded accent-indigo-500" />
+              Also show on Category Tab
+            </label>
           </div>
 
           {/* Actions */}
