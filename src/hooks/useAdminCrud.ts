@@ -12,8 +12,9 @@ import { logActivity } from '../utils/activityLog'
 const CACHE_TTL = 30_000
 const _cache = new Map<string, { data: unknown; ts: number }>()
 function getCacheKey(api: unknown, params?: Record<string, string>): string {
-  // Use the list function reference + params as cache key
-  const base = (api as { list: { name?: string } }).list?.name || 'crud'
+  // Use the resource name (unique per crud instance) + params as cache key
+  const resource = (api as { _resource?: string })._resource || ''
+  const base = resource || (api as { list: { name?: string } }).list?.name || 'crud'
   return `${base}:${JSON.stringify(params || {})}`
 }
 

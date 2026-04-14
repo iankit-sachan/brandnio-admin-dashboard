@@ -7,7 +7,7 @@
  *   const { data, loading, page, totalPages, totalCount, search,
  *           setPage, setSearch, create, update, remove, refresh } = useAdminPaginatedCrud(postersApi)
  */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { logActivity } from '../utils/activityLog'
 import type { PaginatedResponse } from '../services/admin-api'
 
@@ -53,6 +53,9 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
   // Debounce timer ref for search
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Stable serialization of extraParams so we can detect changes by value
+  const extraParamsKey = useMemo(() => JSON.stringify(extraParams ?? {}), [extraParams])
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const fetchData = useCallback(async (pageNum: number, searchQuery: string) => {
@@ -62,7 +65,7 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
       const params: Record<string, string | number | undefined> = {
         page: pageNum,
         page_size: PAGE_SIZE,
-        ...extraParams,
+        ...(extraParams ?? {}),
       }
       if (searchQuery) params.search = searchQuery
       const result = await apiService.listPaginated(params)
@@ -78,11 +81,20 @@ export function useAdminPaginatedCrud<T extends { id: number }>(
     } finally {
       if (mountedRef.current) setLoading(false)
     }
-  }, [apiService, extraParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiService, extraParamsKey])
 
-  // Re-fetch when page changes
+  // Re-fetch when page/search/filters change; reset to page 1 on filter change
+  const prevExtraParamsKeyRef = useRef(extraParamsKey)
   useEffect(() => {
     mountedRef.current = true
+    if (prevExtraParamsKeyRef.current !== extraParamsKey) {
+      prevExtraParamsKeyRef.current = extraParamsKey
+      if (page !== 1) {
+        setPage(1) // will re-trigger this effect with page=1
+        return      // skip fetch with stale page number
+      }
+    }
     fetchData(page, search)
     return () => { mountedRef.current = false }
   }, [page, fetchData, search])

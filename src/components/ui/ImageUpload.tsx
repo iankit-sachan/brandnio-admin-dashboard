@@ -3,22 +3,32 @@ import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { uploadApi } from '../../services/admin-api'
 
+interface UploadMeta {
+  thumbnail_url: string | null
+  width: number | null
+  height: number | null
+  detected_ratio: string | null
+}
+
 interface Props {
   label: string
   value: string | null
   onChange: (url: string | null) => void
+  onUploadMeta?: (meta: UploadMeta) => void
   accept?: string
   className?: string
   aspectHint?: string
 }
 
-export function ImageUpload({ label, value, onChange, accept = 'image/*', className, aspectHint }: Props) {
+export function ImageUpload({ label, value, onChange, onUploadMeta, accept = 'image/*', className, aspectHint }: Props) {
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dimensions, setDimensions] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const uploadGenRef = useRef(0) // Race condition guard
 
-  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB — matches backend limit
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -33,17 +43,57 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
       setError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 10 MB.`)
       return
     }
+
+    const gen = ++uploadGenRef.current
     setUploading(true)
+    setDimensions(null)
     setError('')
+
     try {
-      const url = await uploadApi.upload(file)
-      onChange(url)
+      // Read dimensions (async, guarded by generation counter)
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(file)
+      img.onload = () => {
+        if (gen === uploadGenRef.current) {
+          setDimensions(`${img.width} \u00d7 ${img.height}px`)
+        }
+        URL.revokeObjectURL(objectUrl)
+      }
+      img.onerror = () => URL.revokeObjectURL(objectUrl)
+      img.src = objectUrl
+
+      if (onUploadMeta) {
+        const result = await uploadApi.uploadWithThumbnail(file)
+        if (gen === uploadGenRef.current) {
+          onChange(result.url)
+          onUploadMeta({
+            thumbnail_url: result.thumbnail_url,
+            width: result.width,
+            height: result.height,
+            detected_ratio: result.detected_ratio,
+          })
+        }
+      } else {
+        const url = await uploadApi.upload(file)
+        if (gen === uploadGenRef.current) {
+          onChange(url)
+        }
+      }
     } catch {
-      setError('Upload failed')
+      if (gen === uploadGenRef.current) {
+        setError('Upload failed')
+      }
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
     }
+  }
+
+  const handleRemove = () => {
+    uploadGenRef.current++ // Cancel any in-flight upload
+    onChange(null)
+    setDimensions(null)
+    setError(null)
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -68,6 +118,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
             alt={label}
             className="w-full h-40 object-contain bg-neutral-900 rounded-lg border border-brand-dark-border"
           />
+          {dimensions && <span className="absolute bottom-1 left-1 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded">{dimensions}</span>}
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-3">
             <button
               type="button"
@@ -78,7 +129,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', classN
             </button>
             <button
               type="button"
-              onClick={() => onChange(null)}
+              onClick={handleRemove}
               className="p-2 bg-brand-dark-card rounded-lg text-brand-text hover:text-status-error transition-colors"
             >
               <X className="h-5 w-5" />

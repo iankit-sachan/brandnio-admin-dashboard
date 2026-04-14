@@ -21,12 +21,13 @@ export interface Poster {
   title: string
   category: number
   category_name: string
-  thumbnail_url: string
-  image_url: string
+  thumbnail_url: string | null
+  image_url: string | null
   template_data: Record<string, unknown>
   aspect_ratio: AspectRatio
   tags: string[]
   is_premium: boolean
+  is_active: boolean
   download_count: number
   share_count: number
   festival: number | null

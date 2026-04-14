@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -6,9 +6,10 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2 } from 'lucide-react'
+import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw } from 'lucide-react'
+import { TagInput } from '../../components/ui/TagInput'
 import TemplateLayerEditor from './TemplateLayerEditor'
-import { postersApi, posterCategoriesApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
@@ -22,14 +23,53 @@ interface FormState {
   category: number
   is_premium: boolean
   aspect_ratio: AspectRatio
+  tags: string[]
+  festival: number | null
+  is_active: boolean
 }
 
-const emptyForm: FormState = { thumbnail_url: null, image_url: null, title: '', category: 1, is_premium: false, aspect_ratio: '1:1' }
+const emptyForm: FormState = {
+  thumbnail_url: null, image_url: null, title: '', category: 1,
+  is_premium: false, aspect_ratio: '1:1', tags: [], festival: null, is_active: true
+}
 
 export default function PosterListPage() {
   const { addToast } = useToast()
-  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi)
+
+  // ── Filter state ──
+  const [filterCategory, setFilterCategory] = useState<string>('')
+  const [filterRatio, setFilterRatio] = useState<string>('')
+  const [filterPremium, setFilterPremium] = useState<string>('')
+  const [filterActive, setFilterActive] = useState<string>('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  const extraParams = useMemo(() => {
+    const p: Record<string, string | number | undefined> = {}
+    if (filterCategory) p.category = filterCategory
+    if (filterRatio) p.aspect_ratio = filterRatio
+    if (filterPremium) p.is_premium = filterPremium
+    if (filterActive) p.is_active = filterActive
+    return p
+  }, [filterCategory, filterRatio, filterPremium, filterActive])
+
+  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive)
+
+  const clearFilters = () => {
+    setFilterCategory(''); setFilterRatio(''); setFilterPremium(''); setFilterActive('')
+  }
+
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi, extraParams)
   const { data: categories } = useAdminCrud(posterCategoriesApi)
+  const { data: festivals } = useAdminCrud(festivalsApi)
+  const { data: allFrames } = useAdminCrud(posterFramesApi)
+
+  // Filter frames by current form aspect ratio
+  const matchingFrames = useMemo(() => {
+    return (allFrames as any[]).filter((f: any) =>
+      f.aspect_ratio === form.aspect_ratio || !f.aspect_ratio || f.aspect_ratio === ''
+    )
+  }, [allFrames, form.aspect_ratio])
+
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Poster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -39,14 +79,20 @@ export default function PosterListPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
+  // ── Preview state ──
+  const [previewPoster, setPreviewPoster] = useState<Poster | null>(null)
+
   // Bulk upload state
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[]>([])
   const [bulkCategory, setBulkCategory] = useState<number>(0)
   const [bulkRatio, setBulkRatio] = useState<AspectRatio>('1:1')
   const [bulkPremium, setBulkPremium] = useState(false)
+  const [bulkActive, setBulkActive] = useState(true)
+  const [bulkTags, setBulkTags] = useState<string[]>([])
+  const [bulkFestival, setBulkFestival] = useState<number | null>(null)
   const [bulkUploading, setBulkUploading] = useState(false)
-  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, failed: 0 })
   const bulkFileRef = useRef<HTMLInputElement>(null)
 
   const toggleSelect = useCallback((id: number) => {
@@ -81,6 +127,16 @@ export default function PosterListPage() {
     }
   }
 
+  // --- Active toggle directly in table ---
+  const toggleActive = async (poster: Poster) => {
+    try {
+      await update(poster.id, { is_active: !poster.is_active } as any)
+      addToast(`Poster ${poster.is_active ? 'hidden' : 'visible'}`)
+    } catch {
+      addToast('Toggle failed', 'error')
+    }
+  }
+
   const openAdd = () => {
     setEditingItem(null)
     setForm(emptyForm)
@@ -89,7 +145,12 @@ export default function PosterListPage() {
 
   const openEdit = (item: Poster) => {
     setEditingItem(item)
-    setForm({ thumbnail_url: item.thumbnail_url, image_url: item.image_url, title: item.title, category: item.category, is_premium: item.is_premium, aspect_ratio: item.aspect_ratio })
+    setForm({
+      thumbnail_url: item.thumbnail_url, image_url: item.image_url,
+      title: item.title, category: item.category, is_premium: item.is_premium,
+      aspect_ratio: item.aspect_ratio, tags: item.tags || [],
+      festival: item.festival ?? null, is_active: item.is_active ?? true
+    })
     setModalOpen(true)
   }
 
@@ -98,16 +159,23 @@ export default function PosterListPage() {
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
     try {
+      const payload = { ...form }
       if (editingItem) {
-        await update(editingItem.id, form)
+        await update(editingItem.id, payload as any)
         addToast('Poster updated successfully')
       } else {
-        await create(form)
+        await create(payload as any)
         addToast('Poster created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
-    } catch {
-      addToast('Operation failed. Please try again.', 'error')
+    } catch (err: any) {
+      const detail = err?.response?.data
+      if (detail && typeof detail === 'object') {
+        const msgs = Object.entries(detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('; ')
+        addToast(msgs || 'Operation failed', 'error')
+      } else {
+        addToast('Operation failed. Please try again.', 'error')
+      }
     }
   }
 
@@ -119,7 +187,6 @@ export default function PosterListPage() {
       await remove(deleteItem.id)
       addToast('Poster deleted successfully')
     } catch (err: any) {
-      // 404 means already deleted — treat as success
       if (err?.response?.status === 404) {
         addToast('Poster already deleted')
       } else {
@@ -139,43 +206,63 @@ export default function PosterListPage() {
   const handleBulkFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     setBulkFiles(prev => [...prev, ...files])
-    if (e.target) e.target.value = '' // reset so same files can be re-selected
+    if (e.target) e.target.value = ''
   }
 
   const removeBulkFile = (index: number) => {
     setBulkFiles(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Smart title: strip IMG_, DSC_, numbers-only prefixes
+  const smartTitle = (filename: string, categoryName: string, index: number) => {
+    let title = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim()
+    // If title is just numbers or common camera prefixes, generate smart title
+    if (/^(IMG|DSC|Screenshot|image|photo|pic)\s*\d*$/i.test(title) || /^\d+$/.test(title) || title.length < 3) {
+      title = `${categoryName} Poster ${index + 1}`
+    }
+    return title
+  }
+
+  // Parallel bulk upload with concurrency limit
   const handleBulkUpload = async () => {
     if (bulkFiles.length === 0) { addToast('No images selected', 'error'); return }
     if (!bulkCategory) { addToast('Select a category', 'error'); return }
     setBulkUploading(true)
-    setBulkProgress({ done: 0, total: bulkFiles.length })
+    setBulkProgress({ done: 0, total: bulkFiles.length, failed: 0 })
+
+    const categoryName = (categories as any[]).find((c: any) => c.id === bulkCategory)?.name || 'Poster'
     let success = 0
-    for (let i = 0; i < bulkFiles.length; i++) {
-      try {
-        // Upload image file
-        const { uploadApi } = await import('../../services/admin-api')
-        const imageUrl = await uploadApi.upload(bulkFiles[i])
-        // Create poster with filename as title
-        const title = bulkFiles[i].name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-        await create({
-          title,
-          image_url: imageUrl,
-          thumbnail_url: null,
-          category: bulkCategory,
-          aspect_ratio: bulkRatio,
-          is_premium: bulkPremium,
+    let failed = 0
+    const CONCURRENCY = 5
+
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < bulkFiles.length; i += CONCURRENCY) {
+      const batch = bulkFiles.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(
+        batch.map(async (file, batchIdx) => {
+          const { url: imageUrl, thumbnail_url: thumbUrl } = await uploadApi.uploadWithThumbnail(file)
+          const title = smartTitle(file.name, categoryName, i + batchIdx)
+          await create({
+            title, image_url: imageUrl, thumbnail_url: thumbUrl,
+            category: bulkCategory, aspect_ratio: bulkRatio, is_premium: bulkPremium,
+            is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
+            festival: bulkFestival,
+          } as any)
         })
-        success++
-      } catch {
-        addToast(`Failed: ${bulkFiles[i].name}`, 'error')
-      }
-      setBulkProgress({ done: i + 1, total: bulkFiles.length })
+      )
+      results.forEach((r, idx) => {
+        if (r.status === 'fulfilled') success++
+        else { failed++; addToast(`Failed: ${batch[idx].name}`, 'error') }
+      })
+      setBulkProgress({ done: i + batch.length, total: bulkFiles.length, failed })
     }
+
     setBulkUploading(false)
-    addToast(`Uploaded ${success}/${bulkFiles.length} posters successfully`)
+    addToast(`Uploaded ${success}/${bulkFiles.length} posters${failed > 0 ? ` (${failed} failed)` : ''}`)
     setBulkFiles([])
+    setBulkTags([])
+    setBulkFestival(null)
+    setBulkActive(true)
     setBulkUploadOpen(false)
   }
 
@@ -185,7 +272,7 @@ export default function PosterListPage() {
     )},
     { key: 'thumbnail_url', title: 'Image', render: (p) => (
       p.thumbnail_url || p.image_url ? (
-        <img src={p.thumbnail_url || p.image_url || ''} alt={p.title} className="w-12 h-12 rounded object-cover" />
+        <img src={p.thumbnail_url || p.image_url || ''} alt={p.title} className="w-12 h-12 rounded object-cover cursor-pointer hover:ring-2 hover:ring-brand-gold/50 transition-all" onClick={(e) => { e.stopPropagation(); setPreviewPoster(p) }} />
       ) : (
         <div className="w-12 h-12 rounded bg-gray-700 flex items-center justify-center text-gray-400 text-xs">No img</div>
       )
@@ -193,6 +280,12 @@ export default function PosterListPage() {
     { key: 'title', title: 'Title', sortable: true },
     { key: 'category_name', title: 'Category', sortable: true },
     { key: 'aspect_ratio', title: 'Ratio' },
+    { key: 'tags' as any, title: 'Tags', render: (p) => {
+      const tags = p.tags || []
+      return tags.length > 0
+        ? <div className="flex flex-wrap gap-1">{tags.slice(0, 3).map(t => <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-400">{t}</span>)}{tags.length > 3 && <span className="text-[10px] text-brand-text-muted">+{tags.length - 3}</span>}</div>
+        : <span className="text-brand-text-muted text-xs">-</span>
+    }},
     { key: 'template_data', title: 'Layers', render: (p) => {
       const count = ((p.template_data as any)?.layers as unknown[])?.length || 0
       return count > 0
@@ -200,10 +293,15 @@ export default function PosterListPage() {
         : <span className="text-brand-text-muted text-xs">None</span>
     }},
     { key: 'is_premium', title: 'Premium', render: (p) => p.is_premium ? <span className="text-brand-gold">Premium</span> : <span className="text-brand-text-muted">Free</span> },
-    { key: 'download_count', title: 'Downloads', sortable: true, render: (p) => formatNumber(p.download_count as number) },
-    { key: 'share_count', title: 'Shares', sortable: true, render: (p) => formatNumber(p.share_count as number) },
-    { key: 'actions', title: 'Actions', render: (item) => (
-      <div className="flex items-center gap-2">
+    { key: 'is_active' as any, title: 'Active', render: (p) => (
+      <button onClick={(e) => { e.stopPropagation(); toggleActive(p) }} className="p-1" title="Toggle visibility">
+        {p.is_active !== false ? <Eye className="h-4 w-4 text-green-400" /> : <EyeOff className="h-4 w-4 text-brand-text-muted" />}
+      </button>
+    )},
+    { key: 'download_count', title: 'DL', sortable: true, render: (p) => formatNumber(p.download_count as number) },
+    { key: 'actions', title: '', render: (item) => (
+      <div className="flex items-center gap-1">
+        <button onClick={(e) => { e.stopPropagation(); setPreviewPoster(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-blue-400 transition-colors" title="Preview"><Maximize2 className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); setLayerEditorPoster(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit Layers"><Layers className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
@@ -217,12 +315,54 @@ export default function PosterListPage() {
         <h1 className="text-2xl font-bold text-brand-text">Poster Templates</h1>
         <div className="flex items-center gap-3">
           <SearchInput value={search} onChange={setSearch} placeholder="Search posters..." className="w-64" />
+          <button onClick={() => setShowFilters(f => !f)} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${hasFilters ? 'bg-brand-gold/10 border-brand-gold/50 text-brand-gold' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
+            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive].filter(Boolean).length}</span>}
+          </button>
           <button onClick={() => setBulkUploadOpen(true)} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Upload className="h-4 w-4" /> Bulk Upload
           </button>
           <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
         </div>
       </div>
+
+      {/* Filter bar */}
+      {showFilters && (
+        <div className="flex items-center gap-3 p-3 bg-brand-dark-card rounded-xl border border-brand-dark-border/50 flex-wrap">
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 min-w-[180px]">
+            <option value="">All Categories</option>
+            {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
+              const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
+              return [
+                <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
+                ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name} ({sub.poster_count || 0})</option>)
+              ]
+            })}
+          </select>
+          <select value={filterRatio} onChange={e => setFilterRatio(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+            <option value="">All Ratios</option>
+            <option value="1:1">1:1 Square</option>
+            <option value="4:5">4:5 Portrait</option>
+            <option value="9:16">9:16 Story</option>
+            <option value="16:9">16:9 Landscape</option>
+          </select>
+          <select value={filterPremium} onChange={e => setFilterPremium(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+            <option value="">Free & Premium</option>
+            <option value="true">Premium Only</option>
+            <option value="false">Free Only</option>
+          </select>
+          <select value={filterActive} onChange={e => setFilterActive(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+            <option value="">Active & Hidden</option>
+            <option value="true">Active Only</option>
+            <option value="false">Hidden Only</option>
+          </select>
+          {hasFilters && (
+            <button onClick={clearFilters} className="px-3 py-2 text-sm text-brand-text-muted hover:text-status-error transition-colors flex items-center gap-1">
+              <RotateCcw className="h-3.5 w-3.5" /> Clear
+            </button>
+          )}
+          <span className="ml-auto text-xs text-brand-text-muted">{totalCount} results</span>
+        </div>
+      )}
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
@@ -243,41 +383,122 @@ export default function PosterListPage() {
         <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
 
+      {/* Create/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Poster' : 'Add Poster'}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <ImageUpload label="Thumbnail" value={form.thumbnail_url} onChange={v => setForm(f => ({ ...f, thumbnail_url: v }))} aspectHint="300x300" />
-            <ImageUpload label="Full Image" value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} aspectHint="1080x1080" />
+            <ImageUpload label="Thumbnail" value={form.thumbnail_url} onChange={v => setForm(f => ({ ...f, thumbnail_url: v }))} aspectHint="300x300 (auto-generated)" />
+            <ImageUpload
+              label="Full Image"
+              value={form.image_url}
+              onChange={v => setForm(f => ({ ...f, image_url: v }))}
+              onUploadMeta={meta => {
+                setForm(f => {
+                  const updates: Partial<FormState> = {}
+                  if (meta.thumbnail_url && !f.thumbnail_url) updates.thumbnail_url = meta.thumbnail_url
+                  if (meta.detected_ratio) updates.aspect_ratio = meta.detected_ratio as AspectRatio
+                  return { ...f, ...updates }
+                })
+                if (meta.detected_ratio) {
+                  addToast(`Auto-detected ratio: ${meta.detected_ratio}${meta.width && meta.height ? ` (${meta.width}x${meta.height})` : ''}`)
+                }
+              }}
+              aspectHint="1080x1080"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
+                  const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
+                  return [
+                    <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
+                    ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name} ({sub.poster_count || 0})</option>)
+                  ]
+                })}
+              </select>
+            </div>
+            {/* Aspect Ratio */}
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Aspect Ratio</label>
+              <select value={form.aspect_ratio} onChange={e => setForm(f => ({ ...f, aspect_ratio: e.target.value as AspectRatio }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                <option value="1:1">1:1 (Square)</option>
+                <option value="4:5">4:5 (Portrait)</option>
+                <option value="9:16">9:16 (Story)</option>
+                <option value="16:9">16:9 (Landscape)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Matching Frames Preview */}
+          {matchingFrames.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+                Frames for {form.aspect_ratio}
+                <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/15 text-indigo-400">{matchingFrames.length} available</span>
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {matchingFrames.slice(0, 20).map((frame: any) => (
+                  <div key={frame.id} className="flex-shrink-0 w-16 h-20 rounded-lg border border-brand-dark-border overflow-hidden bg-brand-dark">
+                    {(frame.thumbnail_url || frame.overlay_image_url) ? (
+                      <img
+                        src={frame.thumbnail_url || frame.overlay_image_url}
+                        alt={frame.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[8px] text-brand-text-muted text-center px-1">{frame.name}</div>
+                    )}
+                  </div>
+                ))}
+                {matchingFrames.length > 20 && (
+                  <div className="flex-shrink-0 w-16 h-20 rounded-lg border border-brand-dark-border flex items-center justify-center text-xs text-brand-text-muted">
+                    +{matchingFrames.length - 20}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {matchingFrames.length === 0 && (
+            <p className="text-xs text-status-warning">No frames available for {form.aspect_ratio} — users won't see any frames for this poster size</p>
+          )}
+
+          {/* Festival (P3 fix) */}
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              {categories.filter((c: any) => !c.parent).map((c: any) => {
-                const children = categories.filter((sub: any) => sub.parent === c.id)
-                return [
-                  <option key={c.id} value={c.id}>{c.name}</option>,
-                  ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;└ {sub.name}</option>)
-                ]
-              })}
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Festival (optional)</label>
+            <select value={form.festival ?? ''} onChange={e => setForm(f => ({ ...f, festival: e.target.value ? Number(e.target.value) : null }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="">-- No Festival --</option>
+              {(festivals as any[]).map((f: any) => (
+                <option key={f.id} value={f.id}>{f.name} ({f.date})</option>
+              ))}
             </select>
           </div>
+
+          {/* Tags with autocomplete */}
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Aspect Ratio</label>
-            <select value={form.aspect_ratio} onChange={e => setForm(f => ({ ...f, aspect_ratio: e.target.value as AspectRatio }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value="1:1">1:1</option>
-              <option value="4:5">4:5</option>
-              <option value="9:16">9:16</option>
-              <option value="16:9">16:9</option>
-            </select>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tags</label>
+            <TagInput value={form.tags} onChange={tags => setForm(f => ({ ...f, tags }))} />
           </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_premium} onChange={e => setForm(f => ({ ...f, is_premium: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Premium</label>
+
+          {/* Premium + Active */}
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.is_premium} onChange={e => setForm(f => ({ ...f, is_premium: e.target.checked }))} className="rounded" />
+              Premium
+            </label>
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+              Active (visible to users)
+            </label>
           </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
             <button onClick={handleSubmit} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Save</button>
@@ -310,7 +531,7 @@ export default function PosterListPage() {
           >
             <Upload className="h-8 w-8 text-brand-text-muted mx-auto mb-2" />
             <p className="text-sm text-brand-text-muted">Click or drag images here</p>
-            <p className="text-xs text-brand-text-muted mt-1">Select multiple files at once</p>
+            <p className="text-xs text-brand-text-muted mt-1">Uploads 5 files in parallel for speed</p>
             <input ref={bulkFileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleBulkFilesSelected} />
           </div>
 
@@ -336,10 +557,10 @@ export default function PosterListPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
             <select value={bulkCategory} onChange={e => setBulkCategory(Number(e.target.value))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
               <option value={0}>-- Select Category --</option>
-              {categories.filter((c: any) => !c.parent).map((c: any) => {
-                const children = categories.filter((sub: any) => sub.parent === c.id)
+              {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
+                const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
                 return [
-                  <option key={c.id} value={c.id}>{c.name}</option>,
+                  <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
                   ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name}</option>)
                 ]
               })}
@@ -355,13 +576,36 @@ export default function PosterListPage() {
                 <option value="16:9">16:9 (Landscape)</option>
               </select>
             </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-brand-text-muted">
-                <input type="checkbox" checked={bulkPremium} onChange={e => setBulkPremium(e.target.checked)} className="rounded" />
-                Premium
-              </label>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Festival (optional)</label>
+              <select value={bulkFestival ?? ''} onChange={e => setBulkFestival(e.target.value ? Number(e.target.value) : null)} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                <option value="">-- No Festival --</option>
+                {(festivals as any[]).map((f: any) => (
+                  <option key={f.id} value={f.id}>{f.name} ({f.date})</option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {/* Tags for bulk */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tags (applied to all)</label>
+            <TagInput value={bulkTags} onChange={setBulkTags} />
+          </div>
+
+          {/* Premium + Active */}
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={bulkPremium} onChange={e => setBulkPremium(e.target.checked)} className="rounded" />
+              Premium
+            </label>
+            <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+              <input type="checkbox" checked={bulkActive} onChange={e => setBulkActive(e.target.checked)} className="rounded" />
+              Active (visible to users)
+            </label>
+          </div>
+
+          <p className="text-xs text-green-400/70">Thumbnails are auto-generated from uploaded images</p>
 
           {/* Progress bar */}
           {bulkUploading && (
@@ -369,6 +613,7 @@ export default function PosterListPage() {
               <div className="flex items-center gap-2 mb-1">
                 <Loader2 className="h-4 w-4 animate-spin text-brand-gold" />
                 <span className="text-sm text-brand-text">Uploading {bulkProgress.done}/{bulkProgress.total}...</span>
+                {bulkProgress.failed > 0 && <span className="text-xs text-status-error">({bulkProgress.failed} failed)</span>}
               </div>
               <div className="w-full bg-brand-dark rounded-full h-2">
                 <div className="bg-brand-gold h-2 rounded-full transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
@@ -385,6 +630,49 @@ export default function PosterListPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Preview Modal */}
+      {previewPoster && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setPreviewPoster(null)}>
+          <div className="relative max-w-4xl w-full bg-brand-dark-card rounded-2xl overflow-hidden border border-brand-dark-border/50" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-brand-dark-border/50">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-medium text-brand-text truncate">{previewPoster.title}</h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-brand-text-muted">{previewPoster.category_name}</span>
+                  <span className="text-xs text-brand-text-muted">|</span>
+                  <span className="text-xs text-brand-text-muted">{previewPoster.aspect_ratio}</span>
+                  {previewPoster.is_premium && <span className="px-1.5 py-0.5 rounded text-[10px] bg-brand-gold/15 text-brand-gold">Premium</span>}
+                  {((previewPoster.template_data as any)?.layers as unknown[])?.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/15 text-blue-400">{((previewPoster.template_data as any)?.layers as unknown[])?.length} layers</span>
+                  )}
+                  <span className="text-xs text-brand-text-muted">| DL: {formatNumber(previewPoster.download_count)}</span>
+                  {previewPoster.is_active === false && <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400">Hidden</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 ml-3">
+                <button onClick={() => { openEdit(previewPoster); setPreviewPoster(null) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
+                <button onClick={() => { setLayerEditorPoster(previewPoster); setPreviewPoster(null) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit Layers"><Layers className="h-4 w-4" /></button>
+                <button onClick={() => setPreviewPoster(null)} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-text transition-colors"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div className="flex items-center justify-center p-4 bg-[#1a1a2e] min-h-[300px] max-h-[70vh]">
+              {previewPoster.image_url ? (
+                <img src={previewPoster.image_url} alt={previewPoster.title} className="max-h-[65vh] max-w-full object-contain rounded" />
+              ) : previewPoster.thumbnail_url ? (
+                <img src={previewPoster.thumbnail_url} alt={previewPoster.title} className="max-h-[65vh] max-w-full object-contain rounded" />
+              ) : (
+                <div className="text-brand-text-muted text-sm">No image available</div>
+              )}
+            </div>
+            {previewPoster.tags && previewPoster.tags.length > 0 && (
+              <div className="px-4 py-2 border-t border-brand-dark-border/50 flex flex-wrap gap-1">
+                {previewPoster.tags.map(t => <span key={t} className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/10 text-indigo-400">{t}</span>)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

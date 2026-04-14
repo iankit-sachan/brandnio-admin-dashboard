@@ -4,71 +4,65 @@ import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { postersApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
-
-interface BusinessPoster {
-  id: number
-  title: string
-  image_url: string
-  business_category: string
-  language: string
-  size: string
-  is_premium: boolean
-  status: 'active' | 'inactive'
-  download_count: number
-  created_at: string
-}
+import type { Poster, PosterCategory, AspectRatio } from '../../types'
 
 interface FormState {
   image_url: string | null
+  thumbnail_url: string | null
   title: string
-  business_category: string
-  language: string
-  size: string
+  category: number
+  aspect_ratio: AspectRatio
   is_premium: boolean
 }
 
-const businessCategories = ['Retail', 'Food & Restaurant', 'Health', 'Education', 'Real Estate', 'Fashion', 'Technology', 'Automobile']
-
-const emptyForm: FormState = { image_url: null, title: '', business_category: 'Retail', language: 'English', size: '4:5', is_premium: false }
+const emptyForm: FormState = { image_url: null, thumbnail_url: null, title: '', category: 0, aspect_ratio: '4:5', is_premium: false }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
 export default function BusinessPosterPage() {
   const { addToast } = useToast()
-  const { data, loading, create, update, remove } = useAdminCrud<BusinessPoster>(postersApi)
+  const { data, loading, create, update, remove } = useAdminCrud<Poster>(postersApi)
+  const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<BusinessPoster | null>(null)
+  const [editingItem, setEditingItem] = useState<Poster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
-  const [deleteItem, setDeleteItem] = useState<BusinessPoster | null>(null)
-  const [previewItem, setPreviewItem] = useState<BusinessPoster | null>(null)
+  const [deleteItem, setDeleteItem] = useState<Poster | null>(null)
+  const [previewItem, setPreviewItem] = useState<Poster | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [languageFilter, setLanguageFilter] = useState('')
-  const [sizeFilter, setSizeFilter] = useState('')
+  const [ratioFilter, setRatioFilter] = useState('')
+
+  // Build category options from DB
+  const categoryOptions = useMemo(() => {
+    return allCategories.filter(c => !c.parent).flatMap(c => {
+      const children = allCategories.filter(sub => sub.parent === c.id)
+      return [c, ...children]
+    })
+  }, [allCategories])
 
   const filteredData = useMemo(() => {
     return data.filter(p => {
       if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false
-      if (categoryFilter && p.business_category !== categoryFilter) return false
-      if (languageFilter && p.language !== languageFilter) return false
-      if (sizeFilter && p.size !== sizeFilter) return false
+      if (categoryFilter && p.category !== Number(categoryFilter)) return false
+      if (ratioFilter && p.aspect_ratio !== ratioFilter) return false
       return true
     })
-  }, [data, search, categoryFilter, languageFilter, sizeFilter])
+  }, [data, search, categoryFilter, ratioFilter])
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
-  const openEdit = (item: BusinessPoster) => {
+  const openEdit = (item: Poster) => {
     setEditingItem(item)
-    setForm({ image_url: item.image_url, title: item.title, business_category: item.business_category, language: item.language, size: item.size, is_premium: item.is_premium })
+    setForm({ image_url: item.image_url, thumbnail_url: item.thumbnail_url, title: item.title, category: item.category, aspect_ratio: item.aspect_ratio, is_premium: item.is_premium })
     setModalOpen(true)
   }
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
+    if (!form.category) { addToast('Category is required', 'error'); return }
     try {
       if (editingItem) {
         await update(editingItem.id, form)
@@ -115,16 +109,11 @@ export default function BusinessPosterPage() {
         />
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Categories</option>
-          {businessCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          {categoryOptions.map(c => (
+            <option key={c.id} value={c.id}>{c.parent ? `  ${c.name}` : c.name} ({c.poster_count || 0})</option>
+          ))}
         </select>
-        <select value={languageFilter} onChange={e => setLanguageFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-          <option value="">All Languages</option>
-          <option value="Hindi">Hindi</option>
-          <option value="English">English</option>
-          <option value="Gujarati">Gujarati</option>
-          <option value="Marathi">Marathi</option>
-        </select>
-        <select value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+        <select value={ratioFilter} onChange={e => setRatioFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Sizes</option>
           <option value="1:1">1:1</option>
           <option value="4:5">4:5</option>
@@ -139,7 +128,7 @@ export default function BusinessPosterPage() {
           <div key={poster.id} className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 overflow-hidden group">
             {/* Image */}
             <div className="aspect-[4/5] bg-neutral-900 relative overflow-hidden flex items-center justify-center">
-              <img src={poster.image_url} alt={poster.title} className="w-full h-full object-contain" />
+              <img src={poster.image_url || poster.thumbnail_url || ''} alt={poster.title} className="w-full h-full object-contain" />
               {/* Overlay on hover */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button onClick={() => openEdit(poster)} className="p-2 bg-brand-gold rounded-lg text-gray-900"><Pencil className="h-4 w-4" /></button>
@@ -148,8 +137,8 @@ export default function BusinessPosterPage() {
               </div>
               {/* Badges */}
               <div className="absolute top-2 right-2 flex flex-col gap-1">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${poster.status === 'active' ? 'bg-status-success/20 text-status-success' : 'bg-brand-dark-hover text-brand-text-muted'}`}>
-                  {poster.status === 'active' ? 'Active' : 'Inactive'}
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${poster.is_active ? 'bg-status-success/20 text-status-success' : 'bg-brand-dark-hover text-brand-text-muted'}`}>
+                  {poster.is_active ? 'Active' : 'Inactive'}
                 </span>
                 {poster.is_premium && (
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-brand-gold/20 text-brand-gold">Premium</span>
@@ -160,13 +149,12 @@ export default function BusinessPosterPage() {
             <div className="p-3">
               <h3 className="text-sm font-medium text-brand-text truncate">{poster.title}</h3>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/10 text-brand-gold">{poster.language}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-status-info/10 text-status-info">{poster.size}</span>
-                <span className="text-xs text-brand-text-muted">{poster.business_category}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/10 text-brand-gold">{poster.category_name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-status-info/10 text-status-info">{poster.aspect_ratio}</span>
               </div>
               <div className="flex items-center gap-1 mt-1.5 text-brand-text-muted">
                 <Download className="h-3 w-3" />
-                <span className="text-xs">{poster.download_count.toLocaleString()}</span>
+                <span className="text-xs">{(poster.download_count || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -188,40 +176,39 @@ export default function BusinessPosterPage() {
       {/* Add/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Business Poster' : 'Add Business Poster'}>
         <div className="space-y-4">
-          <ImageUpload label="Poster Image" value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} aspectHint="1080x1350 (4:5)" />
+          <div className="grid grid-cols-2 gap-4">
+            <ImageUpload label="Thumbnail" value={form.thumbnail_url} onChange={v => setForm(f => ({ ...f, thumbnail_url: v }))} aspectHint="300x300" />
+            <ImageUpload label="Full Image" value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} aspectHint="1080x1350 (4:5)" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Title</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputClass} placeholder="Enter poster title" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Business Category</label>
-            <select value={form.business_category} onChange={e => setForm(f => ({ ...f, business_category: e.target.value }))} className={inputClass}>
-              {businessCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className={inputClass}>
+              <option value={0}>-- Select Category --</option>
+              {categoryOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.parent ? `  ${c.name}` : c.name}</option>
+              ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Language</label>
-              <select value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} className={inputClass}>
-                <option value="Hindi">Hindi</option>
-                <option value="English">English</option>
-                <option value="Gujarati">Gujarati</option>
-                <option value="Marathi">Marathi</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Size</label>
-              <select value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} className={inputClass}>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Aspect Ratio</label>
+              <select value={form.aspect_ratio} onChange={e => setForm(f => ({ ...f, aspect_ratio: e.target.value as AspectRatio }))} className={inputClass}>
                 <option value="1:1">1:1</option>
                 <option value="4:5">4:5</option>
                 <option value="9:16">9:16</option>
                 <option value="16:9">16:9</option>
               </select>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" checked={form.is_premium} onChange={e => setForm(f => ({ ...f, is_premium: e.target.checked }))} className="rounded" />
-            <label className="text-sm text-brand-text-muted">Premium</label>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 text-sm text-brand-text-muted">
+                <input type="checkbox" checked={form.is_premium} onChange={e => setForm(f => ({ ...f, is_premium: e.target.checked }))} className="rounded" />
+                Premium
+              </label>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
@@ -234,13 +221,12 @@ export default function BusinessPosterPage() {
       <Modal isOpen={!!previewItem} onClose={() => setPreviewItem(null)} title={previewItem?.title || 'Preview'} size="lg">
         {previewItem && (
           <div className="flex flex-col items-center">
-            <img src={previewItem.image_url} alt={previewItem.title} className="max-h-[70vh] object-contain rounded-lg" />
+            <img src={previewItem.image_url || previewItem.thumbnail_url || ''} alt={previewItem.title} className="max-h-[70vh] object-contain rounded-lg" />
             <div className="flex items-center gap-3 mt-4">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/10 text-brand-gold">{previewItem.language}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-status-info/10 text-status-info">{previewItem.size}</span>
-              <span className="text-xs text-brand-text-muted">{previewItem.business_category}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/10 text-brand-gold">{previewItem.category_name}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-status-info/10 text-status-info">{previewItem.aspect_ratio}</span>
               {previewItem.is_premium && <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/20 text-brand-gold">Premium</span>}
-              <span className="text-xs text-brand-text-muted flex items-center gap-1"><Download className="h-3 w-3" />{previewItem.download_count.toLocaleString()}</span>
+              <span className="text-xs text-brand-text-muted flex items-center gap-1"><Download className="h-3 w-3" />{(previewItem.download_count || 0).toLocaleString()}</span>
             </div>
           </div>
         )}

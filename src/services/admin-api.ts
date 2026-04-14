@@ -18,6 +18,7 @@ export interface PaginatedResponse<T> {
 function crud<T = any>(resource: string) {
   const base = `/api/admin/${resource}/`
   return {
+    _resource: resource,
     list:   (params?: Record<string, string | number | undefined>) => api.get(base, { params }).then(r => {
       const d = r.data
       // Handle both plain arrays and DRF paginated responses
@@ -52,6 +53,18 @@ export const uploadApi = {
     const res = await api.post<{ url: string }>('/api/admin/upload/', formData)
     return res.data.url
   },
+  uploadWithThumbnail: async (file: File): Promise<{ url: string; thumbnail_url: string | null; width: number | null; height: number | null; detected_ratio: string | null }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await api.post<{ url: string; thumbnail_url?: string; width?: string; height?: string; detected_ratio?: string }>('/api/admin/upload/', formData)
+    return {
+      url: res.data.url,
+      thumbnail_url: res.data.thumbnail_url ?? null,
+      width: res.data.width ? Number(res.data.width) : null,
+      height: res.data.height ? Number(res.data.height) : null,
+      detected_ratio: res.data.detected_ratio ?? null,
+    }
+  },
 }
 
 // ── Auth ─────────────────────────────────────────────────────────
@@ -81,6 +94,10 @@ export const categoryRecycleBinApi = {
   permanentDelete: (id: number) => api.post(`/api/admin/poster-categories/${id}/permanent_delete/`).then(r => r.data),
 }
 export const postersApi = crud('posters')
+export const posterTagsApi = {
+  list: (): Promise<{ tag: string; count: number }[]> =>
+    api.get('/api/admin/posters/tags/').then(r => r.data),
+}
 export const posterFramesApi = crud('poster-frames')
 export const festivalsApi = crud('festivals')
 export const autoPostersApi = crud('auto-posters')

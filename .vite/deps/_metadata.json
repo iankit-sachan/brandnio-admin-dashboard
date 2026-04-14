@@ -1,103 +1,103 @@
 {
-  "hash": "224f5905",
-  "configHash": "36a562e8",
+  "hash": "040973d4",
+  "configHash": "8208cf28",
   "lockfileHash": "7197f4f5",
-  "browserHash": "d5a2f72b",
+  "browserHash": "db74f3aa",
   "optimized": {
     "@dnd-kit/core": {
       "src": "../../node_modules/@dnd-kit/core/dist/core.esm.js",
       "file": "@dnd-kit_core.js",
-      "fileHash": "067b8477",
+      "fileHash": "e3184417",
       "needsInterop": false
     },
     "@dnd-kit/sortable": {
       "src": "../../node_modules/@dnd-kit/sortable/dist/sortable.esm.js",
       "file": "@dnd-kit_sortable.js",
-      "fileHash": "df16ff2d",
+      "fileHash": "e1a4d06e",
       "needsInterop": false
     },
     "@dnd-kit/utilities": {
       "src": "../../node_modules/@dnd-kit/utilities/dist/utilities.esm.js",
       "file": "@dnd-kit_utilities.js",
-      "fileHash": "a1ed1ccb",
+      "fileHash": "c948b49e",
       "needsInterop": false
     },
     "@headlessui/react": {
       "src": "../../node_modules/@headlessui/react/dist/headlessui.esm.js",
       "file": "@headlessui_react.js",
-      "fileHash": "5c41811c",
+      "fileHash": "c71df8a6",
       "needsInterop": false
     },
     "axios": {
       "src": "../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "68da8f4a",
+      "fileHash": "bf495a4f",
       "needsInterop": false
     },
     "clsx": {
       "src": "../../node_modules/clsx/dist/clsx.mjs",
       "file": "clsx.js",
-      "fileHash": "88ec6a4a",
+      "fileHash": "dce0ad67",
       "needsInterop": false
     },
     "date-fns": {
       "src": "../../node_modules/date-fns/index.js",
       "file": "date-fns.js",
-      "fileHash": "9a9c1426",
+      "fileHash": "26a2a266",
       "needsInterop": false
     },
     "lucide-react": {
       "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
       "file": "lucide-react.js",
-      "fileHash": "45f3c463",
+      "fileHash": "9477e1ec",
       "needsInterop": false
     },
     "react-dom": {
       "src": "../../node_modules/react-dom/index.js",
       "file": "react-dom.js",
-      "fileHash": "46566c18",
+      "fileHash": "191d04b7",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "8edc95af",
+      "fileHash": "cedfc2ca",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.js",
       "file": "react-router-dom.js",
-      "fileHash": "c569d5d1",
+      "fileHash": "53aea7d1",
       "needsInterop": false
     },
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "1a1e0cbd",
+      "fileHash": "c16d0137",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "9f8550aa",
+      "fileHash": "bd7563e6",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "5c8a40fc",
+      "fileHash": "17c49a55",
       "needsInterop": true
     },
     "recharts": {
       "src": "../../node_modules/recharts/es6/index.js",
       "file": "recharts.js",
-      "fileHash": "5e90011e",
+      "fileHash": "cbf95c02",
       "needsInterop": false
     },
     "tailwind-merge": {
       "src": "../../node_modules/tailwind-merge/dist/bundle-mjs.mjs",
       "file": "tailwind-merge.js",
-      "fileHash": "53d26f80",
+      "fileHash": "ed48daed",
       "needsInterop": false
     }
   },
