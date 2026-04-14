@@ -4,6 +4,7 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   withCredentials: false,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30000, // 30s timeout — prevents hanging requests
 })
 
 // Memoize token to avoid parsing localStorage on every request
@@ -42,19 +43,46 @@ api.interceptors.request.use(config => {
   return config
 })
 
-let isRedirecting = false
+// Auto-retry on network errors and 5xx server errors (max 2 retries)
+const MAX_RETRIES = 2
+const RETRY_DELAY = 1000 // 1 second
+
 api.interceptors.response.use(
   response => response,
-  error => {
-    if (error.response?.status === 401 && !isRedirecting) {
-      isRedirecting = true
-      _cachedToken = null
-      _tokenSource = null
-      localStorage.removeItem('admin_auth')
-      window.location.href = import.meta.env.BASE_URL + 'login'
+  async error => {
+    const config = error.config
+    if (!config) return Promise.reject(error)
+
+    // Don't retry on 401 (auth) — redirect to login
+    if (error.response?.status === 401) {
+      if (!isRedirecting) {
+        isRedirecting = true
+        _cachedToken = null
+        _tokenSource = null
+        localStorage.removeItem('admin_auth')
+        window.location.href = import.meta.env.BASE_URL + 'login'
+      }
+      return Promise.reject(error)
     }
+
+    // Don't retry on 4xx client errors (bad request, validation, not found)
+    if (error.response && error.response.status >= 400 && error.response.status < 500) {
+      return Promise.reject(error)
+    }
+
+    // Retry on: network error, timeout, 5xx server errors
+    config._retryCount = config._retryCount || 0
+    if (config._retryCount < MAX_RETRIES) {
+      config._retryCount++
+      console.warn(`[API Retry ${config._retryCount}/${MAX_RETRIES}] ${config.method?.toUpperCase()} ${config.url}`)
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * config._retryCount))
+      return api(config)
+    }
+
     return Promise.reject(error)
   }
 )
+
+let isRedirecting = false
 
 export default api
