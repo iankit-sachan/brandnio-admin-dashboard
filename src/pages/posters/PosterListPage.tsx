@@ -63,16 +63,16 @@ export default function PosterListPage() {
   const { data: festivals } = useAdminCrud(festivalsApi)
   const { data: allFrames } = useAdminCrud(posterFramesApi)
 
-  // Filter frames by current form aspect ratio
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<Poster | null>(null)
+  const [form, setForm] = useState<FormState>(emptyForm)
+
+  // Filter frames by current form aspect ratio (must be after form declaration)
   const matchingFrames = useMemo(() => {
     return (allFrames as any[]).filter((f: any) =>
       f.aspect_ratio === form.aspect_ratio || !f.aspect_ratio || f.aspect_ratio === ''
     )
   }, [allFrames, form.aspect_ratio])
-
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<Poster | null>(null)
-  const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<Poster | null>(null)
   const [layerEditorPoster, setLayerEditorPoster] = useState<Poster | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
