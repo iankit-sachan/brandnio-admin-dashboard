@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { ImageUpload } from '../../components/ui/ImageUpload'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { homeBannersApi } from '../../services/admin-api'
@@ -236,15 +237,15 @@ export default function HomeBannerPage() {
 
           {/* Preview Images */}
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Preview Images (URLs)</label>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Preview Images</label>
             <div className="grid grid-cols-2 gap-3">
               {([1, 2, 3, 4, 5, 6] as const).map(n => (
-                <input
+                <ImageUpload
                   key={n}
-                  value={form[`preview_image_${n}` as keyof FormState] as string}
-                  onChange={e => setForm(f => ({ ...f, [`preview_image_${n}`]: e.target.value }))}
-                  placeholder={`Preview Image ${n} URL`}
-                  className={inputClass}
+                  label={`Image ${n}`}
+                  value={(form[`preview_image_${n}` as keyof FormState] as string) || null}
+                  onChange={v => setForm(f => ({ ...f, [`preview_image_${n}`]: v || '' }))}
+                  aspectHint="Banner image"
                 />
               ))}
             </div>
