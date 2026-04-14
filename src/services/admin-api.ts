@@ -103,6 +103,9 @@ export const posterRecycleBinApi = {
   restore: (id: number) => api.post(`/api/admin/posters/${id}/restore/`).then(r => r.data),
   permanentDelete: (id: number) => api.post(`/api/admin/posters/${id}/permanent_delete/`).then(r => r.data),
 }
+export const posterAnalyticsApi = {
+  get: () => api.get('/api/admin/posters/analytics/').then(r => r.data),
+}
 export const posterBulkApi = {
   bulkMove: (ids: number[], category: number) =>
     api.post('/api/admin/posters/bulk_move/', { ids, category }).then(r => r.data),

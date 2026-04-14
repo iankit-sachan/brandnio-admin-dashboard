@@ -6,10 +6,10 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw } from 'lucide-react'
+import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw, BarChart3 } from 'lucide-react'
 import { TagInput } from '../../components/ui/TagInput'
 import TemplateLayerEditor from './TemplateLayerEditor'
-import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi, posterAnalyticsApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
@@ -96,6 +96,18 @@ export default function PosterListPage() {
 
   // ── Preview state ──
   const [previewPoster, setPreviewPoster] = useState<Poster | null>(null)
+
+  // ── Analytics state ──
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const loadAnalytics = useCallback(async () => {
+    if (analytics) return // cache in session
+    setAnalyticsLoading(true)
+    try { setAnalytics(await posterAnalyticsApi.get()) }
+    catch { /* ignore */ }
+    finally { setAnalyticsLoading(false) }
+  }, [analytics])
 
   // Bulk upload state
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
@@ -425,7 +437,68 @@ export default function PosterListPage() {
           </button>
         </div>
       )}
-      <QuickStats stats={[{ label: 'Total', count: totalCount }]} />
+      {/* Analytics toggle + stats */}
+      <div className="flex items-center gap-3">
+        <QuickStats stats={[{ label: 'Total', count: totalCount }]} />
+        <button onClick={() => { setShowAnalytics(s => !s); if (!analytics) loadAnalytics() }} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${showAnalytics ? 'bg-blue-500/10 border-blue-500/50 text-blue-400' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
+          <BarChart3 className="h-4 w-4" /> Analytics
+        </button>
+      </div>
+      {showAnalytics && (
+        <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-4 space-y-4">
+          {analyticsLoading ? (
+            <div className="text-center py-4 text-brand-text-muted">Loading analytics...</div>
+          ) : analytics ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-brand-dark rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-brand-text">{analytics.total?.toLocaleString()}</p>
+                  <p className="text-xs text-brand-text-muted">Total Posters</p>
+                </div>
+                <div className="bg-brand-dark rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-green-400">{analytics.active?.toLocaleString()}</p>
+                  <p className="text-xs text-brand-text-muted">Active</p>
+                </div>
+                <div className="bg-brand-dark rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-brand-gold">{analytics.premium?.toLocaleString()}</p>
+                  <p className="text-xs text-brand-text-muted">Premium</p>
+                </div>
+                <div className="bg-brand-dark rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-400">{(analytics.total_downloads || 0).toLocaleString()}</p>
+                  <p className="text-xs text-brand-text-muted">Total Downloads</p>
+                </div>
+              </div>
+              {analytics.top_downloaded?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-brand-text mb-2">Top 10 Most Downloaded</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {analytics.top_downloaded.map((p: any) => (
+                      <div key={p.id} className="bg-brand-dark rounded-lg p-2 text-center">
+                        {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="w-full h-16 object-contain rounded mb-1" /> : <div className="w-full h-16 bg-gray-700 rounded mb-1" />}
+                        <p className="text-[10px] text-brand-text truncate">{p.title}</p>
+                        <p className="text-[10px] text-brand-gold font-medium">{(p.download_count || 0).toLocaleString()} DL</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {analytics.by_category?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-brand-text mb-2">By Category</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {analytics.by_category.map((c: any) => (
+                      <div key={c.category__name} className="flex items-center justify-between bg-brand-dark rounded-lg px-3 py-2">
+                        <span className="text-xs text-brand-text truncate">{c.category__name || 'Uncategorized'}</span>
+                        <span className="text-xs text-brand-text-muted ml-2 shrink-0">{c.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      )}
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
         <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />

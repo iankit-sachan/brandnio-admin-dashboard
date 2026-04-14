@@ -13,6 +13,7 @@ interface GeneralCategory {
   name: string
   slug: string
   icon_url: string | null
+  sort_order: number
   is_active: boolean
   show_in_home: boolean
   show_in_create: boolean
@@ -70,7 +71,7 @@ export default function GeneralCategoryPage() {
   const [posterTotalCount, setPosterTotalCount] = useState(0)
   const [posterSearch, setPosterSearch] = useState('')
   const [posterSearchInput, setPosterSearchInput] = useState('')
-  const posterSearchTimer = useRef<ReturnType<typeof setTimeout>>()
+  const posterSearchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const POSTER_PAGE_SIZE = 30
   const posterTotalPages = Math.max(1, Math.ceil(posterTotalCount / POSTER_PAGE_SIZE))
   const [uploading, setUploading] = useState(false)
