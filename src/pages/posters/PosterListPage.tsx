@@ -9,11 +9,12 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw } from 'lucide-react'
 import { TagInput } from '../../components/ui/TagInput'
 import TemplateLayerEditor from './TemplateLayerEditor'
-import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
 import QuickStats from '../../components/ui/QuickStats'
+import { CategoryTabNav } from '../../components/CategoryTabNav'
 import type { Poster, AspectRatio } from '../../types'
 
 interface FormState {
@@ -41,7 +42,14 @@ export default function PosterListPage() {
   const [filterRatio, setFilterRatio] = useState<string>('')
   const [filterPremium, setFilterPremium] = useState<string>('')
   const [filterActive, setFilterActive] = useState<string>('')
+  const [filterTag, setFilterTag] = useState<string>('')
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
+  const [filterDateTo, setFilterDateTo] = useState<string>('')
   const [showFilters, setShowFilters] = useState(false)
+  const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([])
+
+  // Load all tags for filter dropdown
+  useState(() => { posterTagsApi.list().then(setAllTags).catch(() => {}) })
 
   const extraParams = useMemo(() => {
     const p: Record<string, string | number | undefined> = {}
@@ -49,13 +57,17 @@ export default function PosterListPage() {
     if (filterRatio) p.aspect_ratio = filterRatio
     if (filterPremium) p.is_premium = filterPremium
     if (filterActive) p.is_active = filterActive
+    if (filterTag) p.tag = filterTag
+    if (filterDateFrom) p['created_at__gte'] = filterDateFrom
+    if (filterDateTo) p['created_at__lte'] = filterDateTo
     return p
-  }, [filterCategory, filterRatio, filterPremium, filterActive])
+  }, [filterCategory, filterRatio, filterPremium, filterActive, filterTag, filterDateFrom, filterDateTo])
 
-  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive)
+  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive || filterTag || filterDateFrom || filterDateTo)
 
   const clearFilters = () => {
     setFilterCategory(''); setFilterRatio(''); setFilterPremium(''); setFilterActive('')
+    setFilterTag(''); setFilterDateFrom(''); setFilterDateTo('')
   }
 
   const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi, extraParams)
@@ -78,6 +90,9 @@ export default function PosterListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false)
+  const [bulkMoveCategory, setBulkMoveCategory] = useState<number>(0)
+  const [bulkMoving, setBulkMoving] = useState(false)
 
   // ── Preview state ──
   const [previewPoster, setPreviewPoster] = useState<Poster | null>(null)
@@ -124,6 +139,22 @@ export default function PosterListPage() {
       addToast('Some deletes failed', 'error')
     } finally {
       setBulkDeleting(false)
+    }
+  }
+
+  const handleBulkMove = async () => {
+    if (selectedIds.size === 0 || !bulkMoveCategory) return
+    setBulkMoving(true)
+    try {
+      const result = await posterBulkApi.bulkMove(Array.from(selectedIds), bulkMoveCategory)
+      addToast(`Moved ${result.moved} posters`)
+      setSelectedIds(new Set())
+      setBulkMoveOpen(false)
+      setBulkMoveCategory(0)
+    } catch {
+      addToast('Move failed', 'error')
+    } finally {
+      setBulkMoving(false)
     }
   }
 
@@ -299,6 +330,10 @@ export default function PosterListPage() {
       </button>
     )},
     { key: 'download_count', title: 'DL', sortable: true, render: (p) => formatNumber(p.download_count as number) },
+    { key: 'created_at', title: 'Created', sortable: true, render: (p) => {
+      const d = new Date(p.created_at)
+      return <span className="text-xs text-brand-text-muted whitespace-nowrap">{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+    }},
     { key: 'actions', title: '', render: (item) => (
       <div className="flex items-center gap-1">
         <button onClick={(e) => { e.stopPropagation(); setPreviewPoster(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-blue-400 transition-colors" title="Preview"><Maximize2 className="h-4 w-4" /></button>
@@ -311,12 +346,13 @@ export default function PosterListPage() {
 
   return (
     <div className="space-y-4">
+      <CategoryTabNav />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Poster Templates</h1>
         <div className="flex items-center gap-3">
           <SearchInput value={search} onChange={setSearch} placeholder="Search posters..." className="w-64" />
           <button onClick={() => setShowFilters(f => !f)} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${hasFilters ? 'bg-brand-gold/10 border-brand-gold/50 text-brand-gold' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
-            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive].filter(Boolean).length}</span>}
+            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
           </button>
           <button onClick={() => setBulkUploadOpen(true)} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Upload className="h-4 w-4" /> Bulk Upload
@@ -355,6 +391,15 @@ export default function PosterListPage() {
             <option value="true">Active Only</option>
             <option value="false">Hidden Only</option>
           </select>
+          <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 min-w-[140px]">
+            <option value="">All Tags</option>
+            {allTags.map(t => <option key={t.tag} value={t.tag}>{t.tag} ({t.count})</option>)}
+          </select>
+          <div className="flex items-center gap-1">
+            <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-2 py-2 text-xs text-brand-text focus:outline-none focus:border-brand-gold/50 w-[130px]" title="From date" />
+            <span className="text-brand-text-muted text-xs">to</span>
+            <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-2 py-2 text-xs text-brand-text focus:outline-none focus:border-brand-gold/50 w-[130px]" title="To date" />
+          </div>
           {hasFilters && (
             <button onClick={clearFilters} className="px-3 py-2 text-sm text-brand-text-muted hover:text-status-error transition-colors flex items-center gap-1">
               <RotateCcw className="h-3.5 w-3.5" /> Clear
@@ -369,10 +414,13 @@ export default function PosterListPage() {
         <div className="flex items-center gap-3 p-3 bg-brand-dark-card rounded-xl border border-brand-gold/30">
           <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-brand-text hover:text-brand-gold transition-colors">
             <CheckSquare className="h-4 w-4" />
-            {selectedIds.size === data.length ? 'Deselect All' : 'Select All'}
+            {selectedIds.size === data.length ? 'Deselect Page' : 'Select Page'}
           </button>
-          <span className="text-sm text-brand-text-muted">{selectedIds.size} selected</span>
-          <button onClick={() => setBulkDeleteOpen(true)} className="ml-auto px-4 py-1.5 bg-status-error text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2">
+          <span className="text-sm text-brand-text-muted">{selectedIds.size} on this page selected</span>
+          <button onClick={() => setBulkMoveOpen(true)} className="ml-auto px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+            Move to Category
+          </button>
+          <button onClick={() => setBulkDeleteOpen(true)} className="px-4 py-1.5 bg-status-error text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2">
             <Trash2 className="h-4 w-4" /> Delete Selected
           </button>
         </div>
@@ -508,7 +556,29 @@ export default function PosterListPage() {
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Poster" message={`Are you sure you want to delete "${deleteItem?.title}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
 
-      <ConfirmDialog isOpen={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)} onConfirm={handleBulkDelete} title="Bulk Delete" message={`Delete ${selectedIds.size} poster(s)? This cannot be undone.`} confirmText={bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`} variant="danger" />
+      <ConfirmDialog isOpen={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)} onConfirm={handleBulkDelete} title="Bulk Delete" message={`Delete ${selectedIds.size} poster(s)? They will be moved to the Recycle Bin.`} confirmText={bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`} variant="danger" />
+
+      {/* Bulk Move Modal */}
+      <Modal isOpen={bulkMoveOpen} onClose={() => { setBulkMoveOpen(false); setBulkMoveCategory(0) }} title={`Move ${selectedIds.size} Poster(s) to Category`}>
+        <div className="space-y-4">
+          <select value={bulkMoveCategory} onChange={e => setBulkMoveCategory(Number(e.target.value))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+            <option value={0}>-- Select Target Category --</option>
+            {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
+              const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
+              return [
+                <option key={c.id} value={c.id}>{c.name}</option>,
+                ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name}</option>)
+              ]
+            })}
+          </select>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => { setBulkMoveOpen(false); setBulkMoveCategory(0) }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text">Cancel</button>
+            <button onClick={handleBulkMove} disabled={!bulkMoveCategory || bulkMoving} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {bulkMoving ? 'Moving...' : `Move ${selectedIds.size} Posters`}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {layerEditorPoster && (
         <TemplateLayerEditor

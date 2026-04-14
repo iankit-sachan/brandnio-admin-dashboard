@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { statusCategoriesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { StatusCategory } from '../../types/status.types'
+import { CategoryTabNav } from '../../components/CategoryTabNav'
 
 interface FormState {
   icon_url: string | null
@@ -25,11 +28,18 @@ function toSlug(name: string) {
 
 export default function StatusCategoryListPage() {
   const { addToast } = useToast()
+  const navigate = useNavigate()
   const { data, loading, create, update, remove } = useAdminCrud<StatusCategory>(statusCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<StatusCategory | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<StatusCategory | null>(null)
+  const [search, setSearch] = useState('')
+
+  const filtered = useMemo(() =>
+    data.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.slug.includes(search.toLowerCase())),
+    [data, search]
+  )
 
   const openAdd = () => {
     setEditingItem(null)
@@ -82,25 +92,35 @@ export default function StatusCategoryListPage() {
   const columns: Column<StatusCategory>[] = [
     { key: 'name', title: 'Name', sortable: true },
     { key: 'slug', title: 'Slug' },
-    { key: 'icon_url', title: 'Icon', render: (item) => item.icon_url ? <img src={item.icon_url} alt="" className="h-8 w-8 rounded object-cover" /> : <span className="text-brand-text-muted">—</span> },
+    { key: 'icon_url', title: 'Icon', render: (item) => item.icon_url ? <img src={item.icon_url} alt="" className="h-8 w-8 rounded object-cover" /> : <span className="text-brand-text-muted">-</span> },
     { key: 'sort_order', title: 'Order', sortable: true },
+    { key: 'quote_count' as any, title: 'Quotes', render: (item: any) => (
+      <button onClick={(e) => { e.stopPropagation(); navigate(`/statuses/quotes?category=${item.id}`) }} className="px-2 py-0.5 rounded-full text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors">
+        {item.quote_count ?? 0} quotes
+      </button>
+    )},
     { key: 'is_active', title: 'Status', render: (item) => item.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },
-    { key: 'actions', title: 'Actions', render: (item) => (
-      <div className="flex items-center gap-2">
-        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
-        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
+    { key: 'actions', title: '', render: (item) => (
+      <div className="flex items-center gap-1">
+        <button onClick={(e) => { e.stopPropagation(); navigate(`/statuses/quotes?category=${item.id}`) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-blue-400 transition-colors" title="View Quotes"><ExternalLink className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors" title="Edit"><Pencil className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
       </div>
     )},
   ]
 
   return (
     <div className="space-y-4">
+      <CategoryTabNav />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-text">Status Categories</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Category</button>
+        <div className="flex items-center gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search categories..." className="w-64" />
+          <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Category</button>
+        </div>
       </div>
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
-        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={data} />}
+        {loading ? <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div> : <DataTable columns={columns} data={filtered} />}
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Category' : 'Add Category'}>
@@ -129,7 +149,7 @@ export default function StatusCategoryListPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+      <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${deleteItem?.name}"?${(deleteItem as any)?.quote_count > 0 ? ` This will unlink ${(deleteItem as any).quote_count} quotes.` : ''} This action cannot be undone.`} confirmText="Delete" variant="danger" />
     </div>
   )
 }

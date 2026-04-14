@@ -5,11 +5,14 @@ export interface StatusCategory {
   icon_url: string
   sort_order: number
   is_active: boolean
+  quote_count: number
   created_at: string
 }
 
 export interface StatusQuote {
   id: number
+  category: number | null
+  category_name: string | null
   text: string
   author: string
   gradient_start_color: string

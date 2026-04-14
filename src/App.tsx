@@ -23,6 +23,7 @@ const PoliticalProfilesPage = lazy(() => import('./pages/users/PoliticalProfiles
 
 // Content Management (Posters)
 const PosterListPage = lazy(() => import('./pages/posters/PosterListPage'))
+const TagManagementPage = lazy(() => import('./pages/posters/TagManagementPage'))
 const FestivalPosterPage = lazy(() => import('./pages/posters/FestivalPosterPage'))
 const FramePosterPage = lazy(() => import('./pages/posters/FramePosterPage'))
 const BusinessPosterPage = lazy(() => import('./pages/posters/BusinessPosterPage'))
@@ -211,6 +212,7 @@ export default function App() {
 
                 {/* Content Management */}
                 <Route path="/posters" element={<PosterListPage />} />
+                <Route path="/posters/tags" element={<TagManagementPage />} />
                 <Route path="/posters/festival" element={<FestivalPosterPage />} />
                 <Route path="/posters/frames" element={<FramePosterPage />} />
                 <Route path="/posters/business" element={<BusinessPosterPage />} />

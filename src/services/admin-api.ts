@@ -94,9 +94,26 @@ export const categoryRecycleBinApi = {
   permanentDelete: (id: number) => api.post(`/api/admin/poster-categories/${id}/permanent_delete/`).then(r => r.data),
 }
 export const postersApi = crud('posters')
+export const posterRecycleBinApi = {
+  list: () => api.get('/api/admin/posters/recycle_bin/').then(r => {
+    const d = r.data
+    if (d && typeof d === 'object' && 'results' in d) return d.results
+    return Array.isArray(d) ? d : []
+  }),
+  restore: (id: number) => api.post(`/api/admin/posters/${id}/restore/`).then(r => r.data),
+  permanentDelete: (id: number) => api.post(`/api/admin/posters/${id}/permanent_delete/`).then(r => r.data),
+}
+export const posterBulkApi = {
+  bulkMove: (ids: number[], category: number) =>
+    api.post('/api/admin/posters/bulk_move/', { ids, category }).then(r => r.data),
+}
 export const posterTagsApi = {
   list: (): Promise<{ tag: string; count: number }[]> =>
     api.get('/api/admin/posters/tags/').then(r => r.data),
+  rename: (oldTag: string, newTag: string) =>
+    api.post('/api/admin/posters/rename_tag/', { old_tag: oldTag, new_tag: newTag }).then(r => r.data),
+  delete: (tag: string) =>
+    api.post('/api/admin/posters/delete_tag/', { tag }).then(r => r.data),
 }
 export const posterFramesApi = crud('poster-frames')
 export const festivalsApi = crud('festivals')

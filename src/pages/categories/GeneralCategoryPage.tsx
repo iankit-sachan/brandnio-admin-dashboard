@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { Grid3X3, Pencil, Trash2, Plus, Search, ChevronRight, FolderTree, Image, X, ChevronLeft } from 'lucide-react'
+import { Grid3X3, Pencil, Trash2, Plus, Search, ChevronRight, FolderTree, Image, X, ChevronLeft, ArrowUp, ArrowDown } from 'lucide-react'
 import { posterCategoriesApi, postersApi, uploadApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
+import { CategoryTabNav } from '../../components/CategoryTabNav'
 
 interface GeneralCategory {
   id: number
@@ -37,6 +38,7 @@ interface FormState {
   icon_url: string | null
   name: string
   slug: string
+  sort_order: number
   is_active: boolean
   show_in_home: boolean
   show_in_create: boolean
@@ -44,7 +46,7 @@ interface FormState {
   section_type: string
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal' }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal' }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -67,6 +69,8 @@ export default function GeneralCategoryPage() {
   const [posterPage, setPosterPage] = useState(1)
   const [posterTotalCount, setPosterTotalCount] = useState(0)
   const [posterSearch, setPosterSearch] = useState('')
+  const [posterSearchInput, setPosterSearchInput] = useState('')
+  const posterSearchTimer = useRef<ReturnType<typeof setTimeout>>()
   const POSTER_PAGE_SIZE = 30
   const posterTotalPages = Math.max(1, Math.ceil(posterTotalCount / POSTER_PAGE_SIZE))
   const [uploading, setUploading] = useState(false)
@@ -145,6 +149,19 @@ export default function GeneralCategoryPage() {
     }
   }
 
+  const moveCategory = async (cat: GeneralCategory, direction: 'up' | 'down') => {
+    const list = filtered
+    const idx = list.findIndex(c => c.id === cat.id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= list.length) return
+    const other = list[swapIdx]
+    try {
+      await update(cat.id, { sort_order: other.sort_order } as any)
+      await update(other.id, { sort_order: cat.sort_order } as any)
+      addToast('Order updated')
+    } catch { addToast('Reorder failed', 'error') }
+  }
+
   const openAdd = (parentId: number | null = null) => {
     setEditingItem(null)
     setForm({ ...emptyForm, parent: parentId })
@@ -153,7 +170,7 @@ export default function GeneralCategoryPage() {
 
   const openEdit = (item: GeneralCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal' })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, sort_order: item.sort_order ?? 0, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal' })
     setModalOpen(true)
   }
 
@@ -205,6 +222,7 @@ export default function GeneralCategoryPage() {
   if (viewingSubcat && viewingParent) {
     return (
       <div className="space-y-4">
+        <CategoryTabNav />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button onClick={() => { setViewingParent(null); setViewingSubcat(null) }} className="text-brand-gold hover:underline text-lg font-bold">Categories</button>
@@ -217,7 +235,12 @@ export default function GeneralCategoryPage() {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted" />
-              <input value={posterSearch} onChange={e => { setPosterSearch(e.target.value); setPosterPage(1) }} placeholder="Search posters..." className="pl-10 pr-4 py-2 bg-brand-dark border border-brand-dark-border rounded-lg text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-48" />
+              <input value={posterSearchInput} onChange={e => {
+                const val = e.target.value
+                setPosterSearchInput(val)
+                if (posterSearchTimer.current) clearTimeout(posterSearchTimer.current)
+                posterSearchTimer.current = setTimeout(() => { setPosterSearch(val); setPosterPage(1) }, 300)
+              }} placeholder="Search posters..." className="pl-10 pr-4 py-2 bg-brand-dark border border-brand-dark-border rounded-lg text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-48" />
             </div>
             <button onClick={() => openEdit(viewingSubcat)} className="px-3 py-1.5 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Edit Category</button>
           </div>
@@ -286,20 +309,45 @@ export default function GeneralCategoryPage() {
         )}
 
         <ConfirmDialog isOpen={!!deletePoster} onClose={() => setDeletePoster(null)} onConfirm={handleDeletePoster} title="Delete Poster" message={`Are you sure you want to delete "${deletePoster?.title}"?`} confirmText="Delete" variant="danger" />
-        <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title="Edit Category">
+        <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Category' : 'Add Subcategory'}>
           <div className="space-y-4">
             <ImageUpload label="Category Icon" value={form.icon_url} onChange={v => setForm(f => ({ ...f, icon_url: v }))} aspectHint="Square icon, 128x128 recommended" />
             <div>
               <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: toSlug(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
-              <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
+                <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
+                <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
-              <label className="text-sm text-brand-text-muted">Active</label>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Section Type</label>
+              <select value={form.section_type} onChange={e => setForm(f => ({ ...f, section_type: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+                <option value="normal">Normal</option>
+                <option value="grand_opening">Grand Opening</option>
+                <option value="calendar_anchor">Calendar Anchor</option>
+                <option value="video_cards">Video Cards</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
+                <label className="text-sm text-brand-text-muted">Active</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={form.show_in_home} onChange={e => setForm(f => ({ ...f, show_in_home: e.target.checked }))} className="rounded" />
+                <label className="text-sm text-green-400">Show in Home</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" checked={form.show_in_create} onChange={e => setForm(f => ({ ...f, show_in_create: e.target.checked }))} className="rounded" />
+                <label className="text-sm text-purple-400">Show in Create</label>
+              </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
@@ -314,6 +362,7 @@ export default function GeneralCategoryPage() {
   // ========== Level 1 & 2: Categories / Subcategories grid ==========
   return (
     <div className="space-y-4">
+      <CategoryTabNav />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {viewingParent ? (
@@ -344,6 +393,7 @@ export default function GeneralCategoryPage() {
               } else {
                 setPosterPage(1)
                 setPosterSearch('')
+                setPosterSearchInput('')
                 setViewingSubcat(cat)
               }
             }}
@@ -379,6 +429,10 @@ export default function GeneralCategoryPage() {
                 )}
               </div>
             )}
+            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 flex flex-col gap-0.5 transition-opacity">
+              <button onClick={e => { e.stopPropagation(); moveCategory(cat, 'up') }} disabled={filtered.findIndex(c => c.id === cat.id) === 0} className="p-0.5 bg-brand-dark-hover rounded text-brand-text-muted hover:text-brand-gold disabled:opacity-20 transition-colors"><ArrowUp className="h-3 w-3" /></button>
+              <button onClick={e => { e.stopPropagation(); moveCategory(cat, 'down') }} disabled={filtered.findIndex(c => c.id === cat.id) === filtered.length - 1} className="p-0.5 bg-brand-dark-hover rounded text-brand-text-muted hover:text-brand-gold disabled:opacity-20 transition-colors"><ArrowDown className="h-3 w-3" /></button>
+            </div>
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
               <button onClick={e => { e.stopPropagation(); openEdit(cat) }} className="p-1 bg-brand-dark-hover rounded text-brand-gold"><Pencil className="h-3 w-3" /></button>
               <button onClick={e => { e.stopPropagation(); openDelete(cat) }} className="p-1 bg-brand-dark-hover rounded text-status-error"><Trash2 className="h-3 w-3" /></button>
@@ -421,9 +475,15 @@ export default function GeneralCategoryPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: toSlug(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
-            <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
+              <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Sort Order</label>
+              <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Section Type</label>

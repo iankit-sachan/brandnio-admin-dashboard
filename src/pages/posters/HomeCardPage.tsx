@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { ImageUpload } from '../../components/ui/ImageUpload'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2 } from 'lucide-react'
 import { homeCardsApi } from '../../services/admin-api'
@@ -200,11 +201,13 @@ export default function HomeCardPage() {
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Festival Special" className={inputClass} />
           </div>
 
-          {/* Image URL */}
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Image URL <span className="text-status-error">*</span></label>
-            <input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className={inputClass} />
-          </div>
+          {/* Image Upload */}
+          <ImageUpload
+            label="Card Image *"
+            value={form.image_url || null}
+            onChange={v => setForm(f => ({ ...f, image_url: v || '' }))}
+            aspectHint="Recommended: 400x130"
+          />
 
           {/* Redirect Slug */}
           <div>

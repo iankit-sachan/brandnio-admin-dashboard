@@ -65,7 +65,6 @@ const navSections: NavSection[] = [
       { path: '/posters/home-cards', label: 'Home Cards', icon: CreditCard },
       { path: '/posters/home-card-sections', label: 'Card Sections', icon: Layers },
       { path: '/posters/promo-announcements', label: 'Promo Announcements', icon: Megaphone },
-      { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
       { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
       { path: '/feeds/items', label: 'Feed Items', icon: Rss },
       { path: '/feeds/banners', label: 'Feed Banners', icon: Image },
@@ -79,7 +78,9 @@ const navSections: NavSection[] = [
     defaultOpen: false,
     items: [
       { path: '/categories/general', label: 'All Categories', icon: FolderTree },
-      { path: '/posters', label: 'All Posters', icon: Image },
+      { path: '/posters', label: 'Poster Templates', icon: Image },
+      { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
+      { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
       { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
       { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
       { path: '/statuses/quotes', label: 'Status Quotes', icon: Quote },
