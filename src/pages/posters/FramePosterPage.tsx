@@ -961,14 +961,14 @@ export default function FramePosterPage() {
                 </div>
                 <div className="col-span-2">
                   <label className={labelClass}>Thumbnail URL</label>
-                  <input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className={inputClass} placeholder="http://13.203.77.238/media/frames/..." />
+                  <input value={form.thumbnail_url} onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))} className={inputClass} placeholder="/media/media/frames/..." />
                   {form.thumbnail_url && (
                     <img src={form.thumbnail_url} alt="Preview" className="mt-2 h-20 rounded border border-brand-dark-border object-contain" />
                   )}
                 </div>
                 <div className="col-span-2">
                   <label className={labelClass}>Overlay Image URL <span className="text-brand-text-muted font-normal">(single transparent PNG rendered on top of poster)</span></label>
-                  <input value={form.overlay_image_url} onChange={e => setForm(f => ({ ...f, overlay_image_url: e.target.value }))} className={inputClass} placeholder="http://13.203.77.238/media/frames/..." />
+                  <input value={form.overlay_image_url} onChange={e => setForm(f => ({ ...f, overlay_image_url: e.target.value }))} className={inputClass} placeholder="/media/media/frames/..." />
                   {form.overlay_image_url && (
                     <img src={form.overlay_image_url} alt="Overlay" className="mt-2 h-24 rounded border border-brand-dark-border object-contain bg-neutral-700" />
                   )}

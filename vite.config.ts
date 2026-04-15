@@ -19,12 +19,12 @@ export default defineConfig(({ command }) => ({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://13.203.77.238',
+        target: 'https://jigs.brandnio.com',
         changeOrigin: true,
         secure: false,
       },
       '/media': {
-        target: 'http://13.203.77.238',
+        target: 'https://jigs.brandnio.com',
         changeOrigin: true,
         secure: false,
       },
