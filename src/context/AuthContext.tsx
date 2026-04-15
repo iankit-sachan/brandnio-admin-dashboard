@@ -47,9 +47,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: { username: user.username, email: user.email },
         loading: false,
       })
-    } catch {
+    } catch (err: any) {
       setState(prev => ({ ...prev, loading: false }))
-      throw new Error('Invalid credentials or not an admin')
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail || err?.response?.data?.non_field_errors?.[0]
+      console.error('[Login Failed]', { status, detail, message: err?.message })
+
+      if (!err?.response) {
+        // Network error — likely mixed content or server unreachable
+        throw new Error('Cannot reach the server. Check your connection.')
+      } else if (status === 400) {
+        throw new Error(detail || 'Bad request — check username/password format')
+      } else if (status === 401 || status === 403) {
+        throw new Error('Invalid credentials or not an admin')
+      } else {
+        throw new Error(detail || `Login failed (${status || 'network error'})`)
+      }
     }
   }, [])
 

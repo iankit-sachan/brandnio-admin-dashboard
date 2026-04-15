@@ -1,10 +1,22 @@
 import axios from 'axios'
 
+// ═══ SAFETY CHECK: Detect mixed content misconfiguration at startup ═══
+const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+if (typeof window !== 'undefined' && window.location.protocol === 'https:' && apiBase.startsWith('http://')) {
+  console.error(
+    `[CRITICAL] Mixed content detected!\n` +
+    `Page: ${window.location.origin} (HTTPS)\n` +
+    `API: ${apiBase} (HTTP)\n` +
+    `API calls WILL be blocked by the browser.\n` +
+    `Fix: Set VITE_API_BASE_URL="" in .env.production and rebuild.`
+  )
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: apiBase,
   withCredentials: false,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000, // 30s timeout — prevents hanging requests
+  timeout: 30000,
 })
 
 // Memoize token to avoid parsing localStorage on every request
@@ -23,12 +35,10 @@ function getAuthToken(): string | null {
 }
 
 api.interceptors.request.use(config => {
-  // Add token auth header (memoized)
   const token = getAuthToken()
   if (token) {
     config.headers['Authorization'] = `Token ${token}`
   }
-  // CSRF for session-based fallback
   const csrfToken = document.cookie
     .split('; ')
     .find(row => row.startsWith('csrftoken='))
@@ -36,7 +46,6 @@ api.interceptors.request.use(config => {
   if (csrfToken) {
     config.headers['X-CSRFToken'] = csrfToken
   }
-  // Let browser set Content-Type with boundary for FormData
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
   }
@@ -45,7 +54,9 @@ api.interceptors.request.use(config => {
 
 // Auto-retry on network errors and 5xx server errors (max 2 retries)
 const MAX_RETRIES = 2
-const RETRY_DELAY = 1000 // 1 second
+const RETRY_DELAY = 1000
+
+let isRedirecting = false
 
 api.interceptors.response.use(
   response => response,
@@ -53,10 +64,18 @@ api.interceptors.response.use(
     const config = error.config
     if (!config) return Promise.reject(error)
 
-    // Don't retry on 401 (auth) — redirect to login
+    // Log all API failures for debugging
+    const url = config.url || 'unknown'
+    const method = (config.method || 'GET').toUpperCase()
+    const status = error.response?.status || 'NETWORK_ERROR'
+    const message = error.response?.data?.detail || error.message || 'Unknown error'
+    console.error(`[API Error] ${method} ${url} → ${status}: ${message}`)
+
+    // 401: redirect to login
     if (error.response?.status === 401) {
       if (!isRedirecting) {
         isRedirecting = true
+        console.warn('[Auth] Token expired or invalid — redirecting to login')
         _cachedToken = null
         _tokenSource = null
         localStorage.removeItem('admin_auth')
@@ -65,24 +84,23 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // Don't retry on 4xx client errors (bad request, validation, not found)
+    // 4xx: don't retry (client error)
     if (error.response && error.response.status >= 400 && error.response.status < 500) {
       return Promise.reject(error)
     }
 
-    // Retry on: network error, timeout, 5xx server errors
+    // Network error / timeout / 5xx: retry up to 2 times
     config._retryCount = config._retryCount || 0
     if (config._retryCount < MAX_RETRIES) {
       config._retryCount++
-      console.warn(`[API Retry ${config._retryCount}/${MAX_RETRIES}] ${config.method?.toUpperCase()} ${config.url}`)
+      console.warn(`[API Retry ${config._retryCount}/${MAX_RETRIES}] ${method} ${url}`)
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * config._retryCount))
       return api(config)
     }
 
+    console.error(`[API Failed] ${method} ${url} — all ${MAX_RETRIES} retries exhausted`)
     return Promise.reject(error)
   }
 )
-
-let isRedirecting = false
 
 export default api
