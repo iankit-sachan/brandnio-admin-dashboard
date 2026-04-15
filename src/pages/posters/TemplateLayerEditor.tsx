@@ -20,7 +20,7 @@ import type { Poster } from '../../types'
 
 interface TemplateLayer {
   id: string
-  type: 'text' | 'image' | 'shape'
+  type: 'text' | 'image' | 'shape' | 'logo' | 'sticker' | 'frame'
   content: string
   x: number
   y: number
@@ -116,12 +116,15 @@ function createDefaultLayer(type: TemplateLayer['type'], zIndex: number): Templa
   if (type === 'text') return { ...base, content: 'Tap to edit' }
   if (type === 'image') return { ...base, x: 10, y: 10, width: 80, height: 60 }
   if (type === 'shape') return { ...base, x: 10, y: 10, width: 30, height: 30 }
+  if (type === 'logo') return { ...base, x: 5, y: 5, width: 20, height: 20 }
+  if (type === 'sticker') return { ...base, x: 10, y: 10, width: 25, height: 25 }
+  if (type === 'frame') return { ...base, x: 0, y: 0, width: 100, height: 100 }
   return base
 }
 
 function typeIcon(type: string) {
   if (type === 'text') return <Type className="h-3.5 w-3.5" />
-  if (type === 'image') return <Image className="h-3.5 w-3.5" />
+  if (type === 'image' || type === 'logo' || type === 'sticker') return <Image className="h-3.5 w-3.5" />
   return <Square className="h-3.5 w-3.5" />
 }
 
@@ -155,7 +158,7 @@ function SortableLayerItem({
       </div>
       <span className="text-brand-text-muted">{typeIcon(layer.type)}</span>
       <span className="flex-1 text-xs text-brand-text truncate min-w-0">
-        {layer.type === 'text' ? (layer.content || 'Empty text') : layer.type === 'image' ? 'Image layer' : `Shape (${layer.shape_type})`}
+        {layer.type === 'text' ? (layer.content || 'Empty text') : layer.type === 'image' ? 'Image layer' : layer.type === 'logo' ? 'Logo' : layer.type === 'sticker' ? 'Sticker' : layer.type === 'frame' ? 'Frame overlay' : `Shape (${layer.shape_type})`}
       </span>
       <button onClick={e => { e.stopPropagation(); onToggleVisible() }} className="p-0.5 text-brand-text-muted hover:text-brand-text">
         {layer.is_visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -245,19 +248,26 @@ function CanvasPreview({
               }}
             />
           )}
-          {layer.type === 'image' && (
-            layer.image_url ? (
-              <img
-                src={layer.image_url}
-                alt="Layer"
-                className="w-full h-full"
-                style={{ objectFit: layer.scale_type === 'fitCenter' ? 'contain' : 'cover' }}
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-600/50 flex items-center justify-center">
-                <Image className="h-6 w-6 text-gray-400" />
-              </div>
-            )
+          {['image', 'logo', 'sticker', 'frame'].includes(layer.type) && (
+            <div className="w-full h-full relative">
+              {layer.image_url ? (
+                <img
+                  src={layer.image_url}
+                  alt={layer.type}
+                  className="w-full h-full"
+                  style={{ objectFit: layer.scale_type === 'fitCenter' ? 'contain' : 'cover' }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-600/50 flex items-center justify-center">
+                  <Image className="h-6 w-6 text-gray-400" />
+                </div>
+              )}
+              {layer.type !== 'image' && (
+                <span className="absolute top-0 right-0 bg-brand-gold text-gray-900 text-[8px] font-bold px-1 rounded-bl leading-tight">
+                  {layer.type.toUpperCase()}
+                </span>
+              )}
+            </div>
           )}
         </div>
       ))}
@@ -295,6 +305,9 @@ function LayerPropertyPanel({
           <option value="text">Text</option>
           <option value="image">Image</option>
           <option value="shape">Shape</option>
+          <option value="logo">Logo</option>
+          <option value="sticker">Sticker</option>
+          <option value="frame">Frame</option>
         </select>
       </div>
 
@@ -395,8 +408,8 @@ function LayerPropertyPanel({
         </>
       )}
 
-      {/* Image properties */}
-      {layer.type === 'image' && (
+      {/* Image properties (also for logo, sticker, frame) */}
+      {['image', 'logo', 'sticker', 'frame'].includes(layer.type) && (
         <>
           <p className={sectionTitle}>Image</p>
           <div>
