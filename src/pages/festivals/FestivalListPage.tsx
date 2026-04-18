@@ -6,12 +6,13 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Upload } from 'lucide-react'
 import { festivalsApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { formatDate } from '../../utils/formatters'
 import QuickStats from '../../components/ui/QuickStats'
 import type { Festival } from '../../types'
+import BulkFestivalPosterUploadModal from './BulkFestivalPosterUploadModal'
 
 interface FormState {
   banner_url: string | null
@@ -31,11 +32,15 @@ function toSlug(name: string) {
 
 export default function FestivalListPage() {
   const { addToast } = useToast()
-  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Festival>(festivalsApi)
+  const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove, refresh } = useAdminPaginatedCrud<Festival>(festivalsApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Festival | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<Festival | null>(null)
+  // Festival picked for the inline bulk-poster-upload modal (single-select).
+  // When set, the modal opens locked to this one festival — admin doesn't have
+  // to switch pages or re-pick from a dropdown.
+  const [uploadFestival, setUploadFestival] = useState<Festival | null>(null)
 
   const openAdd = () => {
     setEditingItem(null)
@@ -85,6 +90,14 @@ export default function FestivalListPage() {
     { key: 'date' as keyof Festival, title: 'Upcoming', render: (f) => new Date(f.date) > new Date() ? <span className="text-brand-gold">Yes</span> : <span className="text-brand-text-muted">No</span> },
     { key: 'actions', title: 'Actions', render: (item) => (
       <div className="flex items-center gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); setUploadFestival(item) }}
+          title="Upload posters to this festival"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold text-xs font-medium transition-colors"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          Upload
+        </button>
         <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
       </div>
@@ -140,6 +153,18 @@ export default function FestivalListPage() {
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Festival" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+
+      {/* Inline bulk-poster upload — opens locked to the festival the admin clicked.
+          Reuses BulkFestivalPosterUploadModal; passes a single-item festivals array
+          so the dropdown effectively locks to this one festival (no page switch). */}
+      {uploadFestival && (
+        <BulkFestivalPosterUploadModal
+          date={uploadFestival.date}
+          festivals={[uploadFestival]}
+          onClose={() => setUploadFestival(null)}
+          onUploaded={() => { refresh(); addToast(`Uploaded posters for ${uploadFestival.name}`) }}
+        />
+      )}
     </div>
   )
 }
