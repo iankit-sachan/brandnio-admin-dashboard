@@ -535,7 +535,22 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
           {frames.map(f => (
             <div key={f.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <img src={f.frame_image_url} alt={f.name} className="w-full h-32 object-cover" />
+              {/* Checkerboard bg so transparent PNG areas are visible (frames have transparent centres by design). */}
+              <div
+                className="w-full h-32 flex items-center justify-center"
+                style={{
+                  backgroundColor: '#f3f4f6',
+                  backgroundImage:
+                    'linear-gradient(45deg, #d1d5db 25%, transparent 25%), ' +
+                    'linear-gradient(-45deg, #d1d5db 25%, transparent 25%), ' +
+                    'linear-gradient(45deg, transparent 75%, #d1d5db 75%), ' +
+                    'linear-gradient(-45deg, transparent 75%, #d1d5db 75%)',
+                  backgroundSize: '14px 14px',
+                  backgroundPosition: '0 0, 0 7px, 7px -7px, -7px 0',
+                }}
+              >
+                <img src={f.frame_image_url} alt={f.name} className="w-full h-full object-contain" />
+              </div>
               <div className="p-2 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-gray-900 truncate">{f.name}</div>
