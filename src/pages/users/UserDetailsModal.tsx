@@ -557,7 +557,17 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
   )
 }
 
-const FRAME_MAX_BYTES = 20 * 1024 * 1024 // 20 MB — matches backend serializer + nginx
+// ┌─────────────────────────────────────────────────────────────────┐
+// │ USER CUSTOM FRAME LIMITS — keep in sync across 3 places:         │
+// │  1) Here (FRAME_MAX_BYTES + FRAME_INFO banner copy)              │
+// │  2) backend/admin_api/serializers.py → AdminUserCustomFrameSeria │
+// │     lizer.MAX_BYTES / MIN_DIM / MAX_DIM                          │
+// │  3) nginx /etc/nginx/sites-enabled/jigs-admin                    │
+// │     → client_max_body_size 50M;                                  │
+// └─────────────────────────────────────────────────────────────────┘
+const FRAME_MAX_BYTES = 50 * 1024 * 1024 // 50 MB
+const FRAME_INFO = 'PNG only • Min 500×500 • Max 8000×8000 • 50MB limit'
+const FRAME_MAX_MB_LABEL = '50 MB'
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
@@ -580,7 +590,7 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
     if (!name || !file) { addToast('Name and PNG file are required', 'error'); return }
     if (wrongType) { addToast('Only PNG files are allowed.', 'error'); return }
     if (tooLarge) {
-      addToast(`File too large (${formatBytes(file.size)}). Max 20 MB.`, 'error')
+      addToast(`File too large (${formatBytes(file.size)}). Max ${FRAME_MAX_MB_LABEL}.`, 'error')
       return
     }
     setSaving(true)
@@ -592,7 +602,7 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
       const err = e as { response?: { status?: number; data?: unknown } }
       const status = err.response?.status
       if (status === 413) {
-        addToast(`File too large for server (${formatBytes(file.size)}). Max 20 MB.`, 'error')
+        addToast(`File too large for server (${formatBytes(file.size)}). Max ${FRAME_MAX_MB_LABEL}.`, 'error')
       } else if (status === 400 && err.response?.data && typeof err.response.data === 'object') {
         // DRF validation error — surface the first field message cleanly
         const data = err.response.data as Record<string, unknown>
@@ -651,7 +661,7 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
           )}
         </label>
         <div className="text-xs text-blue-900 bg-blue-50 rounded-lg p-2">
-          ℹ️ PNG only • Min 500×500 • Max 4000×4000 • 20MB limit
+          ℹ️ {FRAME_INFO}
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-3">
