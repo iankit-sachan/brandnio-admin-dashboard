@@ -93,17 +93,32 @@ export interface MallListing {
 export interface PoliticianProfile {
   id: number
   user: number
-  user_name: string
+  user_name?: string
   party_name: string
-  party_logo_url: string | null
+  party_logo_url?: string | null
   designation: string
   constituency: string
   state: string
-  bio: string
-  achievements: string[]
-  social_links: Record<string, string>
-  is_verified: boolean
-  created_at: string
+  bio?: string
+  achievements?: string[]
+  social_links?: Record<string, string>
+  is_verified?: boolean
+  created_at?: string
+  // Admin "All Users" form extensions
+  full_name: string
+  position_role: string
+  campaign_slogan: string
+  phone: string
+  show_phone_number: boolean
+  email: string
+  website: string
+  facebook: string
+  twitter: string
+  instagram: string
+  youtube: string
+  office_address: string
+  city: string
+  pincode: string
 }
 
 export interface UserSettings {

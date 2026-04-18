@@ -84,8 +84,43 @@ export const dashboardApi = {
 
 // ── Resource CRUD APIs ───────────────────────────────────────────
 
-export const usersApi = crud('users')
+export const usersApi = {
+  ...crud('users'),
+  activatePremium: (id: number, plan_id: number) =>
+    api.post(`/api/admin/users/${id}/activate-premium/`, { plan_id }).then(r => r.data),
+  details: (id: number) =>
+    api.get(`/api/admin/users/${id}/details/`).then(r => r.data),
+  restore: (id: number) =>
+    api.post(`/api/admin/users/${id}/restore/`).then(r => r.data),
+}
 export const businessProfilesApi = crud('business-profiles')
+
+export const userCustomFramesApi = {
+  ...crud('user-custom-frames'),
+  listForUser: (user: number) =>
+    api.get('/api/admin/user-custom-frames/', { params: { user } }).then(r => {
+      const d = r.data
+      if (Array.isArray(d)) return d
+      if (d && typeof d === 'object' && 'results' in d) return d.results
+      return []
+    }),
+  uploadForUser: async (payload: {
+    user: number
+    name: string
+    category: string
+    frame_type: string
+    frame_image: File
+  }) => {
+    const fd = new FormData()
+    fd.append('user', String(payload.user))
+    fd.append('name', payload.name)
+    fd.append('category', payload.category)
+    fd.append('frame_type', payload.frame_type)
+    fd.append('frame_image', payload.frame_image)
+    const res = await api.post('/api/admin/user-custom-frames/', fd)
+    return res.data
+  },
+}
 
 export const posterCategoriesApi = crud('poster-categories')
 export const categoryRecycleBinApi = {
@@ -210,6 +245,7 @@ export const mallConfigApi = {
 }
 export const politicianProfilesApi = crud('politician-profiles')
 export const politicianCategoriesApi = crud('politician-categories')
+export const politicianPositionsApi = crud('politician-positions')
 export const popupPostersApi = crud('popup-posters')
 export const taglinesApi = crud('taglines')
 export const watermarkSettingsApi = crud('watermark-settings')
