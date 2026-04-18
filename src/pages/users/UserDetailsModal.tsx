@@ -557,6 +557,14 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
   )
 }
 
+const FRAME_MAX_BYTES = 20 * 1024 * 1024 // 20 MB — matches backend serializer + nginx
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
 function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCancel: () => void; onSaved: () => void }) {
   const { addToast } = useToast()
   const [name, setName] = useState('')
@@ -565,16 +573,38 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const tooLarge = !!file && file.size > FRAME_MAX_BYTES
+  const wrongType = !!file && !file.type.includes('png') && !file.name.toLowerCase().endsWith('.png')
+
   const handleUpload = async () => {
     if (!name || !file) { addToast('Name and PNG file are required', 'error'); return }
+    if (wrongType) { addToast('Only PNG files are allowed.', 'error'); return }
+    if (tooLarge) {
+      addToast(`File too large (${formatBytes(file.size)}). Max 20 MB.`, 'error')
+      return
+    }
     setSaving(true)
     try {
       await userCustomFramesApi.uploadForUser({ user: userId, name, category, frame_type: frameType, frame_image: file })
       addToast('Frame uploaded')
       onSaved()
     } catch (e: unknown) {
-      const err = e as { response?: { data?: unknown } }
-      addToast('Upload failed: ' + JSON.stringify(err.response?.data || ''), 'error')
+      const err = e as { response?: { status?: number; data?: unknown } }
+      const status = err.response?.status
+      if (status === 413) {
+        addToast(`File too large for server (${formatBytes(file.size)}). Max 20 MB.`, 'error')
+      } else if (status === 400 && err.response?.data && typeof err.response.data === 'object') {
+        // DRF validation error — surface the first field message cleanly
+        const data = err.response.data as Record<string, unknown>
+        const firstMsg =
+          (Array.isArray(data.frame_image) && data.frame_image[0]) ||
+          (Array.isArray(data.detail) && data.detail[0]) ||
+          data.detail ||
+          JSON.stringify(data)
+        addToast(`Upload failed: ${String(firstMsg)}`, 'error')
+      } else {
+        addToast('Upload failed. Please try again.', 'error')
+      }
     } finally { setSaving(false) }
   }
 
@@ -597,9 +627,28 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
             </select>
           </label>
         </div>
-        <label className="block bg-white border border-indigo-300 border-dashed rounded-lg px-3 py-3 text-sm text-center cursor-pointer hover:bg-indigo-50">
+        <label
+          className={
+            'block border-dashed rounded-lg px-3 py-3 text-sm text-center cursor-pointer transition-colors ' +
+            (tooLarge || wrongType
+              ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+              : 'bg-white border-indigo-300 hover:bg-indigo-50 text-gray-800')
+          }
+        >
           <input type="file" accept="image/png" onChange={e => setFile(e.target.files?.[0] || null)} className="hidden" />
-          📄 {file ? file.name : 'Select PNG Frame'}
+          {file ? (
+            <span>
+              📄 {file.name}
+              <span className="ml-2 text-xs opacity-80">
+                ({formatBytes(file.size)}
+                {tooLarge && <span className="text-red-700 font-semibold"> — too large</span>}
+                {wrongType && <span className="text-red-700 font-semibold"> — not a PNG</span>}
+                )
+              </span>
+            </span>
+          ) : (
+            '📄 Select PNG Frame'
+          )}
         </label>
         <div className="text-xs text-blue-900 bg-blue-50 rounded-lg p-2">
           ℹ️ PNG only • Min 500×500 • Max 4000×4000 • 20MB limit
@@ -607,7 +656,11 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
       </div>
       <div className="flex justify-end gap-2 mt-3">
         <button onClick={onCancel} className="text-gray-600 px-3 py-1.5 text-sm">Cancel</button>
-        <button onClick={handleUpload} disabled={saving} className="px-4 py-1.5 rounded-full bg-indigo-500 text-white text-sm hover:bg-indigo-600 disabled:opacity-50">
+        <button
+          onClick={handleUpload}
+          disabled={saving || !file || tooLarge || wrongType}
+          className="px-4 py-1.5 rounded-full bg-indigo-500 text-white text-sm hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {saving ? 'Uploading...' : '☁ Upload Frame'}
         </button>
       </div>
