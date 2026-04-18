@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { festivalsApi, postersApi } from '../../services/admin-api'
 import { useToast } from '../../context/ToastContext'
 import type { Festival, PosterAspectRatio, PosterMediaType, FestivalCalendarPoster } from '../../types/festival.types'
@@ -43,6 +44,10 @@ export default function FestivalCalendarPage() {
   const [refreshTick, setRefreshTick] = useState(0)
 
   const festivalsToday = festivalsByDate[selectedDate] ?? []
+  // True when the currently-visible month has no festivals at all — the
+  // Upload button can't possibly do anything in this state, so the UI needs
+  // to direct the admin to create festivals first.
+  const monthHasNoFestivals = Object.keys(festivalsByDate).length === 0
 
   // Fetch festivals for the visible month
   useEffect(() => {
@@ -133,6 +138,29 @@ export default function FestivalCalendarPage() {
         </button>
       </div>
 
+      {/* Empty-state guide: no festivals exist for the visible month. Point
+          admin at the Festivals List page so they can create one before
+          trying to upload posters. Prevents the "page looks broken" confusion. */}
+      {monthHasNoFestivals && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-amber-300 font-semibold text-sm">
+              No festivals exist for {MONTH_NAMES[month]} {year}.
+            </div>
+            <div className="text-brand-text-muted text-xs mt-1">
+              Create festivals first — only dates with festivals can receive posters.
+              Multiple festivals on the same date are fully supported.
+            </div>
+          </div>
+          <Link
+            to="/festivals"
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-500 shrink-0"
+          >
+            + Create Festival →
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4">
         {/* ── LEFT: Calendar grid ── */}
         <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-4">
@@ -178,9 +206,12 @@ export default function FestivalCalendarPage() {
             <div className="text-sm text-brand-text-muted mb-2">
               {selectedDate} · {festivalsToday.length} festival{festivalsToday.length === 1 ? '' : 's'}
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 items-center">
               {festivalsToday.length === 0 && (
-                <span className="text-xs text-brand-text-muted italic">No festivals on this date.</span>
+                <span className="text-xs text-brand-text-muted italic">
+                  No festivals on this date.{' '}
+                  <Link to="/festivals" className="text-amber-400 hover:underline not-italic">Add one →</Link>
+                </span>
               )}
               {festivalsToday.map(f => (
                 <button key={f.id}
