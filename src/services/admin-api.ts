@@ -154,7 +154,30 @@ export const posterTagsApi = {
     api.post('/api/admin/posters/delete_tag/', { tag }).then(r => r.data),
 }
 export const posterFramesApi = crud('poster-frames')
-export const festivalsApi = crud('festivals')
+export const festivalsApi = {
+  ...crud('festivals'),
+  byMonth: (year: number, month: number) =>
+    api.get('/api/admin/festivals/by-month/', { params: { year, month } }).then(r => r.data as { year: number; month: number; dates: Record<string, Array<{ id: number; name: string; slug: string; date: string; banner_url: string | null; icon_url: string | null }>> }),
+}
+export const languagesApi = crud('languages')
+export const festivalCalendarApi = {
+  bulkUpload: async (payload: {
+    festival: number
+    language?: number | null
+    aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
+    media_type: 'image' | 'video'
+    files: File[]
+  }) => {
+    const fd = new FormData()
+    fd.append('festival', String(payload.festival))
+    if (payload.language != null) fd.append('language', String(payload.language))
+    fd.append('aspect_ratio', payload.aspect_ratio)
+    fd.append('media_type', payload.media_type)
+    for (const f of payload.files) fd.append('files', f)
+    const res = await api.post('/api/admin/festival-calendar/bulk-upload/', fd)
+    return res.data as { created_count: number; poster_ids: number[] }
+  },
+}
 export const autoPostersApi = crud('auto-posters')
 export const festivalPostersApi = crud('festival-posters')
 

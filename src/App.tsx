@@ -47,6 +47,8 @@ const CommunicationCenterPage = lazy(() => import('./pages/communication/Communi
 
 // Festivals
 const FestivalListPage = lazy(() => import('./pages/festivals/FestivalListPage'))
+const FestivalCalendarPage = lazy(() => import('./pages/festivals/FestivalCalendarPage'))
+const LanguagesPage = lazy(() => import('./pages/admin/LanguagesPage'))
 
 // Subscriptions
 const SubscriptionListPage = lazy(() => import('./pages/subscriptions/SubscriptionListPage'))
@@ -238,6 +240,8 @@ export default function App() {
 
                 {/* Festivals */}
                 <Route path="/festivals" element={<FestivalListPage />} />
+                <Route path="/festival-calendar" element={<FestivalCalendarPage />} />
+                <Route path="/languages" element={<LanguagesPage />} />
 
                 {/* Subscriptions */}
                 <Route path="/subscriptions" element={<SubscriptionListPage />} />

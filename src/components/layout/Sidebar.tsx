@@ -174,8 +174,10 @@ const navSections: NavSection[] = [
     color: '#E91E63',
     defaultOpen: false,
     items: [
-      { path: '/festivals', label: 'Festival Calendar', icon: Calendar },
+      { path: '/festival-calendar', label: 'Festival Calendar', icon: Calendar },
+      { path: '/festivals', label: 'Festivals List', icon: Tag },
       { path: '/posters/festival', label: 'Festival Posters', icon: Image },
+      { path: '/languages', label: 'Languages', icon: Tag },
     ],
   },
 
