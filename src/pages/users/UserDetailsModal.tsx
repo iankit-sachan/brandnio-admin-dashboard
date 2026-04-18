@@ -11,7 +11,8 @@ interface LookupRow { id: number; name: string; slug: string; is_active?: boolea
 
 type Tab = 'subscription' | 'business' | 'political' | 'frames'
 
-const FRAME_CATEGORIES = ['festival','birthday','wedding','business','political','religious','sports','nature']
+// Must match backend posters/models.py UserCustomFrame.CATEGORY_CHOICES (per 2ndprompt.txt).
+const FRAME_CATEGORIES = ['festival', 'business', 'political']
 const FRAME_TYPES = ['portrait','landscape','square','circular','story','banner']
 
 interface Props {
@@ -567,6 +568,7 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
 // └─────────────────────────────────────────────────────────────────┘
 const FRAME_MAX_BYTES = 50 * 1024 * 1024 // 50 MB
 const FRAME_INFO = 'PNG only • Min 500×500 • Max 8000×8000 • 50MB limit'
+const FRAME_TIP = 'Recommended: 1080×1080 • Keep the centre empty for the user\u2019s photo'
 const FRAME_MAX_MB_LABEL = '50 MB'
 
 function formatBytes(n: number): string {
@@ -660,8 +662,9 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
             '📄 Select PNG Frame'
           )}
         </label>
-        <div className="text-xs text-blue-900 bg-blue-50 rounded-lg p-2">
-          ℹ️ {FRAME_INFO}
+        <div className="text-xs text-blue-900 bg-blue-50 rounded-lg p-2 space-y-0.5">
+          <div>ℹ️ {FRAME_INFO}</div>
+          <div className="text-blue-800/80">💡 {FRAME_TIP}</div>
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-3">
