@@ -6,9 +6,16 @@ import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { TagInput } from '../../components/ui/TagInput'
 import { useToast } from '../../context/ToastContext'
-import { postersApi, posterCategoriesApi, festivalsApi, posterBulkApi, uploadApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, posterBulkApi, uploadApi, languagesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import type { Poster, PosterCategory, AspectRatio } from '../../types'
+
+interface LanguageOption {
+  id: number
+  name: string
+  code: string
+  is_active: boolean
+}
 
 interface FormState {
   image_url: string | null
@@ -17,9 +24,10 @@ interface FormState {
   category: number
   aspect_ratio: AspectRatio
   is_premium: boolean
+  language: number | null
 }
 
-const emptyForm: FormState = { image_url: null, thumbnail_url: null, title: '', category: 0, aspect_ratio: '4:5', is_premium: false }
+const emptyForm: FormState = { image_url: null, thumbnail_url: null, title: '', category: 0, aspect_ratio: '4:5', is_premium: false, language: null }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
@@ -35,6 +43,7 @@ export default function BusinessPosterPage() {
   const { data, loading, create, update, remove, refresh } = useAdminCrud<Poster>(postersApi, crudParams)
   const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi)
   const { data: festivals } = useAdminCrud(festivalsApi)
+  const { data: languages } = useAdminCrud<LanguageOption>(languagesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Poster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -45,6 +54,7 @@ export default function BusinessPosterPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [ratioFilter, setRatioFilter] = useState('')
+  const [languageFilter, setLanguageFilter] = useState('')
 
   // ── Multi-select + bulk action state ──
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -64,6 +74,7 @@ export default function BusinessPosterPage() {
   const [bulkTags, setBulkTags] = useState<string[]>([])
   const [bulkFestival, setBulkFestival] = useState<number | null>(null)
   const [bulkTitlePrefix, setBulkTitlePrefix] = useState('')
+  const [bulkLanguage, setBulkLanguage] = useState<number | null>(null)
   const [bulkUploading, setBulkUploading] = useState(false)
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, failed: 0 })
   const bulkFileRef = useRef<HTMLInputElement>(null)
@@ -93,21 +104,23 @@ export default function BusinessPosterPage() {
       if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false
       if (categoryFilter && p.category !== Number(categoryFilter)) return false
       if (ratioFilter && p.aspect_ratio !== ratioFilter) return false
+      if (languageFilter && String(p.language ?? '') !== languageFilter) return false
       return true
     })
-  }, [data, search, categoryFilter, ratioFilter])
+  }, [data, search, categoryFilter, ratioFilter, languageFilter])
 
   // ── Single-poster CRUD ──
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (item: Poster) => {
     setEditingItem(item)
-    setForm({ image_url: item.image_url, thumbnail_url: item.thumbnail_url, title: item.title, category: item.category, aspect_ratio: item.aspect_ratio, is_premium: item.is_premium })
+    setForm({ image_url: item.image_url, thumbnail_url: item.thumbnail_url, title: item.title, category: item.category, aspect_ratio: item.aspect_ratio, is_premium: item.is_premium, language: item.language })
     setModalOpen(true)
   }
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
     if (!form.category) { addToast('Category is required', 'error'); return }
+    if (!form.language) { addToast('Language is required', 'error'); return }
     try {
       if (editingItem) {
         // Edit: don't override scope — preserve whatever it currently is.
@@ -211,6 +224,7 @@ export default function BusinessPosterPage() {
   const handleBulkUpload = async () => {
     if (bulkFiles.length === 0) { addToast('No images selected', 'error'); return }
     if (!bulkCategory) { addToast('Select a category', 'error'); return }
+    if (!bulkLanguage) { addToast('Select a language', 'error'); return }
     setBulkUploading(true)
     setBulkProgress({ done: 0, total: bulkFiles.length, failed: 0 })
 
@@ -231,7 +245,8 @@ export default function BusinessPosterPage() {
             category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
-            scope: 'business',  // bulk uploads from this page are always business scope
+            language: bulkLanguage,  // Q2=B: required, picked once per batch
+            scope: 'business',       // bulk uploads from this page are always business scope
           } as any)
         })
       )
@@ -249,6 +264,7 @@ export default function BusinessPosterPage() {
     setBulkFestival(null)
     setBulkActive(true)
     setBulkTitlePrefix('')
+    setBulkLanguage(null)
     setBulkUploadOpen(false)
     await refresh()
   }
@@ -291,6 +307,12 @@ export default function BusinessPosterPage() {
           <option value="4:5">4:5</option>
           <option value="9:16">9:16</option>
           <option value="16:9">16:9</option>
+        </select>
+        <select value={languageFilter} onChange={e => setLanguageFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+          <option value="">All Languages</option>
+          {languages.filter(l => l.is_active).map(l => (
+            <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+          ))}
         </select>
       </div>
 
@@ -357,6 +379,13 @@ export default function BusinessPosterPage() {
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-brand-gold/10 text-brand-gold">{poster.category_name}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-status-info/10 text-status-info">{poster.aspect_ratio}</span>
+                  {poster.language_name ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400" title={`Language: ${poster.language_name}`}>
+                      {poster.language_code || poster.language_name}
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-brand-dark-hover text-brand-text-muted" title="No language set (legacy)">--</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 text-brand-text-muted">
                   <Download className="h-3 w-3" />
@@ -392,11 +421,24 @@ export default function BusinessPosterPage() {
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputClass} placeholder="Enter poster title" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category <span className="text-status-error">*</span></label>
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: Number(e.target.value) }))} className={inputClass}>
               <option value={0}>-- Select Category --</option>
               {categoryOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.parent ? `  ${c.name}` : c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Language <span className="text-status-error">*</span></label>
+            <select
+              value={form.language ?? ''}
+              onChange={e => setForm(f => ({ ...f, language: e.target.value ? Number(e.target.value) : null }))}
+              className={inputClass}
+            >
+              <option value="">-- Select Language --</option>
+              {languages.filter(l => l.is_active).map(l => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
               ))}
             </select>
           </div>
@@ -471,6 +513,22 @@ export default function BusinessPosterPage() {
                 <option key={c.id} value={c.id}>{c.parent ? `  ${c.name}` : c.name} ({c.poster_count || 0})</option>
               ))}
             </select>
+          </div>
+
+          {/* Language — required, applies to all files in this batch (Q3=A) */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Language <span className="text-status-error">*</span></label>
+            <select
+              value={bulkLanguage ?? ''}
+              onChange={e => setBulkLanguage(e.target.value ? Number(e.target.value) : null)}
+              className={inputClass}
+            >
+              <option value="">-- Select Language --</option>
+              {languages.filter(l => l.is_active).map(l => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-brand-text-muted mt-1">All {bulkFiles.length || 'uploaded'} posters will be tagged with this language.</p>
           </div>
 
           {/* Aspect ratio + Festival */}

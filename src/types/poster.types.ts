@@ -33,6 +33,9 @@ export interface Poster {
   is_premium: boolean
   is_active: boolean
   scope: PosterScope
+  language: number | null
+  language_name: string
+  language_code: string
   download_count: number
   share_count: number
   festival: number | null

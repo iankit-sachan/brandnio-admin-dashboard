@@ -10,7 +10,7 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw, BarChart3 } from 'lucide-react'
 import { TagInput } from '../../components/ui/TagInput'
 import TemplateLayerEditor from './TemplateLayerEditor'
-import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi, posterAnalyticsApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi, posterAnalyticsApi, languagesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
@@ -27,12 +27,13 @@ interface FormState {
   aspect_ratio: AspectRatio
   tags: string[]
   festival: number | null
+  language: number | null
   is_active: boolean
 }
 
 const emptyForm: FormState = {
   thumbnail_url: null, image_url: null, title: '', category: 1,
-  is_premium: false, aspect_ratio: '1:1', tags: [], festival: null, is_active: true
+  is_premium: false, aspect_ratio: '1:1', tags: [], festival: null, language: null, is_active: true
 }
 
 export default function PosterListPage() {
@@ -49,6 +50,7 @@ export default function PosterListPage() {
   const [filterPremium, setFilterPremium] = useState<string>('')
   const [filterActive, setFilterActive] = useState<string>('')
   const [filterScope, setFilterScope] = useState<string>('')
+  const [filterLanguage, setFilterLanguage] = useState<string>('')
   const [filterTag, setFilterTag] = useState<string>('')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
@@ -65,22 +67,24 @@ export default function PosterListPage() {
     if (filterPremium) p.is_premium = filterPremium
     if (filterActive) p.is_active = filterActive
     if (filterScope) p.scope = filterScope
+    if (filterLanguage) p.language = filterLanguage
     if (filterTag) p.tag = filterTag
     if (filterDateFrom) p['created_at__gte'] = filterDateFrom
     if (filterDateTo) p['created_at__lte'] = filterDateTo
     return p
-  }, [filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterTag, filterDateFrom, filterDateTo])
+  }, [filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterLanguage, filterTag, filterDateFrom, filterDateTo])
 
-  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive || filterScope || filterTag || filterDateFrom || filterDateTo)
+  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive || filterScope || filterLanguage || filterTag || filterDateFrom || filterDateTo)
 
   const clearFilters = () => {
     setFilterCategory(''); setFilterRatio(''); setFilterPremium(''); setFilterActive('')
-    setFilterScope(''); setFilterTag(''); setFilterDateFrom(''); setFilterDateTo('')
+    setFilterScope(''); setFilterLanguage(''); setFilterTag(''); setFilterDateFrom(''); setFilterDateTo('')
   }
 
   const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi, extraParams)
   const { data: categories } = useAdminCrud(posterCategoriesApi)
   const { data: festivals } = useAdminCrud(festivalsApi)
+  const { data: languages } = useAdminCrud<{id: number; name: string; code: string; is_active: boolean}>(languagesApi)
   const { data: allFrames } = useAdminCrud(posterFramesApi)
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -137,6 +141,7 @@ export default function PosterListPage() {
   const [bulkActive, setBulkActive] = useState(true)
   const [bulkTags, setBulkTags] = useState<string[]>([])
   const [bulkFestival, setBulkFestival] = useState<number | null>(null)
+  const [bulkLanguage, setBulkLanguage] = useState<number | null>(null)
   const [bulkUploading, setBulkUploading] = useState(false)
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0, failed: 0 })
   const bulkFileRef = useRef<HTMLInputElement>(null)
@@ -211,7 +216,7 @@ export default function PosterListPage() {
       thumbnail_url: item.thumbnail_url, image_url: item.image_url,
       title: item.title, category: item.category, is_premium: item.is_premium,
       aspect_ratio: item.aspect_ratio, tags: item.tags || [],
-      festival: item.festival ?? null, is_active: item.is_active ?? true
+      festival: item.festival ?? null, language: item.language ?? null, is_active: item.is_active ?? true
     })
     setModalOpen(true)
   }
@@ -220,6 +225,7 @@ export default function PosterListPage() {
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { addToast('Title is required', 'error'); return }
+    if (!form.language) { addToast('Language is required', 'error'); return }
     try {
       const payload = { ...form }
       if (editingItem) {
@@ -289,6 +295,7 @@ export default function PosterListPage() {
   const handleBulkUpload = async () => {
     if (bulkFiles.length === 0) { addToast('No images selected', 'error'); return }
     if (!bulkCategory) { addToast('Select a category', 'error'); return }
+    if (!bulkLanguage) { addToast('Select a language', 'error'); return }
     setBulkUploading(true)
     setBulkProgress({ done: 0, total: bulkFiles.length, failed: 0 })
 
@@ -311,6 +318,7 @@ export default function PosterListPage() {
             category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
+            language: bulkLanguage,  // Q2=B: required, picked once per batch
           } as any)
         })
       )
@@ -326,6 +334,7 @@ export default function PosterListPage() {
     setBulkFiles([])
     setBulkTags([])
     setBulkFestival(null)
+    setBulkLanguage(null)
     setBulkActive(true)
     setBulkUploadOpen(false)
   }
@@ -344,6 +353,11 @@ export default function PosterListPage() {
     { key: 'title', title: 'Title', sortable: true },
     { key: 'category_name', title: 'Category', sortable: true },
     { key: 'aspect_ratio', title: 'Ratio' },
+    { key: 'language_name' as any, title: 'Language', render: (p) => (
+      p.language_name
+        ? <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-400" title={p.language_name}>{p.language_code || p.language_name}</span>
+        : <span className="text-brand-text-muted text-xs">--</span>
+    )},
     { key: 'tags' as any, title: 'Tags', render: (p) => {
       const tags = p.tags || []
       return tags.length > 0
@@ -385,7 +399,7 @@ export default function PosterListPage() {
         <div className="flex items-center gap-3">
           <SearchInput value={search} onChange={setSearch} placeholder="Search posters..." className="w-64" />
           <button onClick={() => setShowFilters(f => !f)} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${hasFilters ? 'bg-brand-gold/10 border-brand-gold/50 text-brand-gold' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
-            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
+            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterLanguage, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
           </button>
           <button onClick={() => setBulkUploadOpen(true)} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Upload className="h-4 w-4" /> Bulk Upload
@@ -431,6 +445,12 @@ export default function PosterListPage() {
             <option value="business">Business Tab</option>
             <option value="festival">Festival</option>
             <option value="greeting">Greeting</option>
+          </select>
+          <select value={filterLanguage} onChange={e => setFilterLanguage(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" title="Filter by language">
+            <option value="">All Languages</option>
+            {(languages as any[]).filter((l: any) => l.is_active).map((l: any) => (
+              <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+            ))}
           </select>
           <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 min-w-[140px]">
             <option value="">All Tags</option>
@@ -631,6 +651,17 @@ export default function PosterListPage() {
             </select>
           </div>
 
+          {/* Language (Q2=B: required) */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Language <span className="text-status-error">*</span></label>
+            <select value={form.language ?? ''} onChange={e => setForm(f => ({ ...f, language: e.target.value ? Number(e.target.value) : null }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="">-- Select Language --</option>
+              {(languages as any[]).filter((l: any) => l.is_active).map((l: any) => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+          </div>
+
           {/* Tags with autocomplete */}
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tags</label>
@@ -757,6 +788,18 @@ export default function PosterListPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Language for bulk (Q2=B: required, Q3=A: one per batch) */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Language <span className="text-status-error">*</span></label>
+            <select value={bulkLanguage ?? ''} onChange={e => setBulkLanguage(e.target.value ? Number(e.target.value) : null)} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="">-- Select Language --</option>
+              {(languages as any[]).filter((l: any) => l.is_active).map((l: any) => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-brand-text-muted mt-1">Applied to all uploaded posters in this batch.</p>
           </div>
 
           {/* Tags for bulk */}
