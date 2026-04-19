@@ -10,6 +10,7 @@ import { useToast } from '../../context/ToastContext'
 import type { User, UserDetails, BusinessProfile, PoliticianProfile } from '../../types'
 import { formatDate } from '../../utils/formatters'
 import SendPushModal from './SendPushModal'
+import { ImageUpload } from '../../components/ui/ImageUpload'
 
 interface LookupRow { id: number; name: string; slug: string; is_active?: boolean }
 
@@ -504,7 +505,7 @@ function BusinessTab({ details, userId, onChanged }: { details: UserDetails; use
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm text-gray-600 flex items-center gap-2">🚚 No Business Added</div>
+          <div className="text-sm text-gray-600 flex items-center gap-2">🏢 No Business Added</div>
           <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 flex items-center gap-1">
             + Add Business
           </button>
@@ -517,52 +518,127 @@ function BusinessTab({ details, userId, onChanged }: { details: UserDetails; use
       </div>
     )
   }
+  // Helper for compact "—" rendering of empty strings
+  const v = (s: string | null | undefined) => s && s.trim() ? s : '—'
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-gray-600 flex items-center gap-2">🚚 {bp.business_name || 'Business'}</div>
+        <div className="text-sm text-gray-600 flex items-center gap-2">🏢 {bp.business_name || 'Business'}</div>
         <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
           Edit Business
         </button>
       </div>
-      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm">
-        <Row label="Name" value={bp.business_name} />
-        <Row label="Tagline" value={bp.tagline} />
-        <Row label="Username" value={bp.username || ''} />
-        <Row label="Phone" value={`${bp.phone}${bp.show_phone_number ? ' (public)' : ''}`} />
-        <Row label="Website" value={bp.website} />
-        <Row label="Instagram" value={bp.instagram_url || (bp as unknown as { instagram: string }).instagram || ''} />
-        <Row label="Facebook" value={bp.facebook_url || (bp as unknown as { facebook: string }).facebook || ''} />
-        <Row label="LinkedIn" value={bp.linkedin || ''} />
-        <Row label="City/State" value={`${bp.city}, ${bp.state}`} />
-        <Row label="Pincode" value={bp.pincode} />
+      {/* Logo preview at top — visible whenever logo_url is populated */}
+      {bp.logo_url && (
+        <div className="bg-white rounded-xl p-3 border border-gray-200 mb-3 flex items-center gap-3">
+          <img
+            src={bp.logo_thumb_url || bp.logo_url}
+            alt="Logo"
+            className="w-16 h-16 rounded-lg object-cover bg-gray-100 border border-gray-200"
+          />
+          <div className="text-xs">
+            <div className="font-semibold text-gray-900">Business Logo</div>
+            <div className="text-gray-500">Click "Edit Business" to change.</div>
+          </div>
+        </div>
+      )}
+      {/* Basics card */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm mb-3">
+        <Row label="Name" value={v(bp.business_name)} />
+        <Row label="Tagline" value={v(bp.tagline)} />
+        <Row label="Username" value={v(bp.username)} />
+        <Row label="Category" value={v(bp.category)} />
+        <Row label="Industries" value={v(bp.industries_m2m?.join(', ') || bp.industries)} />
       </div>
+      {/* Contact card */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm mb-3">
+        <Row label="Email" value={v(bp.email)} />
+        <Row label="Phone" value={`${v(bp.phone)}${bp.show_phone_number ? ' (public)' : ''}`} />
+        <Row label="WhatsApp" value={v(bp.whatsapp)} />
+        <Row label="Website" value={v(bp.website)} />
+      </div>
+      {/* Social card */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm mb-3">
+        <Row label="Instagram" value={v(bp.instagram)} />
+        <Row label="Facebook" value={v(bp.facebook)} />
+        <Row label="Twitter / X" value={v(bp.twitter)} />
+        <Row label="YouTube" value={v(bp.youtube)} />
+        <Row label="LinkedIn" value={v(bp.linkedin)} />
+        <Row label="Selected icons" value={v(bp.selected_social_icons)} />
+      </div>
+      {/* Address card */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm mb-3">
+        <Row label="Address" value={v(bp.address)} />
+        <Row label="City" value={v(bp.city)} />
+        <Row label="State" value={v(bp.state)} />
+        <Row label="Pincode" value={v(bp.pincode)} />
+      </div>
+      {/* Extended */}
+      {(bp.products_and_services || bp.extra_element_url) && (
+        <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm">
+          <Row label="Products & Services" value={v(bp.products_and_services)} />
+          <Row label="Extra Element URL" value={v(bp.extra_element_url)} />
+        </div>
+      )}
     </div>
   )
 }
+
+// 16 backend BusinessProfile.CATEGORY_CHOICES — keep in sync with accounts/models.py
+const BUSINESS_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'retail', label: 'Retail / Shop' },
+  { value: 'restaurant', label: 'Restaurant / Cafe' },
+  { value: 'salon', label: 'Salon / Beauty' },
+  { value: 'gym', label: 'Gym / Fitness' },
+  { value: 'education', label: 'Education / Coaching' },
+  { value: 'healthcare', label: 'Healthcare / Clinic' },
+  { value: 'real_estate', label: 'Real Estate' },
+  { value: 'automobile', label: 'Automobile' },
+  { value: 'electronics', label: 'Electronics / IT' },
+  { value: 'clothing', label: 'Clothing / Fashion' },
+  { value: 'photography', label: 'Photography / Studio' },
+  { value: 'event', label: 'Event Management' },
+  { value: 'travel', label: 'Travel / Tourism' },
+  { value: 'finance', label: 'Finance / Insurance' },
+  { value: 'legal', label: 'Legal / Consulting' },
+  { value: 'other', label: 'Other' },
+]
+
+const SOCIAL_ICON_KEYS = ['facebook', 'instagram', 'whatsapp', 'youtube', 'x', 'linkedin', 'pinterest']
 
 function BusinessForm({ existing, userId, onCancel, onSaved }: {
   existing: BusinessProfile | null; userId: number; onCancel: () => void; onSaved: () => void
 }) {
   const { addToast } = useToast()
-  type BPFormShape = Partial<BusinessProfile> & {
-    instagram?: string; facebook?: string; youtube?: string; whatsapp?: string
-  }
+
+  // Form shape — every editable backend field, including the 7 that were missing
+  // before this rewrite (category, products_and_services, extra_element_url,
+  // selected_social_icons, twitter, youtube, whatsapp).
+  type BPFormShape = Partial<BusinessProfile>
   const [form, setForm] = useState<BPFormShape>({
     business_name: existing?.business_name || '',
     tagline: existing?.tagline || '',
     username: existing?.username || '',
-    industries: existing?.industries || '',
+    category: existing?.category || 'other',
+    industries_m2m: existing?.industries_m2m || (existing?.industries ? existing.industries.split(',').filter(Boolean) : []),
+    email: existing?.email || '',
     phone: existing?.phone || '',
     show_phone_number: existing?.show_phone_number || false,
+    whatsapp: existing?.whatsapp || '',
     website: existing?.website || '',
-    instagram: (existing as unknown as { instagram?: string })?.instagram || '',
-    facebook: (existing as unknown as { facebook?: string })?.facebook || '',
+    instagram: existing?.instagram || '',
+    facebook: existing?.facebook || '',
+    twitter: existing?.twitter || '',
+    youtube: existing?.youtube || '',
     linkedin: existing?.linkedin || '',
     address: existing?.address || '',
     city: existing?.city || '',
     state: existing?.state || '',
     pincode: existing?.pincode || '',
+    logo_url: existing?.logo_url || '',
+    products_and_services: existing?.products_and_services || '',
+    extra_element_url: existing?.extra_element_url || '',
+    selected_social_icons: existing?.selected_social_icons || '',
   })
   const [saving, setSaving] = useState(false)
   const [industries, setIndustries] = useState<LookupRow[]>([])
@@ -576,6 +652,24 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
 
   const update = <K extends keyof BPFormShape>(k: K, v: BPFormShape[K]) => setForm({ ...form, [k]: v })
 
+  // Multi-select toggle for industries (M2M) — store as array of slug strings
+  const toggleIndustry = (slug: string) => {
+    const current = form.industries_m2m || []
+    update('industries_m2m', current.includes(slug)
+      ? current.filter(s => s !== slug)
+      : [...current, slug],
+    )
+  }
+  const toggleSocialIcon = (key: string) => {
+    const current = (form.selected_social_icons || '').split(',').map(s => s.trim()).filter(Boolean)
+    const next = current.includes(key)
+      ? current.filter(k => k !== key)
+      : [...current, key]
+    update('selected_social_icons', next.join(','))
+  }
+  const isSocialIconOn = (key: string) =>
+    (form.selected_social_icons || '').split(',').map(s => s.trim()).includes(key)
+
   const handleSubmit = async () => {
     if (!form.business_name || !form.username) {
       addToast('Business Name and Username are required', 'error'); return
@@ -585,7 +679,7 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
       const payload = { ...form, user: userId }
       if (existing?.id) await businessProfilesApi.update(existing.id, payload)
       else await businessProfilesApi.create(payload)
-      addToast(existing ? 'Business updated' : 'Business created')
+      addToast(existing ? 'Business updated — user notified via push' : 'Business created — user notified via push')
       onSaved()
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }
@@ -595,35 +689,114 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
 
   return (
     <div className="bg-[#f5efe0] rounded-xl p-4">
-      <h3 className="text-sm font-bold text-gray-900 mb-3">🚚 {existing ? 'Edit' : 'Add'} Business Details</h3>
+      <h3 className="text-sm font-bold text-gray-900 mb-3">🏢 {existing ? 'Edit' : 'Add'} Business Details</h3>
       <div className="bg-blue-100 text-blue-800 text-xs rounded-lg p-2 mb-3">👤 Creating for: user #{userId}</div>
+
+      {/* ── Logo upload (NEW) ─────────────────────────────────────── */}
+      <div className="text-xs font-semibold text-gray-700 mb-1">Logo</div>
+      <div className="bg-white rounded-lg p-3 border border-gray-200 mb-3">
+        <ImageUpload
+          label=""
+          value={form.logo_url ?? null}
+          onChange={(v) => update('logo_url', v || '')}
+          aspectHint="Square logo, 512x512 recommended"
+        />
+        <div className="text-[11px] text-gray-500 mt-1.5">
+          ✨ A 512×512 WebP thumbnail is auto-generated for fast in-app rendering.
+        </div>
+      </div>
+
       <div className="text-xs font-semibold text-gray-700 mb-1">Basic Information</div>
       <div className="space-y-2 mb-3">
         <TextInput icon="🏢" placeholder="Business Name *" value={form.business_name || ''} onChange={v => update('business_name', v)} />
         <TextInput icon="💬" placeholder="Tagline" value={form.tagline || ''} onChange={v => update('tagline', v)} />
         <TextInput icon="@" placeholder="Username *" value={form.username || ''} onChange={v => update('username', v)} />
         <DropdownInput
-          icon="🏭"
-          label="Select Industry *"
-          value={form.industries || ''}
-          onChange={v => update('industries', v)}
-          options={industries.map(i => ({ value: i.slug, label: i.name }))}
-          loading={lookupLoading}
+          icon="📂"
+          label="Category"
+          value={form.category || 'other'}
+          onChange={v => update('category', v)}
+          options={BUSINESS_CATEGORIES}
+          loading={false}
         />
+        {/* Industries — multi-select M2M chip picker (Q3=b: replaces single CSV field) */}
+        <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">
+          <div className="text-xs text-gray-700 mb-1.5">🏭 Industries (multi-select)</div>
+          {lookupLoading ? (
+            <div className="text-xs text-gray-400">Loading…</div>
+          ) : industries.length === 0 ? (
+            <div className="text-xs text-gray-400">No industries available</div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {industries.map(i => {
+                const on = (form.industries_m2m || []).includes(i.slug)
+                return (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => toggleIndustry(i.slug)}
+                    className={
+                      'px-2.5 py-1 rounded-full text-xs border transition-colors ' +
+                      (on
+                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-indigo-400')
+                    }
+                  >
+                    {i.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
       <div className="text-xs font-semibold text-gray-700 mb-1">Contact Information</div>
       <div className="space-y-2 mb-3">
-        <TextInput icon="📞" placeholder="Phone" value={form.phone || ''} onChange={v => update('phone', v)} />
+        <TextInput icon="✉" placeholder="Email" value={form.email || ''} onChange={v => update('email', v)} />
+        <TextInput icon="📞" placeholder="Phone (e.g. +91 9876543210)" value={form.phone || ''} onChange={v => update('phone', v)} />
         <label className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
           <input type="checkbox" checked={!!form.show_phone_number} onChange={e => update('show_phone_number', e.target.checked)} />
           <span className="text-gray-900">Show Phone Number</span>
           <span className="text-xs text-gray-500">Display phone on business card</span>
         </label>
+        <TextInput icon="💬" placeholder="WhatsApp (e.g. +91 9876543210)" value={form.whatsapp || ''} onChange={v => update('whatsapp', v)} />
         <TextInput icon="🌐" placeholder="Website" value={form.website || ''} onChange={v => update('website', v)} />
-        <TextInput icon="📷" placeholder="Instagram" value={form.instagram || ''} onChange={v => update('instagram', v)} />
-        <TextInput icon="f" placeholder="Facebook" value={form.facebook || ''} onChange={v => update('facebook', v)} />
-        <TextInput icon="in" placeholder="LinkedIn" value={form.linkedin || ''} onChange={v => update('linkedin', v)} />
       </div>
+
+      <div className="text-xs font-semibold text-gray-700 mb-1">Social Links</div>
+      <div className="space-y-2 mb-3">
+        <TextInput icon="📷" placeholder="Instagram URL" value={form.instagram || ''} onChange={v => update('instagram', v)} />
+        <TextInput icon="f" placeholder="Facebook URL" value={form.facebook || ''} onChange={v => update('facebook', v)} />
+        <TextInput icon="X" placeholder="Twitter / X URL" value={form.twitter || ''} onChange={v => update('twitter', v)} />
+        <TextInput icon="▶" placeholder="YouTube URL" value={form.youtube || ''} onChange={v => update('youtube', v)} />
+        <TextInput icon="in" placeholder="LinkedIn URL" value={form.linkedin || ''} onChange={v => update('linkedin', v)} />
+        {/* Social-icon visibility toggles — controls which icons render on the business card */}
+        <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">
+          <div className="text-xs text-gray-700 mb-1.5">🎨 Show social icons on business card</div>
+          <div className="flex flex-wrap gap-1.5">
+            {SOCIAL_ICON_KEYS.map(k => {
+              const on = isSocialIconOn(k)
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => toggleSocialIcon(k)}
+                  className={
+                    'px-2.5 py-1 rounded-full text-xs border capitalize transition-colors ' +
+                    (on
+                      ? 'bg-indigo-500 text-white border-indigo-500'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-indigo-400')
+                  }
+                >
+                  {k}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className="text-xs font-semibold text-gray-700 mb-1">Address</div>
       <div className="space-y-2 mb-3">
         <TextInput icon="🏠" placeholder="Street Address" value={form.address || ''} onChange={v => update('address', v)} />
@@ -631,8 +804,25 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
           <TextInput icon="🏙" placeholder="City" value={form.city || ''} onChange={v => update('city', v)} />
           <TextInput icon="🗺" placeholder="State" value={form.state || ''} onChange={v => update('state', v)} />
         </div>
-        <TextInput icon="📍" placeholder="Pincode" value={form.pincode || ''} onChange={v => update('pincode', v)} />
+        <TextInput icon="📍" placeholder="Pincode (5–10 digits)" value={form.pincode || ''} onChange={v => update('pincode', v)} />
       </div>
+
+      {/* Extended brand fields (NEW) */}
+      <div className="text-xs font-semibold text-gray-700 mb-1">Extended Brand</div>
+      <div className="space-y-2 mb-3">
+        <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">
+          <div className="text-xs text-gray-700 mb-1">📦 Products & Services</div>
+          <textarea
+            value={form.products_and_services || ''}
+            onChange={e => update('products_and_services', e.target.value)}
+            rows={3}
+            placeholder="Free-form description of what this business offers"
+            className="w-full text-sm bg-transparent focus:outline-none resize-none"
+          />
+        </div>
+        <TextInput icon="🔗" placeholder="Extra Element URL (custom CTA / promo link)" value={form.extra_element_url || ''} onChange={v => update('extra_element_url', v)} />
+      </div>
+
       <div className="flex justify-end gap-2">
         <button onClick={onCancel} className="text-gray-600 px-3 py-1.5 text-sm">Cancel</button>
         <button onClick={handleSubmit} disabled={saving} className="px-4 py-1.5 rounded-full bg-indigo-500 text-white text-sm hover:bg-indigo-600 disabled:opacity-50">
