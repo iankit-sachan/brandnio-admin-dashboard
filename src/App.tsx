@@ -174,6 +174,7 @@ const CollageEditorTabsPage = lazy(() => import('./pages/collage/CollageEditorTa
 
 // Business
 const BusinessIndustriesPage = lazy(() => import('./pages/business/BusinessIndustriesPage'))
+const BusinessCategoryChoicesPage = lazy(() => import('./pages/business/BusinessCategoryChoicesPage'))
 const SocialPlatformsPage = lazy(() => import('./pages/business/SocialPlatformsPage'))
 const BusinessSetupConfigPage = lazy(() => import('./pages/business/BusinessSetupConfigPage'))
 
@@ -358,6 +359,7 @@ export default function App() {
 
                 {/* Business */}
                 <Route path="/business/industries" element={<BusinessIndustriesPage />} />
+                <Route path="/business/categories" element={<BusinessCategoryChoicesPage />} />
                 <Route path="/business/social-platforms" element={<SocialPlatformsPage />} />
                 <Route path="/business/setup-config" element={<BusinessSetupConfigPage />} />
 

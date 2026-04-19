@@ -118,14 +118,14 @@ export default function GeneralCategoryPage() {
     if (!viewingSubcat) return
     setUploading(true)
     try {
-      const { url, thumbnail_url: thumbUrl } = await uploadApi.uploadWithThumbnail(file)
+      const { url, thumbnail_url: thumbUrl, detected_ratio } = await uploadApi.uploadWithThumbnail(file)
       const title = file.name.replace(/\.[^.]+$/, '')
       await postersApi.create({
         title,
         category: viewingSubcat.id,
         thumbnail_url: thumbUrl || url,
         image_url: url,
-        aspect_ratio: '1:1',
+        aspect_ratio: detected_ratio || '1:1',
         is_premium: false,
       } as any)
       addToast('Poster uploaded successfully')

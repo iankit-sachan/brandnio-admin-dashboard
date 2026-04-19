@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -36,9 +37,14 @@ const emptyForm: FormState = {
 
 export default function PosterListPage() {
   const { addToast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // ── URL param handling: ?category=X&upload=1 from Category page shortcuts ──
+  const urlCategory = searchParams.get('category') || ''
+  const urlUpload = searchParams.get('upload') === '1'
 
   // ── Filter state ──
-  const [filterCategory, setFilterCategory] = useState<string>('')
+  const [filterCategory, setFilterCategory] = useState<string>(urlCategory)
   const [filterRatio, setFilterRatio] = useState<string>('')
   const [filterPremium, setFilterPremium] = useState<string>('')
   const [filterActive, setFilterActive] = useState<string>('')
@@ -112,7 +118,18 @@ export default function PosterListPage() {
   // Bulk upload state
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[]>([])
-  const [bulkCategory, setBulkCategory] = useState<number>(0)
+  const [bulkCategory, setBulkCategory] = useState<number>(urlCategory ? Number(urlCategory) : 0)
+
+  // Auto-open bulk upload when navigated from Category page with ?upload=1
+  useEffect(() => {
+    if (urlUpload && urlCategory) {
+      setBulkUploadOpen(true)
+      setBulkCategory(Number(urlCategory))
+      setShowFilters(true)
+      // Clean URL params so refresh doesn't re-open
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [bulkRatio, setBulkRatio] = useState<AspectRatio>('1:1')
   const [bulkPremium, setBulkPremium] = useState(false)
   const [bulkActive, setBulkActive] = useState(true)
@@ -283,11 +300,13 @@ export default function PosterListPage() {
       const batch = bulkFiles.slice(i, i + CONCURRENCY)
       const results = await Promise.allSettled(
         batch.map(async (file, batchIdx) => {
-          const { url: imageUrl, thumbnail_url: thumbUrl } = await uploadApi.uploadWithThumbnail(file)
+          const { url: imageUrl, thumbnail_url: thumbUrl, detected_ratio } = await uploadApi.uploadWithThumbnail(file)
           const title = smartTitle(file.name, categoryName, i + batchIdx)
+          // Use server-detected ratio from actual image dimensions, fall back to user selection
+          const ratio = (detected_ratio as AspectRatio) || bulkRatio
           await create({
             title, image_url: imageUrl, thumbnail_url: thumbUrl,
-            category: bulkCategory, aspect_ratio: bulkRatio, is_premium: bulkPremium,
+            category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
           } as any)
@@ -639,8 +658,8 @@ export default function PosterListPage() {
             {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
               const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
               return [
-                <option key={c.id} value={c.id}>{c.name}</option>,
-                ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name}</option>)
+                <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
+                ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name} ({sub.poster_count || 0})</option>)
               ]
             })}
           </select>
@@ -704,7 +723,7 @@ export default function PosterListPage() {
                 const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
                 return [
                   <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
-                  ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name}</option>)
+                  ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name} ({sub.poster_count || 0})</option>)
                 ]
               })}
             </select>

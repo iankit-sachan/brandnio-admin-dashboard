@@ -213,9 +213,8 @@ function FramePreview({ config, width = 240, height = 300 }: { config: FrameConf
     }
 
     const style = config.style
-    // Scale strip height: config.style.height is in px (e.g., 130), map to preview proportionally
-    // Use at least 20% of canvas height so strips are clearly visible in preview
-    const stripH = Math.max(height * 0.2, height * style.height / 600)
+    // Strip height uses same /1000 divisor as Android FrameRenderer (FrameConstants.HEIGHT_DIVISOR)
+    const stripH = Math.max(height * 0.08, height * style.height / 1000)
 
     let top = 0
     if (config.type === 'bottom_strip') top = height - stripH
@@ -575,13 +574,32 @@ export default function FramePosterPage() {
       const dims = baseDims[targetRatio] || baseDims['1:1']
 
       const newConfig = JSON.parse(JSON.stringify(sourceFrame.config_json))
-      if (newConfig.canvasSize) newConfig.canvasSize = dims.w
-      if (newConfig.canvasHeight) newConfig.canvasHeight = dims.h
+      // Calculate scale factors from source canvas to target canvas
+      const srcW = newConfig.canvasSize || 1024
+      const srcH = newConfig.canvasHeight || 1024
+      const scaleX = dims.w / srcW
+      const scaleY = dims.h / srcH
+
+      newConfig.canvasSize = dims.w
+      newConfig.canvasHeight = dims.h
+
       if (newConfig.layers) {
         for (const layer of newConfig.layers) {
           if (layer.name === 'bg') {
+            // Background layer: fill entire new canvas
+            layer.x = 0
+            layer.y = 0
             layer.width = dims.w
             layer.height = dims.h
+          } else {
+            // ALL other layers: scale positions and sizes proportionally
+            if (typeof layer.x === 'number') layer.x = Math.round(layer.x * scaleX)
+            if (typeof layer.y === 'number') layer.y = Math.round(layer.y * scaleY)
+            if (typeof layer.width === 'number') layer.width = Math.round(layer.width * scaleX)
+            if (typeof layer.height === 'number') layer.height = Math.round(layer.height * scaleY)
+            // Scale font sizes proportionally (use uniform min scale to avoid distortion)
+            const uniformScale = Math.min(scaleX, scaleY)
+            if (typeof layer.size === 'number') layer.size = Math.round(layer.size * uniformScale)
           }
         }
       }

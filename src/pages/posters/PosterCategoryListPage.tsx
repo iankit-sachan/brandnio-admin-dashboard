@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -6,7 +6,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, ExternalLink, Upload } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { posterCategoriesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import type { PosterCategory } from '../../types'
@@ -18,21 +19,34 @@ interface FormState {
   description: string
   sort_order: number
   is_active: boolean
+  parent: number | null
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', description: '', sort_order: 0, is_active: true }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', description: '', sort_order: 0, is_active: true, parent: null }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export default function PosterCategoryListPage() {
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const { data, loading, error, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove, refresh } = useAdminPaginatedCrud<PosterCategory>(posterCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PosterCategory | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<PosterCategory | null>(null)
+  const [allTopLevel, setAllTopLevel] = useState<PosterCategory[]>([])
+
+  // Fetch ALL top-level categories for the parent dropdown (not just current page)
+  useEffect(() => {
+    posterCategoriesApi.list({ page: 1, page_size: 200, search: '' }).then(res => {
+      const items = (res as any).results ?? res
+      if (Array.isArray(items)) {
+        setAllTopLevel(items.filter((c: PosterCategory) => c.parent === null))
+      }
+    }).catch(() => {})
+  }, [data]) // re-fetch when data changes (after create/update/delete)
 
   const openAdd = () => {
     setEditingItem(null)
@@ -42,9 +56,12 @@ export default function PosterCategoryListPage() {
 
   const openEdit = (item: PosterCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, description: item.description, sort_order: item.sort_order, is_active: item.is_active })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, description: item.description, sort_order: item.sort_order, is_active: item.is_active, parent: item.parent })
     setModalOpen(true)
   }
+
+  // Top-level categories for the parent dropdown (exclude self when editing)
+  const parentOptions = allTopLevel.filter(c => c.id !== editingItem?.id)
 
   const openDelete = (item: PosterCategory) => setDeleteItem(item)
 
@@ -77,15 +94,22 @@ export default function PosterCategoryListPage() {
   }
 
   const columns: Column<PosterCategory>[] = [
-    { key: 'name', title: 'Category', sortable: true },
-    { key: 'slug', title: 'Slug' },
+    { key: 'name', title: 'Category', sortable: true, render: (c) => (
+      <div>
+        <span className="text-brand-text">{c.parent ? '  └ ' : ''}{c.name}</span>
+        {(c.children_count ?? 0) > 0 && <span className="ml-1.5 text-xs text-brand-gold">({c.children_count} sub)</span>}
+      </div>
+    )},
+    { key: 'parent_name', title: 'Parent', render: (c) => c.parent_name ? <span className="text-brand-text-muted">{c.parent_name}</span> : <span className="text-brand-text-muted/40">— Top Level —</span> },
     { key: 'poster_count', title: 'Posters', sortable: true },
     { key: 'sort_order', title: 'Order', sortable: true },
     { key: 'is_active', title: 'Status', render: (c) => c.is_active ? <span className="text-status-success">Active</span> : <span className="text-status-error">Inactive</span> },
     { key: 'actions', title: 'Actions', render: (item) => (
-      <div className="flex items-center gap-2">
-        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
-        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
+      <div className="flex items-center gap-1">
+        <button onClick={(e) => { e.stopPropagation(); navigate(`/posters?category=${item.id}`) }} title="View Posters" className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-blue-400 transition-colors"><ExternalLink className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); navigate(`/posters?category=${item.id}&upload=1`) }} title="Upload Posters" className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-green-400 transition-colors"><Upload className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} title="Edit" className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); openDelete(item) }} title="Delete" className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
       </div>
     )},
   ]
@@ -115,6 +139,16 @@ export default function PosterCategoryListPage() {
 
       <Modal isOpen={modalOpen} onClose={() => { setForm(emptyForm); setEditingItem(null); setModalOpen(false); }} title={editingItem ? 'Edit Category' : 'Add Category'}>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Parent Category</label>
+            <select value={form.parent ?? ''} onChange={e => setForm(f => ({ ...f, parent: e.target.value ? Number(e.target.value) : null }))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
+              <option value="">— None (Top Level Chip) —</option>
+              {parentOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-brand-text-muted/60 mt-1">{form.parent ? 'Will show as a section under the selected parent' : 'Will show as a chip in the Category tab'}</p>
+          </div>
           <ImageUpload label="Category Icon" value={form.icon_url} onChange={v => setForm(f => ({ ...f, icon_url: v }))} aspectHint="Square icon, 128x128 recommended" />
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name</label>

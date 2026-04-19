@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Pencil, Trash2, Upload } from 'lucide-react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
@@ -38,6 +39,7 @@ function generateSlug(name: string): string {
 
 export default function BusinessCategoryPage() {
   const { addToast } = useToast()
+  const navigate = useNavigate()
   const { data, loading, error, create, update, remove, refresh } = useAdminCrud<BusinessCategory>(posterCategoriesApi)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<BusinessCategory | null>(null)
@@ -119,8 +121,16 @@ export default function BusinessCategoryPage() {
       title: 'Actions',
       render: (item) => (
         <div className="flex items-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"><Pencil className="h-4 w-4" /></button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteItem(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"><Trash2 className="h-4 w-4" /></button>
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/posters/business?upload=1&category=${item.id}`) }}
+            className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-indigo transition-colors cursor-pointer"
+            title={`Bulk upload posters to "${item.name}"`}
+            aria-label={`Bulk upload posters to ${item.name}`}
+          >
+            <Upload className="h-4 w-4" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors cursor-pointer" title="Edit category" aria-label="Edit category"><Pencil className="h-4 w-4" /></button>
+          <button onClick={(e) => { e.stopPropagation(); setDeleteItem(item) }} className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors cursor-pointer" title="Delete category" aria-label="Delete category"><Trash2 className="h-4 w-4" /></button>
         </div>
       ),
     },

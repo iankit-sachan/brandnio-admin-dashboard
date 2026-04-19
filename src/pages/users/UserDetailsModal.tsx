@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   usersApi, businessProfilesApi, politicianProfilesApi, userCustomFramesApi,
   businessIndustriesApi, politicianCategoriesApi, politicianPositionsApi,
-  usersAdminApi,
+  usersAdminApi, publicBusinessCategoryChoicesApi,
   type UserNotificationRow, type UserSubscriptionRow,
   type UserDeviceRow, type UserReferralInfo,
 } from '../../services/admin-api'
@@ -53,6 +53,7 @@ export default function UserDetailsModal({ user, onClose }: Props) {
   const [details, setDetails] = useState<UserDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [pushOpen, setPushOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const reload = async () => {
     setLoading(true)
@@ -72,6 +73,22 @@ export default function UserDetailsModal({ user, onClose }: Props) {
   // because backend sets Content-Disposition: attachment on the response.
   const downloadGdpr = () => {
     window.open(usersAdminApi.gdprExportUrl(user.id), '_blank')
+  }
+
+  // Gap 4: silent FCM ping that wakes the user's app + forces re-fetch.
+  const forceRefreshUserApp = async () => {
+    setRefreshing(true)
+    try {
+      const r = await usersAdminApi.forceRefreshApp(user.id)
+      const msg = r.device_count === 0
+        ? 'User has no registered devices.'
+        : `Refresh signal sent to ${r.sent_count}/${r.device_count} device${r.device_count === 1 ? '' : 's'}`
+      addToast(msg, r.device_count > 0 ? 'success' : 'error')
+    } catch {
+      addToast('Force refresh failed', 'error')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   return (
@@ -584,25 +601,11 @@ function BusinessTab({ details, userId, onChanged }: { details: UserDetails; use
   )
 }
 
-// 16 backend BusinessProfile.CATEGORY_CHOICES — keep in sync with accounts/models.py
-const BUSINESS_CATEGORIES: { value: string; label: string }[] = [
-  { value: 'retail', label: 'Retail / Shop' },
-  { value: 'restaurant', label: 'Restaurant / Cafe' },
-  { value: 'salon', label: 'Salon / Beauty' },
-  { value: 'gym', label: 'Gym / Fitness' },
-  { value: 'education', label: 'Education / Coaching' },
-  { value: 'healthcare', label: 'Healthcare / Clinic' },
-  { value: 'real_estate', label: 'Real Estate' },
-  { value: 'automobile', label: 'Automobile' },
-  { value: 'electronics', label: 'Electronics / IT' },
-  { value: 'clothing', label: 'Clothing / Fashion' },
-  { value: 'photography', label: 'Photography / Studio' },
-  { value: 'event', label: 'Event Management' },
-  { value: 'travel', label: 'Travel / Tourism' },
-  { value: 'finance', label: 'Finance / Insurance' },
-  { value: 'legal', label: 'Legal / Consulting' },
-  { value: 'other', label: 'Other' },
-]
+// (BUSINESS_CATEGORIES hardcoded list removed in Gap 1 fix.
+//  Categories are now fetched live from /api/auth/business-category-choices/
+//  which is admin-managed via the BusinessCategoryChoicesPage.
+//  Fallback: if the API call fails, keep a safe single-option list with the
+//  current category so admin doesn't see an empty dropdown.)
 
 const SOCIAL_ICON_KEYS = ['facebook', 'instagram', 'whatsapp', 'youtube', 'x', 'linkedin', 'pinterest']
 
@@ -642,13 +645,46 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
   })
   const [saving, setSaving] = useState(false)
   const [industries, setIndustries] = useState<LookupRow[]>([])
+  const [categoryChoices, setCategoryChoices] = useState<Array<{ value: string; label: string }>>([])
   const [lookupLoading, setLookupLoading] = useState(true)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   useEffect(() => {
-    businessIndustriesApi.list({ is_active: 'true' })
-      .then(rows => setIndustries(rows as LookupRow[]))
-      .finally(() => setLookupLoading(false))
+    Promise.all([
+      businessIndustriesApi.list({ is_active: 'true' })
+        .then(rows => setIndustries(rows as LookupRow[]))
+        .catch(() => setIndustries([])),
+      // Gap 1: load admin-managed category choices instead of hardcoded list
+      publicBusinessCategoryChoicesApi.list()
+        .then(rows => setCategoryChoices(rows.map(r => ({ value: r.slug, label: r.name }))))
+        .catch(() => {
+          // Fallback: keep current category as a single option so the dropdown
+          // doesn't render blank if the API call fails.
+          setCategoryChoices(form.category ? [{ value: form.category, label: form.category }] : [])
+        }),
+    ]).finally(() => setLookupLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Gap 2: admin logo upload via the new admin endpoint that runs the WebP pipeline.
+  // Uploads file → backend resizes to 512px + generates WebP → returns updated profile.
+  const handleLogoFileUpload = async (file: File) => {
+    if (!existing?.id) {
+      addToast('Save the business profile first, then upload the logo.', 'error')
+      return
+    }
+    setUploadingLogo(true)
+    try {
+      const updated = await businessProfilesApi.uploadLogo(existing.id, file)
+      // Sync form state to the new URLs so the preview updates immediately
+      update('logo_url', (updated.logo_url as string) || '')
+      addToast('Logo uploaded — WebP thumbnail generated, user notified via push')
+    } catch {
+      addToast('Logo upload failed', 'error')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
 
   const update = <K extends keyof BPFormShape>(k: K, v: BPFormShape[K]) => setForm({ ...form, [k]: v })
 
@@ -692,17 +728,50 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
       <h3 className="text-sm font-bold text-gray-900 mb-3">🏢 {existing ? 'Edit' : 'Add'} Business Details</h3>
       <div className="bg-blue-100 text-blue-800 text-xs rounded-lg p-2 mb-3">👤 Creating for: user #{userId}</div>
 
-      {/* ── Logo upload (NEW) ─────────────────────────────────────── */}
+      {/* ── Logo upload (Gap 2 fix — uses admin WebP endpoint) ─────── */}
       <div className="text-xs font-semibold text-gray-700 mb-1">Logo</div>
       <div className="bg-white rounded-lg p-3 border border-gray-200 mb-3">
-        <ImageUpload
-          label=""
-          value={form.logo_url ?? null}
-          onChange={(v) => update('logo_url', v || '')}
-          aspectHint="Square logo, 512x512 recommended"
-        />
-        <div className="text-[11px] text-gray-500 mt-1.5">
-          ✨ A 512×512 WebP thumbnail is auto-generated for fast in-app rendering.
+        <div className="flex items-center gap-3">
+          {form.logo_url ? (
+            <img
+              src={form.logo_url}
+              alt="Logo"
+              className="w-16 h-16 rounded-lg object-cover bg-gray-100 border border-gray-200"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-2xl">
+              🏢
+            </div>
+          )}
+          <div className="flex-1">
+            <label className={
+              'inline-block px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ' +
+              (uploadingLogo
+                ? 'bg-gray-200 text-gray-400 cursor-wait'
+                : existing?.id
+                  ? 'bg-indigo-500 text-white hover:bg-indigo-600 cursor-pointer'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              )
+            }>
+              {uploadingLogo ? 'Uploading…' : (form.logo_url ? '🔄 Change Logo' : '📤 Upload Logo')}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingLogo || !existing?.id}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleLogoFileUpload(f)
+                  e.target.value = ''
+                }}
+                className="hidden"
+              />
+            </label>
+            <div className="text-[11px] text-gray-500 mt-1.5">
+              {existing?.id
+                ? '✨ Auto-resized to 512×512 with WebP thumbnail. Max 5 MB.'
+                : 'Save the business profile first, then upload the logo.'}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -714,10 +783,12 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
         <DropdownInput
           icon="📂"
           label="Category"
-          value={form.category || 'other'}
+          value={form.category || ''}
           onChange={v => update('category', v)}
-          options={BUSINESS_CATEGORIES}
-          loading={false}
+          // Gap 1: now sourced from admin-managed BusinessCategoryChoice table
+          // (was previously a hardcoded list in the frontend that drifted from backend)
+          options={categoryChoices}
+          loading={lookupLoading}
         />
         {/* Industries — multi-select M2M chip picker (Q3=b: replaces single CSV field) */}
         <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">

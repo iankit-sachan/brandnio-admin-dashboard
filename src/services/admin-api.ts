@@ -93,7 +93,21 @@ export const usersApi = {
   restore: (id: number) =>
     api.post(`/api/admin/users/${id}/restore/`).then(r => r.data),
 }
-export const businessProfilesApi = crud('business-profiles')
+// crud('business-profiles') gives standard CRUD; we extend it with the
+// admin-side WebP logo upload (Gap 2 fix) — same pipeline as the user-side
+// /api/auth/business-profile/upload-logo/ endpoint, but addressed by user pk.
+export const businessProfilesApi = {
+  ...crud('business-profiles'),
+  uploadLogo: async (businessProfileId: number, file: File) => {
+    const fd = new FormData()
+    fd.append('logo', file)
+    const res = await api.post(
+      `/api/admin/business-profiles/${businessProfileId}/upload-logo/`,
+      fd,
+    )
+    return res.data as Record<string, unknown>  // returns updated AdminBusinessProfile
+  },
+}
 
 export const userCustomFramesApi = {
   ...crud('user-custom-frames'),
@@ -340,6 +354,28 @@ export interface UserReferralInfo {
   referred_users: Array<{ id: number; name: string; email: string; phone: string; joined_at: string }>
 }
 
+// ─── BusinessCategoryChoice (Gap 1 fix) ─────────────────────────────
+export interface BusinessCategoryChoice {
+  id: number
+  slug: string
+  name: string
+  icon_url?: string | null
+  is_active: boolean
+  sort_order: number
+  created_at?: string
+}
+
+/** Public list (used by both admin "Edit Business" form and the user app). */
+export const publicBusinessCategoryChoicesApi = {
+  list: async () => {
+    const res = await api.get('/api/auth/business-category-choices/')
+    return res.data as Array<{ slug: string; name: string; icon_url?: string; sort_order: number }>
+  },
+}
+
+/** Admin CRUD for managing the BusinessCategoryChoice table. */
+export const businessCategoryChoicesApi = crud('business-category-choices')
+
 /** Pillar 3 — admin push notification methods (single + bulk). */
 export const usersAdminApi = {
   /** Send a manual push to a single user (e.g. from User Details modal). */
@@ -389,6 +425,12 @@ export const usersAdminApi = {
   },
   /** GDPR JSON export — triggers a file download in the browser. */
   gdprExportUrl: (userId: number) => `${api.defaults.baseURL || ''}/api/admin/users/${userId}/gdpr-export/`,
+
+  /** Gap 4 — fire silent FCM to wake user's app + force re-fetch. */
+  forceRefreshApp: async (userId: number) => {
+    const res = await api.post(`/api/admin/users/${userId}/force-refresh-app/`)
+    return res.data as { sent_count: number; device_count: number }
+  },
 
   /** Send a bulk push by user_ids (multi-select) OR by filters. */
   sendPushBulk: async (payload: {

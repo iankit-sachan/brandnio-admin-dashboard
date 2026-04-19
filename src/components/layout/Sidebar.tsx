@@ -116,6 +116,8 @@ const navSections: NavSection[] = [
     color: '#745B3B',
     defaultOpen: false,
     items: [
+      { path: '/posters/business', label: 'Business Posters', icon: Image },
+      { path: '/posters/business-category', label: 'Business Categories', icon: Layout },
       { path: '/vbizcard/categories', label: 'Card Categories', icon: CreditCard },
       { path: '/vbizcard/templates', label: 'Card Templates', icon: FileText },
       { path: '/vbizcard/home-sections', label: 'Card Home Sections', icon: Layout },
@@ -196,6 +198,7 @@ const navSections: NavSection[] = [
       { path: '/users/active-plans', label: 'Active Plans', icon: CreditCard },
       { path: '/users/expired-plans', label: 'Expired Plans', icon: CreditCard },
       { path: '/business/industries', label: 'Business Industries', icon: Building },
+      { path: '/business/categories', label: 'Business Categories', icon: Building },
       { path: '/business/social-platforms', label: 'Social Platforms', icon: Share2 },
     ],
   },
