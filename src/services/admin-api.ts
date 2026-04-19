@@ -294,6 +294,52 @@ export const postersAdminApi = {
     return res.data as { poster_id: number; festival_id: number; is_cover: boolean }
   },
 }
+
+/** Pillar 3 — admin push notification methods (single + bulk). */
+export const usersAdminApi = {
+  /** Send a manual push to a single user (e.g. from User Details modal). */
+  sendPush: async (
+    userId: number,
+    payload: {
+      title: string
+      body: string
+      image_url?: string | null
+      deep_link?: string
+      save_to_inbox?: boolean
+    },
+  ) => {
+    const res = await api.post(`/api/admin/users/${userId}/send-push/`, payload)
+    return res.data as {
+      sent_count: number
+      failed_count: number
+      device_count: number
+      inbox_notification_id: number | null
+    }
+  },
+
+  /** Send a bulk push by user_ids (multi-select) OR by filters. */
+  sendPushBulk: async (payload: {
+    title: string
+    body: string
+    image_url?: string | null
+    deep_link?: string
+    save_to_inbox?: boolean
+    user_ids?: number[]                      // multi-select mode
+    filters?: {                              // filter mode
+      is_premium?: boolean
+      plan?: 'free' | 'basic' | 'pro' | 'enterprise'
+      last_seen_days_min?: number            // active in last N days
+      last_seen_days_max?: number            // inactive for N+ days
+    }
+  }) => {
+    const res = await api.post('/api/admin/users/send-push-bulk/', payload)
+    return res.data as {
+      target_count: number
+      sent_count: number
+      failed_count: number
+    }
+  },
+}
 export const autoPostersApi = crud('auto-posters')
 export const festivalPostersApi = crud('festival-posters')
 

@@ -13,6 +13,8 @@ import api from '../../services/api'
 import type { User } from '../../types'
 import PlanActivationModal from './PlanActivationModal'
 import UserDetailsModal from './UserDetailsModal'
+import SendPushModal, { type SendPushFilter } from './SendPushModal'
+import { Send, X } from 'lucide-react'
 
 type Tab = 'active' | 'deleted'
 type PlanFilter = '' | 'free' | 'basic' | 'pro' | 'enterprise'
@@ -129,6 +131,45 @@ export default function UserListPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Pillar 3 — push notification state
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set())
+  // Drives which mode the SendPushModal opens in:
+  //   - {mode: 'single', user} → single user push
+  //   - {mode: 'multi', userIds} → multi-select push (from selectedUserIds)
+  //   - {mode: 'filter', filters} → filter-based broadcast (uses current filters)
+  const [pushTarget, setPushTarget] = useState<
+    | { mode: 'single'; user: User }
+    | { mode: 'multi'; userIds: number[] }
+    | { mode: 'filter'; filters: SendPushFilter; estimatedCount: number }
+    | null
+  >(null)
+
+  // Selection helpers
+  const toggleSelect = (id: number) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const selectAllVisible = () => setSelectedUserIds(new Set(data.map((u) => u.id)))
+  const clearSelection = () => setSelectedUserIds(new Set())
+
+  // Build filter payload from current UI filters for the broadcast button.
+  const currentFiltersAsPayload = (): SendPushFilter => {
+    const f: SendPushFilter = {}
+    if (premiumFilter === 'true') f.is_premium = true
+    if (premiumFilter === 'false') f.is_premium = false
+    if (planFilter) f.plan = planFilter as SendPushFilter['plan']
+    // Map activity filter to days bounds
+    if (activityFilter === 'online') f.last_seen_days_min = 1 / 288   // ~5 min — close enough
+    else if (activityFilter === '24h') f.last_seen_days_min = 1
+    else if (activityFilter === '7d') f.last_seen_days_min = 7
+    else if (activityFilter === '30d') f.last_seen_days_min = 30
+    else if (activityFilter === 'inactive_30d') f.last_seen_days_max = 30
+    return f
+  }
+
   const openEditModal = (user: User) => {
     setEditingUser(user)
     setForm({
@@ -205,7 +246,33 @@ export default function UserListPage() {
   const isDeletedTab = tab === 'deleted'
 
   // ── Columns ───────────────────────────────────────────────────────
+  const allVisibleSelected = data.length > 0 && data.every((u) => selectedUserIds.has(u.id))
+
   const columns: Column<User>[] = [
+    // Pillar 3: multi-select checkbox (only on Active tab — deleted users
+    // can't receive pushes anyway).
+    ...(tab === 'active' ? [{
+      key: 'select' as const,
+      title: (
+        <input
+          type="checkbox"
+          checked={allVisibleSelected}
+          onChange={(e) => e.target.checked ? selectAllVisible() : clearSelection()}
+          className="cursor-pointer"
+          title="Select all on this page"
+        />
+      ) as unknown as string,
+      className: 'w-10 text-center',
+      render: (u: User) => (
+        <input
+          type="checkbox"
+          checked={selectedUserIds.has(u.id)}
+          onChange={() => toggleSelect(u.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="cursor-pointer"
+        />
+      ),
+    } as Column<User>] : []),
     {
       key: 'avatar_url',
       title: 'Avatar',
@@ -301,6 +368,7 @@ export default function UserListPage() {
             ]
           : [
               { label: 'Edit', onClick: () => openEditModal(u) },
+              { label: 'Send Push', onClick: () => setPushTarget({ mode: 'single', user: u }) },
               { label: 'Plan Active', variant: 'success', onClick: () => setPlanUser(u) },
               { label: 'Delete', variant: 'danger', onClick: () => setDeleteUser(u) },
             ]
@@ -394,7 +462,23 @@ export default function UserListPage() {
             >Clear</button>
           )}
         </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search users..." className="w-64" />
+        <div className="flex items-center gap-2">
+          {tab === 'active' && (
+            <button
+              onClick={() => setPushTarget({
+                mode: 'filter',
+                filters: currentFiltersAsPayload(),
+                estimatedCount: totalCount,
+              })}
+              title="Send a push notification to all users matching the current filters"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-gold/10 hover:bg-brand-gold/20 text-brand-gold text-sm font-medium transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Broadcast
+            </button>
+          )}
+          <SearchInput value={search} onChange={setSearch} placeholder="Search users..." className="w-64" />
+        </div>
       </div>
 
       {/* ── Table ────────────────────────────────────────────────── */}
@@ -410,6 +494,66 @@ export default function UserListPage() {
         />
         <Pagination currentPage={page} totalPages={totalPages} totalCount={totalCount} onPageChange={setPage} />
       </div>
+
+      {/* ── Floating action bar — appears when ≥1 user is selected (Pillar 3) ─ */}
+      {selectedUserIds.size > 0 && tab === 'active' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-xl bg-brand-dark-card border border-brand-gold/40 shadow-2xl backdrop-blur">
+          <span className="text-sm font-semibold text-brand-text">
+            {selectedUserIds.size} user{selectedUserIds.size === 1 ? '' : 's'} selected
+          </span>
+          <button
+            onClick={selectAllVisible}
+            disabled={allVisibleSelected}
+            className="text-xs px-3 py-1.5 rounded-lg bg-brand-dark-hover text-brand-text-muted hover:text-brand-text disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Select All on Page ({data.length})
+          </button>
+          <button
+            onClick={clearSelection}
+            className="text-xs px-3 py-1.5 rounded-lg bg-brand-dark-hover text-brand-text-muted hover:text-brand-text inline-flex items-center gap-1"
+          >
+            <X className="h-3 w-3" />
+            Clear
+          </button>
+          <div className="w-px h-6 bg-brand-dark-border" />
+          <button
+            onClick={() => setPushTarget({ mode: 'multi', userIds: Array.from(selectedUserIds) })}
+            className="text-xs px-3 py-1.5 rounded-lg bg-brand-gold text-gray-900 font-semibold hover:bg-brand-gold-dark inline-flex items-center gap-1.5"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Send Push to Selected
+          </button>
+        </div>
+      )}
+
+      {/* ── Send Push Modal — handles single, multi, and filter modes ────── */}
+      {pushTarget?.mode === 'single' && (
+        <SendPushModal
+          isOpen={true}
+          mode="single"
+          userId={pushTarget.user.id}
+          userName={pushTarget.user.name || pushTarget.user.phone || pushTarget.user.email}
+          onClose={() => setPushTarget(null)}
+        />
+      )}
+      {pushTarget?.mode === 'multi' && (
+        <SendPushModal
+          isOpen={true}
+          mode="multi"
+          userIds={pushTarget.userIds}
+          onClose={() => setPushTarget(null)}
+          onSent={clearSelection}
+        />
+      )}
+      {pushTarget?.mode === 'filter' && (
+        <SendPushModal
+          isOpen={true}
+          mode="filter"
+          filters={pushTarget.filters}
+          estimatedCount={pushTarget.estimatedCount}
+          onClose={() => setPushTarget(null)}
+        />
+      )}
 
       {/* ── Edit Modal ──────────────────────────────────────────── */}
       {editingUser && (
