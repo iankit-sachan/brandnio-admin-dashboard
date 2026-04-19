@@ -12,8 +12,9 @@ import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { formatDate } from '../../utils/formatters'
 import QuickStats from '../../components/ui/QuickStats'
 import type { Festival } from '../../types'
-import type { Language, PosterAspectRatio, PosterMediaType } from '../../types/festival.types'
+import type { Language, PosterMediaType } from '../../types/festival.types'
 import BulkFestivalPosterUploadModal from './BulkFestivalPosterUploadModal'
+import { detectImageRatio, groupFilesByRatio, formatBytes, type DetectedRatio } from './uploadHelpers'
 
 interface FormState {
   banner_url: string | null
@@ -27,21 +28,20 @@ interface FormState {
 
 const emptyForm: FormState = { banner_url: null, icon_url: null, name: '', slug: '', description: '', date: '', is_active: true }
 
-const RATIOS: PosterAspectRatio[] = ['1:1', '4:5', '9:16']
-const RATIO_LABEL: Record<PosterAspectRatio, string> = {
-  '1:1': '1:1', '4:5': '4:5', '9:16': 'Story', '16:9': '16:9',
-}
-
 const IMG_MAX = 20 * 1024 * 1024
 const VID_MAX = 100 * 1024 * 1024
 
-function toSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+// Wizard step 2 file-staging shape — same as modal: file + detected ratio +
+// preview blob URL. `ratio` is null while detection is running, then set.
+interface StagedFile {
+  file: File
+  ratio: DetectedRatio | null
+  previewUrl: string | null
+  detecting: boolean
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB`
+function toSlug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export default function FestivalListPage() {
@@ -59,15 +59,25 @@ export default function FestivalListPage() {
   const [step, setStep] = useState<1 | 2>(1)
   const [languages, setLanguages] = useState<Language[]>([])
   const [languageId, setLanguageId] = useState<number | null>(null)
-  const [aspectRatio, setAspectRatio] = useState<PosterAspectRatio>('1:1')
   const [mediaType, setMediaType] = useState<PosterMediaType>('image')
-  const [files, setFiles] = useState<File[]>([])
+  // Videos can't be ratio-detected client-side cheaply — admin picks one.
+  const [videoFallbackRatio, setVideoFallbackRatio] = useState<DetectedRatio>('1:1')
+  // Replaces plain File[] — each entry carries its detected ratio + preview URL.
+  const [staged, setStaged] = useState<StagedFile[]>([])
   const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   // Progress for the bulk upload phase of the wizard (Step 2 → Save).
   const [progress, setProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null)
   // Last error during wizard submit — kept so admin can retry without losing state.
   const [error, setError] = useState<string | null>(null)
+  // Per-file upload result from the last attempt — drives the partial-success
+  // UI showing which files succeeded vs failed.
+  const [lastResult, setLastResult] = useState<{
+    created_count: number
+    failed_count: number
+    failed: Array<{ filename: string; reason: string }>
+    batch_count?: number
+  } | null>(null)
   // Pending media-type switch — triggers confirm dialog when files are selected.
   const [pendingMediaType, setPendingMediaType] = useState<PosterMediaType | null>(null)
   // Abort controller — populated only while uploading; calling .abort() cancels.
@@ -87,15 +97,18 @@ export default function FestivalListPage() {
   }, [])
 
   const resetWizard = () => {
+    // Revoke any preview URLs to avoid memory leaks before clearing.
+    staged.forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl) })
     setForm(emptyForm)
     setEditingItem(null)
     setStep(1)
-    setFiles([])
+    setStaged([])
     setMediaType('image')
-    setAspectRatio('1:1')
+    setVideoFallbackRatio('1:1')
     setSubmitting(false)
     setProgress(null)
     setError(null)
+    setLastResult(null)
     setPendingMediaType(null)
     abortRef.current = null
     createdFestivalIdRef.current = null
@@ -120,12 +133,13 @@ export default function FestivalListPage() {
   // ─── Wizard validation per step ───
   const step1Valid = form.name.trim().length > 0 && form.date.length > 0
   const maxBytes = mediaType === 'video' ? VID_MAX : IMG_MAX
-  const oversized = files.filter(f => f.size > maxBytes)
-  const wrongType = files.filter(f => {
-    if (mediaType === 'image') return !f.type.startsWith('image/')
-    return !f.type.startsWith('video/')
+  const oversized = staged.filter(s => s.file.size > maxBytes)
+  const wrongType = staged.filter(s => {
+    if (mediaType === 'image') return !s.file.type.startsWith('image/')
+    return !s.file.type.startsWith('video/')
   })
-  const filesValid = files.length === 0 || (oversized.length === 0 && wrongType.length === 0)
+  const stillDetecting = staged.filter(s => s.detecting)
+  const filesValid = oversized.length === 0 && wrongType.length === 0 && stillDetecting.length === 0
 
   const goNext = () => {
     if (!step1Valid) {
@@ -135,27 +149,49 @@ export default function FestivalListPage() {
     setStep(2)
   }
 
+  // File picker — stages immediately, then resolves each image's ratio in parallel.
   const pickFiles = (list: FileList | null) => {
     if (!list) return
     setError(null)
-    setFiles([...files, ...Array.from(list)])
+    setLastResult(null)
+    const newOnes: StagedFile[] = Array.from(list).map(file => ({
+      file,
+      ratio: null,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      detecting: file.type.startsWith('image/'),
+    }))
+    setStaged(prev => [...prev, ...newOnes])
+    newOnes.forEach((s) => {
+      detectImageRatio(s.file).then(r => {
+        setStaged(prev => prev.map(item =>
+          item.file === s.file ? { ...item, ratio: r, detecting: false } : item
+        ))
+      })
+    })
   }
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault(); setDragging(false)
     pickFiles(e.dataTransfer.files)
   }
-  const removeFile = (i: number) => setFiles(files.filter((_, idx) => idx !== i))
+  const removeStaged = (i: number) => {
+    setStaged(prev => {
+      const target = prev[i]
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl)
+      return prev.filter((_, idx) => idx !== i)
+    })
+  }
 
   // Smart media-type toggle — if files exist, ask before clearing them.
   const requestMediaTypeChange = (newType: PosterMediaType) => {
     if (newType === mediaType) return
-    if (files.length === 0) { setMediaType(newType); return }
+    if (staged.length === 0) { setMediaType(newType); return }
     setPendingMediaType(newType)
   }
   const confirmMediaTypeChange = () => {
     if (pendingMediaType) {
+      staged.forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl) })
       setMediaType(pendingMediaType)
-      setFiles([])
+      setStaged([])
       setPendingMediaType(null)
     }
   }
@@ -187,13 +223,16 @@ export default function FestivalListPage() {
 
   // ─── Wizard submit: create festival, then optionally bulk-upload posters ───
   // On retry: if festival was created in a previous attempt, skip recreation
-  // and only re-run the bulk upload (avoids duplicate festivals).
+  // and only re-run the bulk upload (avoids duplicate festivals). On partial
+  // upload success, the staged list is trimmed to only the failed files so
+  // retry sends just those.
   const handleWizardSubmit = async () => {
     if (!step1Valid) { setStep(1); addToast('Festival name + date required', 'error'); return }
     if (!filesValid) { addToast('Fix file errors before saving', 'error'); return }
 
     setSubmitting(true)
     setError(null)
+    setLastResult(null)
     try {
       // 1) Create the festival (once — skip on retry).
       let newFestivalId = createdFestivalIdRef.current
@@ -209,30 +248,49 @@ export default function FestivalListPage() {
         return
       }
 
-      // 2) If admin picked files, bulk-upload them with progress + abort support.
-      if (files.length > 0) {
-        setProgress({ loaded: 0, total: files.reduce((s, f) => s + f.size, 0), percent: 0 })
+      // 2) Bulk-upload with auto-grouped batches (per ratio for images;
+      //    single batch for videos using videoFallbackRatio).
+      if (staged.length > 0) {
+        setProgress({ loaded: 0, total: staged.reduce((s, x) => s + x.file.size, 0), percent: 0 })
         abortRef.current = new AbortController()
-        const res = await festivalCalendarApi.bulkUpload(
-          {
-            festival: newFestivalId,
-            language: languageId,
-            aspect_ratio: aspectRatio,
-            media_type: mediaType,
-            files,
-          },
+
+        const batches = mediaType === 'video'
+          ? [{ aspect_ratio: videoFallbackRatio, files: staged.map(s => s.file) }]
+          : groupFilesByRatio(staged, '1:1')
+
+        const res = await festivalCalendarApi.bulkUploadBatches(
+          batches,
+          { festival: newFestivalId, language: languageId, media_type: mediaType },
           {
             signal: abortRef.current.signal,
             onProgress: (loaded, total, percent) => setProgress({ loaded, total, percent }),
           },
         )
-        addToast(`Festival created + ${res.created_count} poster${res.created_count === 1 ? '' : 's'} uploaded`)
+
+        setLastResult(res)
+        if (res.failed_count === 0) {
+          addToast(
+            `Festival created + ${res.created_count} poster${res.created_count === 1 ? '' : 's'} uploaded` +
+            (batches.length > 1 ? ` (${batches.length} ratios auto-detected)` : ''),
+          )
+          closeModal()
+          refresh()
+        } else {
+          // Partial — keep modal open with only failed files staged for retry.
+          const failedNames = new Set(res.failed.map(f => f.filename))
+          // Revoke previews for files that succeeded.
+          staged.filter(s => !failedNames.has(s.file.name))
+            .forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl) })
+          setStaged(prev => prev.filter(s => failedNames.has(s.file.name)))
+          addToast(`${res.created_count} uploaded · ${res.failed_count} failed`, 'error')
+          // Refresh parent so successful posters appear in the table.
+          refresh()
+        }
       } else {
         addToast('Festival created successfully')
+        closeModal()
+        refresh()
       }
-
-      closeModal()
-      refresh()
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: { detail?: string } }; message?: string; code?: string }
       // Cancellation isn't a real error — user-initiated.
@@ -392,24 +450,6 @@ export default function FestivalListPage() {
               </div>
             </div>
 
-            {/* Aspect ratio */}
-            <div>
-              <div className="text-xs text-brand-text-muted mb-1.5">Size</div>
-              <div className="flex gap-2 flex-wrap">
-                {RATIOS.map(r => (
-                  <label key={r} className={
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors ' +
-                    (aspectRatio === r
-                      ? 'bg-brand-gold/20 border-brand-gold text-brand-gold'
-                      : 'bg-brand-dark border-brand-dark-border text-brand-text-muted hover:border-brand-text-muted')
-                  }>
-                    <input type="radio" name="ratio" checked={aspectRatio === r} onChange={() => setAspectRatio(r)} className="sr-only" />
-                    <span>{RATIO_LABEL[r]}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             {/* Media type */}
             <div>
               <div className="text-xs text-brand-text-muted mb-1.5">Media Type</div>
@@ -428,23 +468,49 @@ export default function FestivalListPage() {
                   </label>
                 ))}
               </div>
+              {mediaType === 'image' && (
+                <div className="mt-1.5 text-xs text-brand-text-muted/70">
+                  ✨ Aspect ratio auto-detected from each image — mixed ratios upload in separate batches automatically.
+                </div>
+              )}
             </div>
+
+            {/* Video-only ratio fallback */}
+            {mediaType === 'video' && (
+              <div>
+                <div className="text-xs text-brand-text-muted mb-1.5">Video Ratio (applies to all videos in this batch)</div>
+                <div className="flex gap-2 flex-wrap">
+                  {(['1:1', '4:5', '9:16', '16:9'] as DetectedRatio[]).map(r => (
+                    <label key={r} className={
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors ' +
+                      (videoFallbackRatio === r
+                        ? 'bg-brand-gold/20 border-brand-gold text-brand-gold'
+                        : 'bg-brand-dark border-brand-dark-border text-brand-text-muted hover:border-brand-text-muted')
+                    }>
+                      <input type="radio" name="vratio" checked={videoFallbackRatio === r} onChange={() => setVideoFallbackRatio(r)} className="sr-only" />
+                      <span>{r === '9:16' ? 'Story (9:16)' : r}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* File drop zone */}
             <div
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
+              onDragOver={e => { if (!submitting) { e.preventDefault(); setDragging(true) } }}
               onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
+              onDrop={submitting ? undefined : handleDrop}
               className={
                 'border-2 border-dashed rounded-lg p-6 text-center transition-colors ' +
-                (dragging ? 'bg-indigo-500/10 border-indigo-500' : 'bg-brand-dark border-brand-dark-border hover:border-brand-text-muted')
+                (submitting ? 'bg-brand-dark border-brand-dark-border opacity-60' :
+                 dragging ? 'bg-indigo-500/10 border-indigo-500' : 'bg-brand-dark border-brand-dark-border hover:border-brand-text-muted')
               }
             >
               <div className="text-3xl mb-2">📤</div>
               <div className="text-sm text-brand-text-muted mb-2">Drag &amp; Drop or</div>
-              <label className="inline-block px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm cursor-pointer hover:bg-indigo-500">
+              <label className={'inline-block px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-500 ' + (submitting ? 'pointer-events-none opacity-60' : 'cursor-pointer')}>
                 Browse
-                <input type="file" multiple className="hidden" accept={mediaType === 'image' ? 'image/*' : 'video/mp4,video/*'} onChange={e => pickFiles(e.target.files)} />
+                <input type="file" multiple className="hidden" disabled={submitting} accept={mediaType === 'image' ? 'image/*' : 'video/mp4,video/*'} onChange={e => pickFiles(e.target.files)} />
               </label>
               <div className="text-xs text-brand-text-muted/70 mt-3">
                 {mediaType === 'image' ? 'PNG/JPEG · Max 20 MB each' : 'MP4 · Max 100 MB each'}
@@ -454,31 +520,110 @@ export default function FestivalListPage() {
               </div>
             </div>
 
-            {/* Selected files list */}
-            {files.length > 0 && (
-              <div className="space-y-1.5">
-                <div className="text-xs text-brand-text-muted">Selected files ({files.length})</div>
-                <ul className="space-y-1 max-h-40 overflow-y-auto">
-                  {files.map((f, i) => {
-                    const bad = f.size > maxBytes || (mediaType === 'image' ? !f.type.startsWith('image/') : !f.type.startsWith('video/'))
-                    return (
-                      <li key={i} className={
-                        'flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border ' +
-                        (bad ? 'bg-status-error/10 border-status-error/40 text-status-error' : 'bg-brand-dark border-brand-dark-border text-brand-text-muted')
-                      }>
-                        <span className="truncate flex-1">{f.name}</span>
-                        <span className="mx-3 text-brand-text-muted/70">{formatBytes(f.size)}</span>
-                        <button onClick={() => removeFile(i)} className="text-status-error hover:opacity-70">✕</button>
-                      </li>
-                    )
-                  })}
-                </ul>
+            {/* Ratio summary chips (shown when image batches will auto-split) */}
+            {mediaType === 'image' && staged.length > 0 && (() => {
+              const counts = new Map<DetectedRatio, number>()
+              staged.forEach(s => { if (s.ratio) counts.set(s.ratio, (counts.get(s.ratio) ?? 0) + 1) })
+              const summary = Array.from(counts.entries())
+              if (summary.length === 0) return null
+              return (
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-brand-text-muted">Auto-detected:</span>
+                  {summary.map(([r, n]) => (
+                    <span key={r} className="px-2 py-0.5 rounded bg-brand-gold/15 text-brand-gold border border-brand-gold/30">
+                      {n} × {r === '9:16' ? 'Story' : r}
+                    </span>
+                  ))}
+                  {summary.length > 1 && (
+                    <span className="text-brand-text-muted/70">→ will upload as {summary.length} batches</span>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Selected files — image grid with thumbnails OR video list */}
+            {staged.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs text-brand-text-muted">
+                  Selected files ({staged.length}) · {formatBytes(staged.reduce((s, x) => s + x.file.size, 0))}
+                </div>
+                {mediaType === 'image' ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-64 overflow-y-auto p-1">
+                    {staged.map((s, i) => {
+                      const bad = s.file.size > maxBytes || !s.file.type.startsWith('image/')
+                      return (
+                        <div key={i} className={
+                          'relative rounded-lg overflow-hidden border ' +
+                          (bad ? 'border-status-error' : 'border-brand-dark-border')
+                        }>
+                          {s.previewUrl ? (
+                            <img src={s.previewUrl} alt={s.file.name} className="w-full aspect-square object-cover bg-black/20" />
+                          ) : (
+                            <div className="w-full aspect-square bg-brand-dark-hover flex items-center justify-center text-brand-text-muted text-xs">no preview</div>
+                          )}
+                          <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-brand-gold">
+                            {s.detecting ? '…' : (s.ratio ?? '?')}
+                          </div>
+                          <button onClick={() => removeStaged(i)} disabled={submitting}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-status-error hover:opacity-70 text-xs disabled:opacity-30 disabled:cursor-not-allowed">✕</button>
+                          <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 bg-black/70 text-[10px] text-brand-text-muted truncate" title={s.file.name}>
+                            {s.file.name}
+                          </div>
+                          {bad && (
+                            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-1 py-0.5 bg-status-error/80 text-white text-[9px] text-center">
+                              {s.file.size > maxBytes ? 'too large' : 'wrong type'}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <ul className="space-y-1 max-h-40 overflow-y-auto">
+                    {staged.map((s, i) => {
+                      const bad = s.file.size > maxBytes || !s.file.type.startsWith('video/')
+                      return (
+                        <li key={i} className={
+                          'flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border ' +
+                          (bad ? 'bg-status-error/10 border-status-error/40 text-status-error' : 'bg-brand-dark border-brand-dark-border text-brand-text-muted')
+                        }>
+                          <span className="truncate flex-1">🎬 {s.file.name}</span>
+                          <span className="mx-3 text-brand-text-muted/70">{formatBytes(s.file.size)}</span>
+                          <button onClick={() => removeStaged(i)} disabled={submitting}
+                            className="text-status-error hover:opacity-70 disabled:opacity-30 disabled:cursor-not-allowed">✕</button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
                 {oversized.length > 0 && (
                   <div className="text-xs text-status-error">⚠ {oversized.length} file(s) exceed the size limit and will be rejected.</div>
                 )}
                 {wrongType.length > 0 && (
                   <div className="text-xs text-status-error">⚠ {wrongType.length} file(s) have the wrong type for {mediaType}.</div>
                 )}
+                {stillDetecting.length > 0 && (
+                  <div className="text-xs text-brand-text-muted">…detecting {stillDetecting.length} image dimension{stillDetecting.length === 1 ? '' : 's'}…</div>
+                )}
+              </div>
+            )}
+
+            {/* Per-file failed list (only after a partial success) */}
+            {lastResult && lastResult.failed_count > 0 && !submitting && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
+                <div className="text-sm font-semibold text-amber-300">
+                  {lastResult.created_count} uploaded · {lastResult.failed_count} failed
+                </div>
+                <ul className="mt-2 space-y-0.5 max-h-32 overflow-y-auto">
+                  {lastResult.failed.map((f, i) => (
+                    <li key={i} className="text-xs text-amber-200/80 truncate" title={f.reason}>
+                      ✕ <span className="font-mono">{f.filename}</span> — {f.reason}
+                    </li>
+                  ))}
+                </ul>
+                <div className="text-xs text-amber-300/70 mt-2">
+                  Failed files kept above for retry.
+                </div>
               </div>
             )}
 
@@ -510,7 +655,7 @@ export default function FestivalListPage() {
                       <div className="text-xs text-status-error/70 mt-1">Festival was created. Click Retry to upload posters again.</div>
                     )}
                     {createdFestivalIdRef.current == null && (
-                      <div className="text-xs text-status-error/70 mt-1">Your {files.length} file{files.length === 1 ? '' : 's'} are still selected. Click Retry below.</div>
+                      <div className="text-xs text-status-error/70 mt-1">Your {staged.length} file{staged.length === 1 ? '' : 's'} are still selected. Click Retry below.</div>
                     )}
                   </div>
                 </div>
@@ -535,9 +680,9 @@ export default function FestivalListPage() {
                       className="px-5 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50 inline-flex items-center gap-2"
                     >
                       <Check className="h-4 w-4" />
-                      {error
+                      {(error || (lastResult && lastResult.failed_count > 0))
                         ? '🔁 Retry Upload'
-                        : (files.length === 0 ? 'Save Festival (skip upload)' : `Save & Upload ${files.length} ${mediaType}${files.length === 1 ? '' : 's'}`)}
+                        : (staged.length === 0 ? 'Save Festival (skip upload)' : `Save & Upload ${staged.length} ${mediaType}${staged.length === 1 ? '' : 's'}`)}
                     </button>
                   </>
                 )}
@@ -553,7 +698,7 @@ export default function FestivalListPage() {
           <div className="bg-brand-dark-card rounded-xl w-full max-w-sm border border-brand-dark-border shadow-2xl p-5">
             <h3 className="text-base font-semibold text-brand-text mb-2">Switch to {pendingMediaType}?</h3>
             <p className="text-sm text-brand-text-muted mb-4">
-              You have <span className="font-semibold text-brand-gold">{files.length}</span> {mediaType} file{files.length === 1 ? '' : 's'} selected.
+              You have <span className="font-semibold text-brand-gold">{staged.length}</span> {mediaType} file{staged.length === 1 ? '' : 's'} selected.
               Switching to <span className="font-semibold capitalize">{pendingMediaType}</span> will clear them. Continue?
             </p>
             <div className="flex justify-end gap-2">

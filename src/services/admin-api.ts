@@ -163,8 +163,9 @@ export const languagesApi = crud('languages')
 export const festivalCalendarApi = {
   /**
    * Bulk upload posters tagged to a festival. Supports progress tracking and
-   * cancellation. The 4th `opts` argument is optional — passing nothing keeps
-   * the legacy fire-and-wait behavior for callers that don't need progress.
+   * cancellation. Returns BOTH succeeded and failed file lists so the admin
+   * can retry only the failures (the backend no longer rolls back the whole
+   * batch on a single bad file — see BulkFestivalPosterUploadView).
    *
    * @param opts.onProgress  fired repeatedly during upload with bytes uploaded
    * @param opts.signal      AbortSignal — call .abort() to cancel mid-upload
@@ -198,7 +199,82 @@ export const festivalCalendarApi = {
       },
       signal: opts?.signal,
     })
-    return res.data as { created_count: number; poster_ids: number[] }
+    // Backend returns both created + failed (per-file try/catch). Fields are
+    // optional for forward-compat with older backends that only sent created_count.
+    return res.data as {
+      created_count: number
+      poster_ids: number[]
+      failed_count?: number
+      failed?: Array<{ filename: string; reason: string }>
+    }
+  },
+
+  /**
+   * Convenience wrapper: split a heterogeneous file list into ratio-grouped
+   * batches and upload them sequentially behind a single progress bar.
+   *
+   * Each `batch` carries its own aspect_ratio (auto-detected client-side from
+   * image dimensions). Per-file `language` overrides are merged at the call
+   * site by partitioning into language buckets first if needed.
+   *
+   * Aggregates progress across all batches into one weighted percent so the
+   * UI shows a single moving bar to the admin.
+   */
+  bulkUploadBatches: async (
+    batches: Array<{
+      aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
+      files: File[]
+    }>,
+    common: {
+      festival: number
+      language?: number | null
+      media_type: 'image' | 'video'
+    },
+    opts?: {
+      onProgress?: (loaded: number, total: number, percent: number) => void
+      signal?: AbortSignal
+    },
+  ) => {
+    const totalBytes = batches.reduce(
+      (s, b) => s + b.files.reduce((ss, f) => ss + f.size, 0),
+      0,
+    )
+    let bytesDoneInPriorBatches = 0
+    const results: Array<Awaited<ReturnType<typeof festivalCalendarApi.bulkUpload>>> = []
+
+    for (const batch of batches) {
+      const batchTotal = batch.files.reduce((s, f) => s + f.size, 0)
+      const res = await festivalCalendarApi.bulkUpload(
+        {
+          festival: common.festival,
+          language: common.language,
+          aspect_ratio: batch.aspect_ratio,
+          media_type: common.media_type,
+          files: batch.files,
+        },
+        {
+          signal: opts?.signal,
+          onProgress: (loaded, _total, _percent) => {
+            const aggregateLoaded = bytesDoneInPriorBatches + loaded
+            const aggregatePercent = totalBytes > 0
+              ? Math.round((aggregateLoaded / totalBytes) * 100)
+              : 0
+            opts?.onProgress?.(aggregateLoaded, totalBytes, aggregatePercent)
+          },
+        },
+      )
+      results.push(res)
+      bytesDoneInPriorBatches += batchTotal
+    }
+
+    // Merge per-batch results into one summary the UI can render.
+    return {
+      created_count: results.reduce((s, r) => s + (r.created_count ?? 0), 0),
+      poster_ids: results.flatMap(r => r.poster_ids ?? []),
+      failed_count: results.reduce((s, r) => s + (r.failed_count ?? 0), 0),
+      failed: results.flatMap(r => r.failed ?? []),
+      batch_count: batches.length,
+    }
   },
 }
 export const autoPostersApi = crud('auto-posters')
