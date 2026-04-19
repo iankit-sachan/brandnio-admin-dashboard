@@ -86,6 +86,32 @@ export function groupFilesByRatio<T extends { file: File; ratio: DetectedRatio |
   }))
 }
 
+/** Group an enriched file list by (ratio, language) pair — used when admin
+ *  has set per-file language overrides (Phase B Q4: per-file lang picker).
+ *  Returns one batch per unique (ratio, language) combination so the upload
+ *  helper fires N sequential calls behind a single progress bar. */
+export function groupFilesByRatioAndLanguage<T extends {
+  file: File
+  ratio: DetectedRatio | null
+  languageId: number | null
+}>(
+  enriched: T[],
+  fallbackRatio: DetectedRatio,
+): Array<{ aspect_ratio: DetectedRatio; language: number | null; files: File[] }> {
+  // Use a string key combining ratio + language for the inner map.
+  const buckets = new Map<string, { aspect_ratio: DetectedRatio; language: number | null; files: File[] }>()
+  for (const item of enriched) {
+    const r = item.ratio ?? fallbackRatio
+    const langKey = item.languageId === null ? 'u' : String(item.languageId)
+    const key = `${r}|${langKey}`
+    if (!buckets.has(key)) {
+      buckets.set(key, { aspect_ratio: r, language: item.languageId, files: [] })
+    }
+    buckets.get(key)!.files.push(item.file)
+  }
+  return Array.from(buckets.values())
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
   return `${(n / 1024 / 1024).toFixed(1)} MB`

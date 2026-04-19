@@ -206,6 +206,8 @@ export const festivalCalendarApi = {
       poster_ids: number[]
       failed_count?: number
       failed?: Array<{ filename: string; reason: string }>
+      skipped_count?: number
+      skipped?: Array<{ filename: string; reason: string }>
     }
   },
 
@@ -224,6 +226,9 @@ export const festivalCalendarApi = {
     batches: Array<{
       aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
       files: File[]
+      // Optional per-batch language override (Phase B Q4: per-file lang picker).
+      // If unset, falls back to common.language.
+      language?: number | null
     }>,
     common: {
       festival: number
@@ -247,7 +252,8 @@ export const festivalCalendarApi = {
       const res = await festivalCalendarApi.bulkUpload(
         {
           festival: common.festival,
-          language: common.language,
+          // Per-batch override wins over the common fallback.
+          language: batch.language !== undefined ? batch.language : common.language,
           aspect_ratio: batch.aspect_ratio,
           media_type: common.media_type,
           files: batch.files,
@@ -273,8 +279,19 @@ export const festivalCalendarApi = {
       poster_ids: results.flatMap(r => r.poster_ids ?? []),
       failed_count: results.reduce((s, r) => s + (r.failed_count ?? 0), 0),
       failed: results.flatMap(r => r.failed ?? []),
+      skipped_count: results.reduce((s, r) => s + (r.skipped_count ?? 0), 0),
+      skipped: results.flatMap(r => r.skipped ?? []),
       batch_count: batches.length,
     }
+  },
+}
+
+/** Mark a poster as the festival card cover. Backend clears `is_cover` on
+ *  every other poster of the same festival in a single transaction. */
+export const postersAdminApi = {
+  setCover: async (posterId: number) => {
+    const res = await api.post(`/api/admin/posters/${posterId}/set-cover/`)
+    return res.data as { poster_id: number; festival_id: number; is_cover: boolean }
   },
 }
 export const autoPostersApi = crud('auto-posters')

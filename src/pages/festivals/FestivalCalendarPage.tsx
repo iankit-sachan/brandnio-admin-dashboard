@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { festivalsApi, postersApi } from '../../services/admin-api'
+import { festivalsApi, postersApi, postersAdminApi } from '../../services/admin-api'
 import { useToast } from '../../context/ToastContext'
 import type { Festival, PosterAspectRatio, FestivalCalendarPoster } from '../../types/festival.types'
-import { Info, Trash2, X } from 'lucide-react'
+import { Info, Trash2, X, Star } from 'lucide-react'
 
 // Bump this number when you need to bust the poster-grid cache on save.
 // (We invalidate by re-fetching on the refreshTick state below.)
@@ -122,6 +122,18 @@ export default function FestivalCalendarPage() {
       setRefreshTick(t => t + 1)
     } catch {
       addToast('Delete failed', 'error')
+    }
+  }
+
+  // Mark a poster as the festival card cover. Backend atomically clears
+  // is_cover on every other poster of the same festival in the same call.
+  const setAsCover = async (p: FestivalCalendarPoster) => {
+    try {
+      await postersAdminApi.setCover(p.id)
+      addToast(`"${p.title}" set as festival cover`)
+      setRefreshTick(t => t + 1)
+    } catch {
+      addToast('Failed to set cover', 'error')
     }
   }
 
@@ -350,6 +362,19 @@ export default function FestivalCalendarPage() {
                         <img src={p.thumbnail_url || p.image_url} className="w-full h-full object-cover" alt="" />
                       )}
                     </div>
+                    {/* Cover star — top-right of image. Filled = current cover; outlined = click to set. */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAsCover(p) }}
+                      title={p.is_cover ? 'Festival cover (click another star to change)' : 'Set as festival cover'}
+                      className={
+                        'absolute top-1.5 right-1.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all ' +
+                        (p.is_cover
+                          ? 'bg-amber-500 text-black shadow-lg ring-2 ring-amber-300/60'
+                          : 'bg-black/60 text-white/60 hover:bg-amber-500 hover:text-black opacity-0 group-hover:opacity-100')
+                      }
+                    >
+                      <Star className={'h-4 w-4 ' + (p.is_cover ? 'fill-current' : '')} />
+                    </button>
                     <div className="p-2">
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex gap-1">
@@ -360,6 +385,9 @@ export default function FestivalCalendarPage() {
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 uppercase">
                               {p.language_code}
                             </span>
+                          )}
+                          {p.is_cover && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 font-bold">COVER</span>
                           )}
                         </div>
                         <button

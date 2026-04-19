@@ -34,5 +34,7 @@ export interface FestivalCalendarPoster {
   language_code: string | null
   festival: number
   festival_name: string
+  /** True when admin marked this poster as the festival card cover (Phase B Q2: B). */
+  is_cover?: boolean
   created_at: string
 }

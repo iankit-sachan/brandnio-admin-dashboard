@@ -3,7 +3,7 @@ import { festivalCalendarApi, languagesApi } from '../../services/admin-api'
 import { useToast } from '../../context/ToastContext'
 import type { Language, PosterMediaType } from '../../types/festival.types'
 import type { Festival } from '../../types/festival.types'
-import { detectImageRatio, groupFilesByRatio, formatBytes, type DetectedRatio } from './uploadHelpers'
+import { detectImageRatio, groupFilesByRatio, groupFilesByRatioAndLanguage, formatBytes, type DetectedRatio } from './uploadHelpers'
 
 interface Props {
   date: string                // YYYY-MM-DD
@@ -15,14 +15,17 @@ interface Props {
 const IMG_MAX = 20 * 1024 * 1024
 const VID_MAX = 100 * 1024 * 1024
 
-// One file in the staging area: original + detected ratio + preview URL.
-// `ratio` is null for non-image files (videos) until admin manually picks it
-// in the videoFallbackRatio dropdown.
+// One file in the staging area: original + detected ratio + preview URL +
+// per-file language override. `languageId` defaults to the top-of-form
+// languageId on stage; admin can override per file (Phase B Q4: B).
+// `ratio` is null for non-image files (videos) until admin manually picks
+// it in the videoFallbackRatio dropdown.
 interface StagedFile {
   file: File
   ratio: DetectedRatio | null
   previewUrl: string | null
   detecting: boolean
+  languageId: number | null
 }
 
 export default function BulkFestivalPosterUploadModal({ date, festivals, onClose, onUploaded }: Props) {
@@ -43,6 +46,8 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
     created_count: number
     failed_count: number
     failed: Array<{ filename: string; reason: string }>
+    skipped_count?: number
+    skipped?: Array<{ filename: string; reason: string }>
     batch_count?: number
   } | null>(null)
 
@@ -78,7 +83,9 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
       file,
       ratio: null,
       previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-      detecting: file.type.startsWith('image/'),  // only images need detection
+      detecting: file.type.startsWith('image/'),
+      // Inherit the current top-of-form language as default; admin can override per-file.
+      languageId,
     }))
     setStaged(prev => [...prev, ...newOnes])
 
@@ -147,10 +154,24 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
     setProgress({ loaded: 0, total: staged.reduce((s, x) => s + x.file.size, 0), percent: 0 })
     abortRef.current = new AbortController()
     try {
-      // Group images by detected ratio; videos all share videoFallbackRatio.
+      // Group by (ratio, language) — for videos there's no per-file ratio so
+      // they all share videoFallbackRatio but still respect per-file lang.
       const batches = mediaType === 'video'
-        ? [{ aspect_ratio: videoFallbackRatio, files: staged.map(s => s.file) }]
-        : groupFilesByRatio(staged, '1:1')
+        ? (() => {
+            // Bucket videos by language only (single ratio).
+            const langBuckets = new Map<string, { language: number | null; files: File[] }>()
+            for (const s of staged) {
+              const k = s.languageId === null ? 'u' : String(s.languageId)
+              if (!langBuckets.has(k)) langBuckets.set(k, { language: s.languageId, files: [] })
+              langBuckets.get(k)!.files.push(s.file)
+            }
+            return Array.from(langBuckets.values()).map(b => ({
+              aspect_ratio: videoFallbackRatio,
+              language: b.language,
+              files: b.files,
+            }))
+          })()
+        : groupFilesByRatioAndLanguage(staged, '1:1')
 
       const result = await festivalCalendarApi.bulkUploadBatches(
         batches,
@@ -162,23 +183,23 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
       )
 
       setLastResult(result)
+      const skippedCount = result.skipped_count ?? 0
       if (result.failed_count === 0) {
-        addToast(
-          `Uploaded ${result.created_count} poster${result.created_count === 1 ? '' : 's'}` +
-          (batches.length > 1 ? ` (${batches.length} ratios auto-detected)` : ''),
-        )
+        const parts: string[] = [`Uploaded ${result.created_count} poster${result.created_count === 1 ? '' : 's'}`]
+        if (skippedCount > 0) parts.push(`${skippedCount} duplicate${skippedCount === 1 ? '' : 's'} skipped`)
+        if (batches.length > 1) parts.push(`${batches.length} batches`)
+        addToast(parts.join(' · '))
         onUploaded()
         onClose()
       } else {
-        // Partial success — keep modal open so admin can see failures + retry.
         addToast(
-          `${result.created_count} uploaded · ${result.failed_count} failed`,
+          `${result.created_count} uploaded · ${result.failed_count} failed` +
+          (skippedCount > 0 ? ` · ${skippedCount} skipped` : ''),
           'error',
         )
-        // Trim staged to only the failed files so retry only sends those.
+        // Trim staged to ONLY the failed files (skipped ones don't need retry).
         const failedNames = new Set(result.failed.map(f => f.filename))
         setStaged(prev => prev.filter(s => failedNames.has(s.file.name)))
-        // Refresh parent grid so the successful ones appear.
         onUploaded()
       }
     } catch (e: unknown) {
@@ -233,9 +254,10 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
             </label>
           </div>
 
-          {/* Language */}
+          {/* Language — top-of-form default; each file inherits this on stage,
+              admin can override per-file in the thumbnail tile dropdown. */}
           <div>
-            <div className="text-xs text-gray-400 mb-1.5">Language (applies to all files)</div>
+            <div className="text-xs text-gray-400 mb-1.5">Default Language (applies to new files; per-file overrides allowed below)</div>
             <div className="flex gap-2 flex-wrap">
               {languages.map(l => (
                 <label key={l.id} className={
@@ -356,9 +378,12 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
                 Selected files ({staged.length}) · {formatBytes(staged.reduce((s, x) => s + x.file.size, 0))}
               </div>
               {mediaType === 'image' ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-72 overflow-y-auto p-1">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-80 overflow-y-auto p-1">
                   {staged.map((s, i) => {
                     const bad = s.file.size > maxBytes || !s.file.type.startsWith('image/')
+                    const langName = s.languageId === null
+                      ? 'Universal'
+                      : languages.find(l => l.id === s.languageId)?.name ?? '?'
                     return (
                       <div key={i} className={
                         'relative rounded-lg overflow-hidden border ' +
@@ -369,17 +394,27 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
                         ) : (
                           <div className="w-full aspect-square bg-gray-800 flex items-center justify-center text-gray-500 text-xs">no preview</div>
                         )}
-                        {/* Ratio badge (top-left) */}
                         <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-amber-300">
                           {s.detecting ? '…' : (s.ratio ?? '?')}
                         </div>
-                        {/* Remove button (top-right) */}
                         <button onClick={() => removeStaged(i)} disabled={uploading}
                           className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-red-400 hover:text-red-200 text-xs disabled:opacity-30 disabled:cursor-not-allowed">✕</button>
-                        {/* Filename + size (bottom) */}
-                        <div className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 bg-black/70 text-[10px] text-gray-300 truncate" title={s.file.name}>
-                          {s.file.name}
-                        </div>
+                        {/* Per-file language picker — overlays the bottom of the tile */}
+                        <select
+                          value={s.languageId ?? ''}
+                          disabled={uploading}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? null : Number(e.target.value)
+                            setStaged(prev => prev.map((it, idx) => idx === i ? { ...it, languageId: v } : it))
+                          }}
+                          title={`Language: ${langName}`}
+                          className="absolute bottom-0 left-0 right-0 bg-black/80 text-[10px] text-gray-200 border-0 px-1.5 py-0.5 focus:outline-none cursor-pointer"
+                        >
+                          <option value="">Universal</option>
+                          {languages.map(l => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                          ))}
+                        </select>
                         {bad && (
                           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-1 py-0.5 bg-red-700/80 text-white text-[9px] text-center">
                             {s.file.size > maxBytes ? 'too large' : 'wrong type'}
@@ -395,11 +430,23 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
                     const bad = s.file.size > maxBytes || !s.file.type.startsWith('video/')
                     return (
                       <li key={i} className={
-                        'flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border ' +
+                        'flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ' +
                         (bad ? 'bg-red-900/30 border-red-700 text-red-300' : 'bg-[#2a2a3e] border-gray-700 text-gray-300')
                       }>
                         <span className="truncate flex-1">🎬 {s.file.name}</span>
-                        <span className="mx-3 text-gray-500">{formatBytes(s.file.size)}</span>
+                        <span className="text-gray-500">{formatBytes(s.file.size)}</span>
+                        <select
+                          value={s.languageId ?? ''}
+                          disabled={uploading}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? null : Number(e.target.value)
+                            setStaged(prev => prev.map((it, idx) => idx === i ? { ...it, languageId: v } : it))
+                          }}
+                          className="bg-[#1e1e2e] border border-gray-600 rounded px-1 py-0.5 text-[10px] text-gray-300 max-w-[110px]"
+                        >
+                          <option value="">Universal</option>
+                          {languages.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
                         <button onClick={() => removeStaged(i)} disabled={uploading}
                           className="text-red-400 hover:text-red-200 disabled:opacity-30 disabled:cursor-not-allowed">✕</button>
                       </li>
@@ -440,6 +487,7 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
             <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-700/40">
               <div className="text-sm font-semibold text-amber-300">
                 {lastResult.created_count} uploaded · {lastResult.failed_count} failed
+                {(lastResult.skipped_count ?? 0) > 0 && ` · ${lastResult.skipped_count} skipped`}
               </div>
               <ul className="mt-2 space-y-0.5 max-h-32 overflow-y-auto">
                 {lastResult.failed.map((f, i) => (
@@ -451,6 +499,23 @@ export default function BulkFestivalPosterUploadModal({ date, festivals, onClose
               <div className="text-xs text-amber-300/70 mt-2">
                 The failed files are kept in the list above. Click <strong>Retry</strong> to try again.
               </div>
+            </div>
+          )}
+
+          {/* Duplicate-skip panel — shown when no failures, but some duplicates were skipped.
+              Helps admin understand "I uploaded 10 but only 8 appeared — 2 were already there." */}
+          {lastResult && lastResult.failed_count === 0 && (lastResult.skipped_count ?? 0) > 0 && !uploading && (
+            <div className="p-3 rounded-lg bg-blue-900/20 border border-blue-700/40">
+              <div className="text-sm font-semibold text-blue-300">
+                {lastResult.created_count} uploaded · {lastResult.skipped_count} duplicate{lastResult.skipped_count === 1 ? '' : 's'} skipped
+              </div>
+              <ul className="mt-2 space-y-0.5 max-h-32 overflow-y-auto">
+                {(lastResult.skipped ?? []).map((f, i) => (
+                  <li key={i} className="text-xs text-blue-200/80 truncate" title={f.reason}>
+                    ⏭ <span className="font-mono">{f.filename}</span> — already uploaded
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
