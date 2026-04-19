@@ -295,6 +295,51 @@ export const postersAdminApi = {
   },
 }
 
+// ─── Types for the User Details modal aux endpoints ─────────────────
+export interface UserNotificationRow {
+  id: number
+  title: string
+  body: string
+  notification_type: string
+  image_url: string
+  action_url: string
+  is_read: boolean
+  data: Record<string, unknown>
+  created_at: string
+}
+
+export interface UserSubscriptionRow {
+  id: number
+  plan_id: number
+  plan_name: string
+  plan_slug: string
+  price: string
+  duration_days: number
+  status: 'created' | 'authorized' | 'captured' | 'active' | 'expired' | 'cancelled' | 'failed'
+  starts_at: string | null
+  expires_at: string | null
+  created_at: string
+  razorpay_order_id: string
+  is_admin_grant: boolean
+}
+
+export interface UserDeviceRow {
+  id: number
+  platform: 'android' | 'ios' | 'web'
+  device_name: string
+  is_active: boolean
+  token_preview: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UserReferralInfo {
+  referral_code: string
+  referred_by: { id: number; name: string; email: string; phone: string; referral_code: string } | null
+  referrals_count: number
+  referred_users: Array<{ id: number; name: string; email: string; phone: string; joined_at: string }>
+}
+
 /** Pillar 3 — admin push notification methods (single + bulk). */
 export const usersAdminApi = {
   /** Send a manual push to a single user (e.g. from User Details modal). */
@@ -316,6 +361,34 @@ export const usersAdminApi = {
       inbox_notification_id: number | null
     }
   },
+
+  // ─── User Details modal endpoints ────────────────────────────────
+  listNotifications: async (userId: number) => {
+    const res = await api.get(`/api/admin/users/${userId}/notifications/`)
+    return res.data as { count: number; results: UserNotificationRow[] }
+  },
+  listSubscriptions: async (userId: number) => {
+    const res = await api.get(`/api/admin/users/${userId}/subscriptions/`)
+    return res.data as { count: number; results: UserSubscriptionRow[] }
+  },
+  cancelSubscription: async (userId: number) => {
+    const res = await api.post(`/api/admin/users/${userId}/cancel-subscription/`)
+    return res.data as { cancelled_subscription_id: number; plan_slug: string; is_premium: boolean }
+  },
+  listDevices: async (userId: number) => {
+    const res = await api.get(`/api/admin/users/${userId}/devices/`)
+    return res.data as { count: number; results: UserDeviceRow[] }
+  },
+  deactivateDevice: async (userId: number, deviceId: number) => {
+    const res = await api.post(`/api/admin/users/${userId}/deactivate-device/`, { device_id: deviceId })
+    return res.data as { device_id: number; is_active: boolean }
+  },
+  referralInfo: async (userId: number) => {
+    const res = await api.get(`/api/admin/users/${userId}/referral-info/`)
+    return res.data as UserReferralInfo
+  },
+  /** GDPR JSON export — triggers a file download in the browser. */
+  gdprExportUrl: (userId: number) => `${api.defaults.baseURL || ''}/api/admin/users/${userId}/gdpr-export/`,
 
   /** Send a bulk push by user_ids (multi-select) OR by filters. */
   sendPushBulk: async (payload: {

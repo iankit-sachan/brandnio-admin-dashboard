@@ -2,14 +2,40 @@ import { useEffect, useState } from 'react'
 import {
   usersApi, businessProfilesApi, politicianProfilesApi, userCustomFramesApi,
   businessIndustriesApi, politicianCategoriesApi, politicianPositionsApi,
+  usersAdminApi,
+  type UserNotificationRow, type UserSubscriptionRow,
+  type UserDeviceRow, type UserReferralInfo,
 } from '../../services/admin-api'
 import { useToast } from '../../context/ToastContext'
 import type { User, UserDetails, BusinessProfile, PoliticianProfile } from '../../types'
 import { formatDate } from '../../utils/formatters'
+import SendPushModal from './SendPushModal'
 
 interface LookupRow { id: number; name: string; slug: string; is_active?: boolean }
 
-type Tab = 'subscription' | 'business' | 'political' | 'frames'
+type Tab = 'subscription' | 'business' | 'political' | 'frames' | 'notifications' | 'devices'
+
+/** Inline relative-time badge for `last_seen_at`. Mirrors the column on the users list. */
+function LastSeenInline({ value }: { value: string | null }) {
+  if (!value) return <span className="text-xs text-white/70">Never seen</span>
+  const seenMs = new Date(value).getTime()
+  if (isNaN(seenMs)) return <span className="text-xs text-white/70">—</span>
+  const diffMin = Math.floor((Date.now() - seenMs) / 60000)
+  if (diffMin < 5) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs">
+        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        <span className="text-green-300 font-medium">Online</span>
+      </span>
+    )
+  }
+  let label: string
+  if (diffMin < 60) label = `Active ${diffMin}m ago`
+  else if (diffMin < 60 * 24) label = `Active ${Math.floor(diffMin / 60)}h ago`
+  else if (diffMin < 60 * 24 * 30) label = `Active ${Math.floor(diffMin / (60 * 24))}d ago`
+  else label = `Active ${Math.floor(diffMin / (60 * 24 * 30))}mo ago`
+  return <span className="text-xs text-white/80">{label}</span>
+}
 
 // Must match backend posters/models.py UserCustomFrame.CATEGORY_CHOICES (per 2ndprompt.txt).
 const FRAME_CATEGORIES = ['festival', 'business', 'political']
@@ -25,6 +51,7 @@ export default function UserDetailsModal({ user, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('subscription')
   const [details, setDetails] = useState<UserDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [pushOpen, setPushOpen] = useState(false)
 
   const reload = async () => {
     setLoading(true)
@@ -40,28 +67,46 @@ export default function UserDetailsModal({ user, onClose }: Props) {
 
   useEffect(() => { reload() }, [user.id])
 
+  // GDPR export — opens the JSON download in a new tab. Browser handles download
+  // because backend sets Content-Disposition: attachment on the response.
+  const downloadGdpr = () => {
+    window.open(usersAdminApi.gdprExportUrl(user.id), '_blank')
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Gradient header */}
+        {/* Gradient header — name + Last Seen + action buttons */}
         <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-600 p-4 flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center text-white text-2xl font-bold">
             🏅
           </div>
-          <div className="flex-1">
-            <div className="text-white font-semibold text-lg">{user.name || 'Guest'}</div>
-            <div className="text-white/80 text-sm">{user.email || 'NA'}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-semibold text-lg truncate">{user.name || 'Guest'}</div>
+            <div className="flex items-center gap-3 text-white/80 text-sm">
+              <span className="truncate">{user.phone || user.email || 'NA'}</span>
+              <span className="text-white/40">·</span>
+              <LastSeenInline value={user.last_seen_at} />
+            </div>
           </div>
+          {/* Pillar 3 integration: open SendPushModal in single mode for this user */}
+          <button
+            onClick={() => setPushOpen(true)}
+            title="Send a push notification to this user"
+            className="px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-sm font-medium inline-flex items-center gap-1.5"
+          >
+            📤 Send Push
+          </button>
           <button onClick={onClose} className="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10">✕</button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-4 bg-white">
-          {(['subscription','business','political','frames'] as Tab[]).map(t => (
+        {/* Tabs (6 total: existing 4 + 2 new) */}
+        <div className="flex border-b border-gray-200 px-4 bg-white overflow-x-auto">
+          {(['subscription','business','political','frames','notifications','devices'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-3 text-sm font-medium capitalize transition-colors border-b-2 ${
+              className={`px-4 py-3 text-sm font-medium capitalize whitespace-nowrap transition-colors border-b-2 ${
                 tab === t
                   ? 'text-indigo-600 border-indigo-600'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
@@ -79,24 +124,83 @@ export default function UserDetailsModal({ user, onClose }: Props) {
           ) : !details ? (
             <div className="py-12 text-center text-red-500">Failed to load.</div>
           ) : tab === 'subscription' ? (
-            <SubscriptionTab details={details} />
+            <SubscriptionTab details={details} userId={user.id} onChanged={reload} />
           ) : tab === 'business' ? (
             <BusinessTab details={details} userId={user.id} onChanged={reload} />
           ) : tab === 'political' ? (
             <PoliticalTab details={details} userId={user.id} onChanged={reload} />
-          ) : (
+          ) : tab === 'frames' ? (
             <FramesTab details={details} userId={user.id} onChanged={reload} />
+          ) : tab === 'notifications' ? (
+            <NotificationsTab userId={user.id} />
+          ) : (
+            <DevicesTab userId={user.id} />
           )}
         </div>
+
+        {/* Footer — GDPR export */}
+        <div className="border-t border-gray-200 bg-white px-4 py-2.5 flex items-center justify-between">
+          <button
+            onClick={downloadGdpr}
+            title="Download a JSON dump of all data we hold about this user (GDPR / data portability)"
+            className="text-xs text-gray-500 hover:text-indigo-600 inline-flex items-center gap-1"
+          >
+            ⬇ Export user data (JSON)
+          </button>
+          <span className="text-xs text-gray-400">Last loaded: {details ? formatDate(new Date().toISOString()) : '—'}</span>
+        </div>
       </div>
+
+      {/* Pillar 3: single-user push modal launched from header button */}
+      {pushOpen && (
+        <SendPushModal
+          isOpen={true}
+          mode="single"
+          userId={user.id}
+          userName={user.name || user.phone || user.email}
+          onClose={() => setPushOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
 // ── Subscription Tab ────────────────────────────────────────────────
-function SubscriptionTab({ details }: { details: UserDetails }) {
+function SubscriptionTab({ details, userId, onChanged }: {
+  details: UserDetails; userId: number; onChanged: () => void
+}) {
+  const { addToast } = useToast()
   const sub = details.active_subscription
   const isActive = sub && sub.status === 'active'
+
+  const [history, setHistory] = useState<UserSubscriptionRow[] | null>(null)
+  const [referral, setReferral] = useState<UserReferralInfo | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+
+  // Fetch sub history + referral info in parallel on mount.
+  useEffect(() => {
+    usersAdminApi.listSubscriptions(userId).then(r => setHistory(r.results)).catch(() => setHistory([]))
+    usersAdminApi.referralInfo(userId).then(setReferral).catch(() => setReferral(null))
+  }, [userId])
+
+  const doCancel = async () => {
+    setCancelling(true)
+    try {
+      await usersAdminApi.cancelSubscription(userId)
+      addToast('Subscription cancelled — user notified via push', 'success')
+      setConfirmCancel(false)
+      onChanged()
+      // Refresh history list too
+      usersAdminApi.listSubscriptions(userId).then(r => setHistory(r.results)).catch(() => {})
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      addToast(err.response?.data?.detail || 'Cancel failed', 'error')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-center">
@@ -129,6 +233,237 @@ function SubscriptionTab({ details }: { details: UserDetails }) {
         <Row label="Expiry Date" value={sub?.expires_at ? formatDate(sub.expires_at) : '—'} />
         <Row label="Days Remaining" value={String(sub?.days_remaining ?? 0)} />
       </Card>
+
+      {/* Cancel button — only when there's an active subscription */}
+      {isActive && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => setConfirmCancel(true)}
+            className="px-4 py-2 text-sm rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 inline-flex items-center gap-1.5"
+          >
+            ✕ Cancel Subscription
+          </button>
+        </div>
+      )}
+
+      {/* Subscription history (TIER 2-D) — shows everything ever, with [CURRENT] badge */}
+      <Card title="Subscription History" icon="📜">
+        {history === null ? (
+          <div className="text-xs text-gray-400 py-2">Loading…</div>
+        ) : history.length === 0 ? (
+          <div className="text-xs text-gray-400 py-2 text-center">No subscription history</div>
+        ) : (
+          <ul className="space-y-1.5 max-h-64 overflow-y-auto">
+            {history.map(s => {
+              const isCurrent = s.id === sub?.id
+              const statusColor = {
+                active: 'bg-green-100 text-green-700',
+                cancelled: 'bg-red-100 text-red-700',
+                expired: 'bg-gray-100 text-gray-600',
+              }[s.status] || 'bg-blue-100 text-blue-700'
+              return (
+                <li key={s.id} className={'flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-xs ' +
+                  (isCurrent ? 'bg-indigo-50 border border-indigo-200' : 'bg-gray-50 border border-gray-100')}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-800 truncate">
+                      {s.plan_name} {isCurrent && <span className="text-indigo-600 ml-1">[CURRENT]</span>}
+                      {s.is_admin_grant && <span className="text-amber-600 ml-1">[ADMIN GRANT]</span>}
+                    </div>
+                    <div className="text-gray-500">
+                      ₹{s.price} · {s.expires_at ? `until ${formatDate(s.expires_at)}` : 'no expiry'}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusColor}`}>
+                    {s.status}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {/* Usage counters (TIER 3-G — scoped to aggregated counts) */}
+      <Card title="Activity Counters" icon="📊">
+        <Row label="Total Downloads" value={String(details.user.total_downloads ?? 0)} />
+        <Row label="Total Shares" value={String(details.user.total_shares ?? 0)} />
+        <Row label="Credits Balance" value={String((details.user as unknown as { credits?: number }).credits ?? 0)} />
+        <div className="text-[11px] text-gray-400 pt-1.5 italic">Per-poster history is not tracked — only aggregates.</div>
+      </Card>
+
+      {/* Referral info (TIER 3-H) */}
+      <Card title="Referral" icon="🎁">
+        {referral === null ? (
+          <div className="text-xs text-gray-400">Loading…</div>
+        ) : (
+          <>
+            <Row label="Their referral code" value={referral.referral_code || '—'} valueClass="font-mono text-indigo-600" />
+            <Row label="Referred by" value={referral.referred_by ? `${referral.referred_by.name || referral.referred_by.phone} (${referral.referred_by.referral_code})` : '—'} />
+            <Row label="Total referrals" value={String(referral.referrals_count)} />
+            {referral.referred_users.length > 0 && (
+              <details className="text-xs mt-1.5">
+                <summary className="cursor-pointer text-indigo-600 hover:text-indigo-700">
+                  See {referral.referred_users.length} referred user{referral.referred_users.length === 1 ? '' : 's'}
+                </summary>
+                <ul className="mt-1.5 space-y-0.5 max-h-40 overflow-y-auto">
+                  {referral.referred_users.map(u => (
+                    <li key={u.id} className="text-gray-600 truncate">
+                      • {u.name || u.phone || u.email} <span className="text-gray-400">({formatDate(u.joined_at)})</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* Cancel confirmation dialog */}
+      {confirmCancel && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl p-5">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Cancel this subscription?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will mark the subscription as cancelled, set the user back to Free, and
+              <strong> push a notification to their app</strong> letting them know.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmCancel(false)}
+                disabled={cancelling}
+                className="px-4 py-2 text-sm rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700"
+              >Back</button>
+              <button
+                onClick={doCancel}
+                disabled={cancelling}
+                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50"
+              >{cancelling ? 'Cancelling…' : 'Yes, Cancel & Notify'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Notifications Tab (TIER 1-C — push history sent to this user) ───
+function NotificationsTab({ userId }: { userId: number }) {
+  const [rows, setRows] = useState<UserNotificationRow[] | null>(null)
+  useEffect(() => {
+    usersAdminApi.listNotifications(userId).then(r => setRows(r.results)).catch(() => setRows([]))
+  }, [userId])
+
+  if (rows === null) return <div className="py-12 text-center text-gray-500">Loading…</div>
+  if (rows.length === 0) {
+    return (
+      <div className="py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
+        <div className="text-5xl mb-2 opacity-30">🔔</div>
+        <div className="font-semibold text-gray-700">No notifications yet</div>
+        <div className="text-sm">Push notifications + system events will appear here.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-gray-500 mb-2">{rows.length} notification{rows.length === 1 ? '' : 's'} (most recent first)</div>
+      {rows.map(n => (
+        <div key={n.id} className={'bg-white rounded-lg p-3 border ' +
+          (n.is_read ? 'border-gray-200' : 'border-indigo-200 ring-1 ring-indigo-100')}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-gray-900 truncate">{n.title}</div>
+              {n.body && <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">{n.body}</div>}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[10px] text-gray-600 capitalize">
+                  {n.notification_type}
+                </span>
+                {!n.is_read && (
+                  <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-[10px] text-indigo-700 font-bold">UNREAD</span>
+                )}
+                {n.action_url && (
+                  <span className="text-[10px] text-gray-500 truncate">→ {n.action_url}</span>
+                )}
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-400 whitespace-nowrap">
+              {formatDate(n.created_at)}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Devices Tab (TIER 2-F — FCM device registrations + deactivate) ──
+function DevicesTab({ userId }: { userId: number }) {
+  const { addToast } = useToast()
+  const [rows, setRows] = useState<UserDeviceRow[] | null>(null)
+  const [acting, setActing] = useState<number | null>(null)
+
+  const reload = () => {
+    usersAdminApi.listDevices(userId).then(r => setRows(r.results)).catch(() => setRows([]))
+  }
+  useEffect(() => { reload() }, [userId])
+
+  const deactivate = async (deviceId: number) => {
+    if (!confirm('Revoke this device? It will stop receiving push notifications.')) return
+    setActing(deviceId)
+    try {
+      await usersAdminApi.deactivateDevice(userId, deviceId)
+      addToast('Device deactivated', 'success')
+      reload()
+    } catch {
+      addToast('Failed to deactivate device', 'error')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  if (rows === null) return <div className="py-12 text-center text-gray-500">Loading…</div>
+  if (rows.length === 0) {
+    return (
+      <div className="py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
+        <div className="text-5xl mb-2 opacity-30">📱</div>
+        <div className="font-semibold text-gray-700">No registered devices</div>
+        <div className="text-sm">User has not signed in on any device with FCM enabled.</div>
+      </div>
+    )
+  }
+
+  const platformIcon = (p: string) => p === 'ios' ? '🍎' : p === 'web' ? '🌐' : '🤖'
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-gray-500 mb-2">{rows.length} device{rows.length === 1 ? '' : 's'} registered</div>
+      {rows.map(d => (
+        <div key={d.id} className="bg-white rounded-lg p-3 border border-gray-200 flex items-center gap-3">
+          <div className="text-2xl">{platformIcon(d.platform)}</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm text-gray-900 capitalize truncate">
+              {d.device_name || d.platform}
+              {d.is_active ? (
+                <span className="ml-2 px-1.5 py-0.5 rounded bg-green-100 text-[10px] text-green-700 font-bold">ACTIVE</span>
+              ) : (
+                <span className="ml-2 px-1.5 py-0.5 rounded bg-gray-100 text-[10px] text-gray-500 font-bold">REVOKED</span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">
+              Token: <span className="font-mono">{d.token_preview}</span> · Last refresh: {formatDate(d.updated_at)}
+            </div>
+          </div>
+          {d.is_active && (
+            <button
+              onClick={() => deactivate(d.id)}
+              disabled={acting === d.id}
+              className="text-xs px-3 py-1.5 rounded-md bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 disabled:opacity-50"
+            >
+              {acting === d.id ? 'Revoking…' : 'Revoke'}
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
