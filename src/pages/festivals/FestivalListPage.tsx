@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Modal } from '../../components/ui/Modal'
@@ -64,6 +64,17 @@ export default function FestivalListPage() {
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Progress for the bulk upload phase of the wizard (Step 2 → Save).
+  const [progress, setProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null)
+  // Last error during wizard submit — kept so admin can retry without losing state.
+  const [error, setError] = useState<string | null>(null)
+  // Pending media-type switch — triggers confirm dialog when files are selected.
+  const [pendingMediaType, setPendingMediaType] = useState<PosterMediaType | null>(null)
+  // Abort controller — populated only while uploading; calling .abort() cancels.
+  const abortRef = useRef<AbortController | null>(null)
+  // True when the festival was created in this attempt — on retry we skip
+  // re-creating the festival and only re-run the bulk upload.
+  const createdFestivalIdRef = useRef<number | null>(null)
 
   // Load languages once on mount (used in step 2 of wizard).
   useEffect(() => {
@@ -83,6 +94,11 @@ export default function FestivalListPage() {
     setMediaType('image')
     setAspectRatio('1:1')
     setSubmitting(false)
+    setProgress(null)
+    setError(null)
+    setPendingMediaType(null)
+    abortRef.current = null
+    createdFestivalIdRef.current = null
   }
 
   const closeModal = () => { resetWizard(); setModalOpen(false) }
@@ -121,6 +137,7 @@ export default function FestivalListPage() {
 
   const pickFiles = (list: FileList | null) => {
     if (!list) return
+    setError(null)
     setFiles([...files, ...Array.from(list)])
   }
   const handleDrop = (e: React.DragEvent) => {
@@ -128,6 +145,29 @@ export default function FestivalListPage() {
     pickFiles(e.dataTransfer.files)
   }
   const removeFile = (i: number) => setFiles(files.filter((_, idx) => idx !== i))
+
+  // Smart media-type toggle — if files exist, ask before clearing them.
+  const requestMediaTypeChange = (newType: PosterMediaType) => {
+    if (newType === mediaType) return
+    if (files.length === 0) { setMediaType(newType); return }
+    setPendingMediaType(newType)
+  }
+  const confirmMediaTypeChange = () => {
+    if (pendingMediaType) {
+      setMediaType(pendingMediaType)
+      setFiles([])
+      setPendingMediaType(null)
+    }
+  }
+  const cancelMediaTypeChange = () => setPendingMediaType(null)
+
+  const cancelWizardUpload = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setSubmitting(false)
+    setProgress(null)
+    addToast('Upload cancelled', 'success')
+  }
 
   // ─── Edit mode submit (unchanged from before) ───
   const handleEditSubmit = async () => {
@@ -146,33 +186,46 @@ export default function FestivalListPage() {
   }
 
   // ─── Wizard submit: create festival, then optionally bulk-upload posters ───
+  // On retry: if festival was created in a previous attempt, skip recreation
+  // and only re-run the bulk upload (avoids duplicate festivals).
   const handleWizardSubmit = async () => {
     if (!step1Valid) { setStep(1); addToast('Festival name + date required', 'error'); return }
     if (!filesValid) { addToast('Fix file errors before saving', 'error'); return }
 
     setSubmitting(true)
+    setError(null)
     try {
-      // 1) Create the festival.
-      const created = await create(form) as Festival | undefined
-      const newFestivalId = created?.id
+      // 1) Create the festival (once — skip on retry).
+      let newFestivalId = createdFestivalIdRef.current
+      if (newFestivalId == null) {
+        const created = await create(form) as Festival | undefined
+        newFestivalId = created?.id ?? null
+        createdFestivalIdRef.current = newFestivalId
+      }
 
       if (!newFestivalId) {
-        // Festival was created but we didn't get an id back — happens with some
-        // backends. The festival exists; just skip the upload step gracefully.
         addToast('Festival created (posters skipped — could not resolve new festival id)', 'success')
         closeModal()
         return
       }
 
-      // 2) If admin picked files, bulk-upload them tagged to the new festival.
+      // 2) If admin picked files, bulk-upload them with progress + abort support.
       if (files.length > 0) {
-        const res = await festivalCalendarApi.bulkUpload({
-          festival: newFestivalId,
-          language: languageId,
-          aspect_ratio: aspectRatio,
-          media_type: mediaType,
-          files,
-        })
+        setProgress({ loaded: 0, total: files.reduce((s, f) => s + f.size, 0), percent: 0 })
+        abortRef.current = new AbortController()
+        const res = await festivalCalendarApi.bulkUpload(
+          {
+            festival: newFestivalId,
+            language: languageId,
+            aspect_ratio: aspectRatio,
+            media_type: mediaType,
+            files,
+          },
+          {
+            signal: abortRef.current.signal,
+            onProgress: (loaded, total, percent) => setProgress({ loaded, total, percent }),
+          },
+        )
         addToast(`Festival created + ${res.created_count} poster${res.created_count === 1 ? '' : 's'} uploaded`)
       } else {
         addToast('Festival created successfully')
@@ -181,12 +234,23 @@ export default function FestivalListPage() {
       closeModal()
       refresh()
     } catch (e: unknown) {
-      const err = e as { response?: { status?: number; data?: { detail?: string } } }
+      const err = e as { response?: { status?: number; data?: { detail?: string } }; message?: string; code?: string }
+      // Cancellation isn't a real error — user-initiated.
+      if (err.code === 'ERR_CANCELED' || err.message === 'canceled') {
+        return
+      }
       const status = err.response?.status
-      if (status === 413) addToast('File(s) too large for server.', 'error')
-      else addToast('Operation failed: ' + (err.response?.data?.detail || 'unknown error'), 'error')
+      let msg = 'Operation failed'
+      if (status === 413) msg = 'File(s) too large for server.'
+      else if (err.response?.data?.detail) msg = `Operation failed: ${err.response.data.detail}`
+      else if (err.message) msg = `Operation failed: ${err.message}`
+      setError(msg)
+      // Note: festival may have been created. Retry will skip festival creation
+      // (createdFestivalIdRef preserved) and only retry the bulk upload.
     } finally {
       setSubmitting(false)
+      setProgress(null)
+      abortRef.current = null
     }
   }
 
@@ -355,9 +419,11 @@ export default function FestivalListPage() {
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer text-sm transition-colors capitalize ' +
                     (mediaType === m
                       ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300'
-                      : 'bg-brand-dark border-brand-dark-border text-brand-text-muted hover:border-brand-text-muted')
+                      : 'bg-brand-dark border-brand-dark-border text-brand-text-muted hover:border-brand-text-muted') +
+                    (submitting ? ' opacity-60 pointer-events-none' : '')
                   }>
-                    <input type="radio" name="media" checked={mediaType === m} onChange={() => { setMediaType(m); setFiles([]) }} className="sr-only" />
+                    <input type="radio" name="media" checked={mediaType === m} disabled={submitting}
+                      onChange={() => requestMediaTypeChange(m)} className="sr-only" />
                     <span>{m}</span>
                   </label>
                 ))}
@@ -416,24 +482,87 @@ export default function FestivalListPage() {
               </div>
             )}
 
-            {/* Footer: Back / Skip / Save & Upload */}
+            {/* Progress bar — only visible during upload */}
+            {submitting && progress && (
+              <div className="space-y-1.5 p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/40">
+                <div className="flex items-center justify-between text-xs text-indigo-200">
+                  <span>Uploading {files.length} file{files.length === 1 ? '' : 's'}…</span>
+                  <span className="font-semibold">{progress.percent}%</span>
+                </div>
+                <div className="h-2 bg-brand-dark rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 transition-all duration-150" style={{ width: `${progress.percent}%` }} />
+                </div>
+                <div className="text-xs text-indigo-200/70">
+                  {formatBytes(progress.loaded)} of {formatBytes(progress.total)}
+                </div>
+              </div>
+            )}
+
+            {/* Error banner — preserved across renders so files stay for retry */}
+            {error && !submitting && (
+              <div className="p-3 rounded-lg bg-status-error/10 border border-status-error/40">
+                <div className="flex items-start gap-2">
+                  <span className="text-status-error text-lg leading-none">⚠</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-status-error">Upload failed</div>
+                    <div className="text-xs text-status-error/80 mt-0.5 break-words">{error}</div>
+                    {createdFestivalIdRef.current != null && (
+                      <div className="text-xs text-status-error/70 mt-1">Festival was created. Click Retry to upload posters again.</div>
+                    )}
+                    {createdFestivalIdRef.current == null && (
+                      <div className="text-xs text-status-error/70 mt-1">Your {files.length} file{files.length === 1 ? '' : 's'} are still selected. Click Retry below.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer: Back / Cancel-Upload / Save & Upload (or Retry) */}
             <div className="flex justify-between items-center gap-3 pt-2 border-t border-brand-dark-border/50 mt-4">
-              <button onClick={() => setStep(1)} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">← Back</button>
+              <button onClick={() => setStep(1)} disabled={submitting}
+                className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed">← Back</button>
               <div className="flex gap-3">
-                <button onClick={closeModal} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
-                <button
-                  onClick={handleWizardSubmit}
-                  disabled={submitting || !filesValid}
-                  className="px-5 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-                >
-                  <Check className="h-4 w-4" />
-                  {submitting ? 'Saving…' : (files.length === 0 ? 'Save Festival (skip upload)' : `Save & Upload ${files.length} ${mediaType}${files.length === 1 ? '' : 's'}`)}
-                </button>
+                {submitting ? (
+                  <button onClick={cancelWizardUpload} className="px-5 py-2 rounded-lg bg-status-error text-white font-medium hover:opacity-90">
+                    ✕ Cancel Upload
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={closeModal} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors">Cancel</button>
+                    <button
+                      onClick={handleWizardSubmit}
+                      disabled={!filesValid}
+                      className="px-5 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      {error
+                        ? '🔁 Retry Upload'
+                        : (files.length === 0 ? 'Save Festival (skip upload)' : `Save & Upload ${files.length} ${mediaType}${files.length === 1 ? '' : 's'}`)}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* Confirm dialog — appears when admin toggles media type while files are selected */}
+      {pendingMediaType && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-brand-dark-card rounded-xl w-full max-w-sm border border-brand-dark-border shadow-2xl p-5">
+            <h3 className="text-base font-semibold text-brand-text mb-2">Switch to {pendingMediaType}?</h3>
+            <p className="text-sm text-brand-text-muted mb-4">
+              You have <span className="font-semibold text-brand-gold">{files.length}</span> {mediaType} file{files.length === 1 ? '' : 's'} selected.
+              Switching to <span className="font-semibold capitalize">{pendingMediaType}</span> will clear them. Continue?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={cancelMediaTypeChange} className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border">Cancel</button>
+              <button onClick={confirmMediaTypeChange} className="px-4 py-2 text-sm rounded-lg bg-brand-gold text-gray-900 font-semibold hover:bg-brand-gold-dark">Yes, Switch</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Festival" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
 

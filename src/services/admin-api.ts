@@ -161,20 +161,43 @@ export const festivalsApi = {
 }
 export const languagesApi = crud('languages')
 export const festivalCalendarApi = {
-  bulkUpload: async (payload: {
-    festival: number
-    language?: number | null
-    aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
-    media_type: 'image' | 'video'
-    files: File[]
-  }) => {
+  /**
+   * Bulk upload posters tagged to a festival. Supports progress tracking and
+   * cancellation. The 4th `opts` argument is optional — passing nothing keeps
+   * the legacy fire-and-wait behavior for callers that don't need progress.
+   *
+   * @param opts.onProgress  fired repeatedly during upload with bytes uploaded
+   * @param opts.signal      AbortSignal — call .abort() to cancel mid-upload
+   */
+  bulkUpload: async (
+    payload: {
+      festival: number
+      language?: number | null
+      aspect_ratio: '1:1' | '4:5' | '9:16' | '16:9'
+      media_type: 'image' | 'video'
+      files: File[]
+    },
+    opts?: {
+      onProgress?: (loaded: number, total: number, percent: number) => void
+      signal?: AbortSignal
+    },
+  ) => {
     const fd = new FormData()
     fd.append('festival', String(payload.festival))
     if (payload.language != null) fd.append('language', String(payload.language))
     fd.append('aspect_ratio', payload.aspect_ratio)
     fd.append('media_type', payload.media_type)
     for (const f of payload.files) fd.append('files', f)
-    const res = await api.post('/api/admin/festival-calendar/bulk-upload/', fd)
+    const res = await api.post('/api/admin/festival-calendar/bulk-upload/', fd, {
+      onUploadProgress: (e) => {
+        if (!opts?.onProgress) return
+        const total = e.total || payload.files.reduce((s, f) => s + f.size, 0)
+        const loaded = e.loaded ?? 0
+        const percent = total > 0 ? Math.round((loaded / total) * 100) : 0
+        opts.onProgress(loaded, total, percent)
+      },
+      signal: opts?.signal,
+    })
     return res.data as { created_count: number; poster_ids: number[] }
   },
 }

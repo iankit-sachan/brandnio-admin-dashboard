@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { festivalsApi, postersApi } from '../../services/admin-api'
 import { useToast } from '../../context/ToastContext'
-import type { Festival, PosterAspectRatio, PosterMediaType, FestivalCalendarPoster } from '../../types/festival.types'
-import BulkFestivalPosterUploadModal from './BulkFestivalPosterUploadModal'
+import type { Festival, PosterAspectRatio, FestivalCalendarPoster } from '../../types/festival.types'
+import { Info, Trash2, X } from 'lucide-react'
 
 // Bump this number when you need to bust the poster-grid cache on save.
 // (We invalidate by re-fetching on the refreshTick state below.)
@@ -40,14 +40,15 @@ export default function FestivalCalendarPage() {
 
   const [posters, setPosters] = useState<FestivalCalendarPoster[]>([])
   const [loadingPosters, setLoadingPosters] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
+  // Multi-select state for bulk delete.
+  // Cleared when active festival/tab/ratio changes (selection no longer valid).
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
   const festivalsToday = festivalsByDate[selectedDate] ?? []
-  // True when the currently-visible month has no festivals at all — the
-  // Upload button can't possibly do anything in this state, so the UI needs
-  // to direct the admin to create festivals first.
-  const monthHasNoFestivals = Object.keys(festivalsByDate).length === 0
 
   // Fetch festivals for the visible month
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function FestivalCalendarPage() {
     }).catch(() => {
       addToast('Failed to load festivals for month', 'error')
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month])
 
   // Reset active festival when selected date changes
@@ -80,7 +82,14 @@ export default function FestivalCalendarPage() {
     }).catch(() => {
       addToast('Failed to load posters', 'error')
     }).finally(() => setLoadingPosters(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFestivalId, tab, ratioFilter, refreshTick])
+
+  // Whenever the visible poster set changes (festival/tab/filter switch),
+  // clear the multi-select — the previous selection is no longer relevant.
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [activeFestivalId, tab, ratioFilter])
 
   const posterStats = useMemo(() => {
     const filtered = languageFilter === 'all'
@@ -116,50 +125,72 @@ export default function FestivalCalendarPage() {
     }
   }
 
+  // ─── Multi-select helpers ───
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(posterStats.visible.map(p => p.id)))
+  }
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const doBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    const ids = Array.from(selectedIds)
+    // Parallel deletes — backend already supports DELETE /api/admin/posters/{id}/.
+    // Promise.allSettled so a partial failure still reports what worked.
+    const results = await Promise.allSettled(ids.map(id => postersApi.delete(id)))
+    const ok = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.length - ok
+    if (failed === 0) {
+      addToast(`Deleted ${ok} poster${ok === 1 ? '' : 's'}`)
+    } else if (ok === 0) {
+      addToast(`All ${failed} deletes failed`, 'error')
+    } else {
+      addToast(`Deleted ${ok}, ${failed} failed`, 'error')
+    }
+    setBulkDeleting(false)
+    setConfirmBulkDelete(false)
+    setSelectedIds(new Set())
+    setRefreshTick(t => t + 1)
+  }
+
+  const allVisibleSelected = posterStats.visible.length > 0
+    && posterStats.visible.every(p => selectedIds.has(p.id))
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2">
-            📅 Festival Calendar
-          </h1>
-          <p className="text-sm text-brand-text-muted mt-0.5">
-            Bulk Poster System · calendar-wise poster management
-          </p>
-        </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          disabled={festivalsToday.length === 0}
-          className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed"
-          title={festivalsToday.length === 0 ? 'Pick a date that has at least one festival first' : ''}
-        >
-          ⬆ Upload Posters
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2">
+          📅 Festival Calendar
+        </h1>
+        <p className="text-sm text-brand-text-muted mt-0.5">
+          Browse posters by date · view, filter, and delete
+        </p>
       </div>
 
-      {/* Empty-state guide: no festivals exist for the visible month. Point
-          admin at the Festivals List page so they can create one before
-          trying to upload posters. Prevents the "page looks broken" confusion. */}
-      {monthHasNoFestivals && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Info banner — clear separation of concerns: this page is view-only.
+          To upload posters, admin goes to Festivals List (Phase 1 + Phase 2). */}
+      <div className="rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 text-indigo-300 shrink-0 mt-0.5" />
           <div>
-            <div className="text-amber-300 font-semibold text-sm">
-              No festivals exist for {MONTH_NAMES[month]} {year}.
+            <div className="text-indigo-200 font-semibold text-sm">
+              This page is for viewing & managing existing posters.
             </div>
             <div className="text-brand-text-muted text-xs mt-1">
-              Create festivals first — only dates with festivals can receive posters.
-              Multiple festivals on the same date are fully supported.
+              To <strong>upload new posters</strong>, go to <Link to="/festivals" className="text-indigo-300 underline">Festivals List</Link> →
+              click <strong>+ Add Festival</strong> (new festivals) or the <strong>⬆ Upload</strong> button on any row (existing festival).
             </div>
           </div>
-          <Link
-            to="/festivals"
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-500 shrink-0"
-          >
-            + Create Festival →
-          </Link>
         </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4">
         {/* ── LEFT: Calendar grid ── */}
@@ -274,62 +305,132 @@ export default function FestivalCalendarPage() {
               <div className="text-4xl opacity-30 mb-2">🖼️</div>
               <div className="text-sm font-semibold text-brand-text">No {tab}s yet</div>
               <div className="text-xs text-brand-text-muted mt-1">
-                {activeFestivalId ? 'Upload the first one with the button above.' : 'Select a festival on the left to begin.'}
+                {activeFestivalId
+                  ? <>To add posters to this festival, go to <Link to="/festivals" className="text-amber-400 underline">Festivals List</Link>.</>
+                  : 'Select a festival on the left to begin.'}
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {posterStats.visible.map(p => (
-                <div key={p.id} className="group relative bg-[#2a2a3e] rounded-lg overflow-hidden border border-brand-dark-border/50">
-                  <div className="aspect-square bg-black/30">
-                    {p.media_type === 'video' ? (
-                      <div className="relative w-full h-full">
-                        {p.thumbnail_url ? (
-                          <img src={p.thumbnail_url} className="w-full h-full object-cover" alt="" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">▶</div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-10 h-10 rounded-full bg-black/70 flex items-center justify-center">▶</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-20">
+              {posterStats.visible.map(p => {
+                const isSelected = selectedIds.has(p.id)
+                return (
+                  <div key={p.id}
+                    onClick={() => toggleSelect(p.id)}
+                    className={
+                      'group relative bg-[#2a2a3e] rounded-lg overflow-hidden border-2 transition-all cursor-pointer ' +
+                      (isSelected
+                        ? 'border-amber-500 ring-2 ring-amber-500/40'
+                        : 'border-brand-dark-border/50 hover:border-brand-text-muted')
+                    }
+                  >
+                    {/* Selection checkbox (top-left) */}
+                    <div className={
+                      'absolute top-1.5 left-1.5 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ' +
+                      (isSelected
+                        ? 'bg-amber-500 border-amber-500 text-black'
+                        : 'bg-black/60 border-white/40 text-transparent group-hover:border-white')
+                    }>
+                      {isSelected && <span className="text-xs leading-none">✓</span>}
+                    </div>
+
+                    <div className="aspect-square bg-black/30">
+                      {p.media_type === 'video' ? (
+                        <div className="relative w-full h-full">
+                          {p.thumbnail_url ? (
+                            <img src={p.thumbnail_url} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">▶</div>
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-full bg-black/70 flex items-center justify-center">▶</div>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <img src={p.thumbnail_url || p.image_url} className="w-full h-full object-cover" alt="" />
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex gap-1">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/30 text-brand-text-muted uppercase">
-                          {p.aspect_ratio}
-                        </span>
-                        {p.language_code && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 uppercase">
-                            {p.language_code}
+                      ) : (
+                        <img src={p.thumbnail_url || p.image_url} className="w-full h-full object-cover" alt="" />
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex gap-1">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/30 text-brand-text-muted uppercase">
+                            {p.aspect_ratio}
                           </span>
-                        )}
+                          {p.language_code && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 uppercase">
+                              {p.language_code}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deletePoster(p) }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-sm"
+                          title="Delete"
+                        >🗑</button>
                       </div>
-                      <button
-                        onClick={() => deletePoster(p)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 text-sm"
-                        title="Delete"
-                      >🗑</button>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {uploadOpen && festivalsToday.length > 0 && (
-        <BulkFestivalPosterUploadModal
-          date={selectedDate}
-          festivals={festivalsToday}
-          onClose={() => setUploadOpen(false)}
-          onUploaded={() => setRefreshTick(t => t + 1)}
-        />
+      {/* Floating bulk-action bar — appears when any poster is selected */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-xl bg-brand-dark-card border border-brand-gold/40 shadow-2xl backdrop-blur">
+          <span className="text-sm font-semibold text-brand-text">
+            {selectedIds.size} poster{selectedIds.size === 1 ? '' : 's'} selected
+          </span>
+          <button
+            onClick={selectAllVisible}
+            disabled={allVisibleSelected}
+            className="text-xs px-3 py-1.5 rounded-lg bg-brand-dark-hover text-brand-text-muted hover:text-brand-text disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Select All ({posterStats.visible.length})
+          </button>
+          <button
+            onClick={clearSelection}
+            className="text-xs px-3 py-1.5 rounded-lg bg-brand-dark-hover text-brand-text-muted hover:text-brand-text inline-flex items-center gap-1"
+          >
+            <X className="h-3 w-3" />
+            Clear
+          </button>
+          <div className="w-px h-6 bg-brand-dark-border" />
+          <button
+            onClick={() => setConfirmBulkDelete(true)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-status-error text-white font-medium hover:opacity-90 inline-flex items-center gap-1"
+          >
+            <Trash2 className="h-3 w-3" />
+            Delete Selected
+          </button>
+        </div>
+      )}
+
+      {/* Bulk-delete confirmation dialog */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-brand-dark-card rounded-xl w-full max-w-sm border border-brand-dark-border shadow-2xl p-5">
+            <h3 className="text-base font-semibold text-brand-text mb-2">
+              Delete {selectedIds.size} poster{selectedIds.size === 1 ? '' : 's'}?
+            </h3>
+            <p className="text-sm text-brand-text-muted mb-4">
+              This action cannot be undone. The selected posters will be permanently removed.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmBulkDelete(false)} disabled={bulkDeleting}
+                className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={doBulkDelete} disabled={bulkDeleting}
+                className="px-4 py-2 text-sm rounded-lg bg-status-error text-white font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
+                <Trash2 className="h-3.5 w-3.5" />
+                {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

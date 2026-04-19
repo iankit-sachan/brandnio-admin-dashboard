@@ -21,35 +21,44 @@ interface FormState {
   scheduled_time: string
 }
 
-const defaultFestivals: Festival[] = [
-  { id: 1, name: 'Diwali', date: '2026-11-08' },
-  { id: 2, name: 'Holi', date: '2026-03-04' },
-  { id: 3, name: 'Navratri', date: '2026-10-11' },
-  { id: 4, name: 'Raksha Bandhan', date: '2026-08-11' },
-  { id: 5, name: 'Ganesh Chaturthi', date: '2026-09-15' },
-  { id: 6, name: 'Makar Sankranti', date: '2026-01-14' },
-]
+// (Hardcoded fallback removed — admin must always see real data, never stale.
+//  If the festivals API fails, the page surfaces a real error with a Retry button
+//  instead of silently filling the dropdown with made-up festivals.)
 
-const emptyForm: FormState = { festival: 1, status: 'scheduled', auto_share: false, scheduled_date: '', scheduled_time: '' }
+const emptyForm: FormState = { festival: 0, status: 'scheduled', auto_share: false, scheduled_date: '', scheduled_time: '' }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
 export default function FestivalPosterPage() {
   const { addToast } = useToast()
   const { data, loading, create, update, remove } = useAdminCrud<FestivalPoster>(festivalPostersApi)
-  const [festivals, setFestivals] = useState<Festival[]>(defaultFestivals)
+  const [festivals, setFestivals] = useState<Festival[]>([])
+  const [festivalsLoading, setFestivalsLoading] = useState(true)
+  const [festivalsError, setFestivalsError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<FestivalPoster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<FestivalPoster | null>(null)
 
-  useEffect(() => {
+  // Single source of truth — fetched from backend. No silent fallback.
+  // If this fails, surface the error and let admin retry.
+  const loadFestivals = () => {
+    setFestivalsLoading(true)
+    setFestivalsError(null)
     festivalsApi.list()
       .then(results => {
-        if (Array.isArray(results) && results.length > 0) setFestivals(results)
+        const list = Array.isArray(results) ? (results as Festival[]) : []
+        setFestivals(list)
       })
-      .catch(() => setFestivals(defaultFestivals))
-  }, [])
+      .catch((e: unknown) => {
+        const err = e as { message?: string }
+        setFestivalsError(err.message || 'Could not load festivals from server.')
+        setFestivals([])
+      })
+      .finally(() => setFestivalsLoading(false))
+  }
+
+  useEffect(() => { loadFestivals() }, [])
 
   // Filters
   const [search, setSearch] = useState('')
@@ -68,7 +77,13 @@ export default function FestivalPosterPage() {
   const totalPosters = data.length
   const upcomingFestivals = festivals.filter(f => new Date(f.date) > new Date()).length
 
-  const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
+  const openAdd = () => {
+    setEditingItem(null)
+    // Default the festival dropdown to the first server-loaded festival; falls
+    // back to 0 (which the submit handler treats as "festival required").
+    setForm({ ...emptyForm, festival: festivals[0]?.id ?? 0 })
+    setModalOpen(true)
+  }
   const openEdit = (item: FestivalPoster) => {
     setEditingItem(item)
     setForm({ festival: item.festival, status: item.status, auto_share: item.auto_share, scheduled_date: item.scheduled_date, scheduled_time: item.scheduled_time })
@@ -102,8 +117,33 @@ export default function FestivalPosterPage() {
     }
   }
 
-  if (loading) {
+  if (loading || festivalsLoading) {
     return <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
+  }
+
+  // Hard error state — never silently show stale or made-up data.
+  if (festivalsError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-brand-text">Festival Posters</h1>
+        </div>
+        <div className="rounded-xl border border-status-error/40 bg-status-error/10 p-6 text-center">
+          <div className="text-3xl mb-2">⚠</div>
+          <div className="text-base font-semibold text-status-error">Could not load festivals</div>
+          <div className="text-sm text-brand-text-muted mt-1 max-w-md mx-auto">{festivalsError}</div>
+          <div className="text-xs text-brand-text-muted mt-2">
+            Network error or server unreachable. Festivals are managed in <a href="/festivals" className="text-brand-gold underline">Festivals List</a>.
+          </div>
+          <button
+            onClick={loadFestivals}
+            className="mt-4 px-4 py-2 rounded-lg bg-brand-gold text-gray-900 font-medium text-sm hover:bg-brand-gold-dark"
+          >
+            🔁 Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
