@@ -75,20 +75,33 @@ export default function FramePosterPage() {
     return 0
   }), [filtered])
 
-  const onUpload = async (payload: UploadPayload) => {
+  const onUpload = async (payload: UploadPayload): Promise<string | null> => {
     try {
       const created = await posterFramesApi.createWithFile(payload) as PosterFrameRow
       setFrames(prev => [created, ...prev])
       setUploadOpen(false)
       setDesignerFrame(created)
+      return null
     } catch (err: unknown) {
-      const e = err as { response?: { data?: Record<string, unknown>; status?: number } }
+      const e = err as { response?: { data?: Record<string, unknown>; status?: number }; message?: string }
+      const status = e.response?.status
       const d = e.response?.data
-      const msg = d
-        ? (Array.isArray(d.frame_image) ? d.frame_image[0]
-          : d.detail ?? JSON.stringify(d))
-        : (err as Error).message
-      addToast(`Upload failed: ${String(msg)}`, 'error')
+      // Build a user-friendly message. DRF field errors come back as arrays.
+      let msg = ''
+      if (d && typeof d === 'object') {
+        const entries = Object.entries(d)
+        if (entries.length) {
+          msg = entries
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+            .join(' • ')
+        }
+      }
+      if (!msg) msg = e.message ?? String(err)
+      const full = status ? `HTTP ${status} — ${msg}` : msg
+      // eslint-disable-next-line no-console
+      console.error('[Frame Upload]', { status, data: d, error: err })
+      addToast(`Upload failed: ${full}`, 'error')
+      return full
     }
   }
 
@@ -346,7 +359,8 @@ function UploadDialog({
 }: {
   open: boolean
   onClose: () => void
-  onSubmit: (p: UploadPayload) => Promise<void>
+  /** Returns null on success, or a user-friendly error string on failure. */
+  onSubmit: (p: UploadPayload) => Promise<string | null>
 }) {
   const [name, setName] = useState('')
   const [tags, setTags] = useState('')
@@ -357,16 +371,20 @@ function UploadDialog({
   const [premium, setPremium] = useState(false)
   const [featured, setFeatured] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const tooLarge = !!file && file.size > FRAME_MAX_BYTES
   const wrongType = !!file && !file.name.toLowerCase().endsWith('.png')
 
   const submit = async () => {
-    if (!name.trim() || !file) return
-    if (tooLarge || wrongType) return
+    setError(null)
+    if (!name.trim()) { setError('Frame Name is required'); return }
+    if (!file) { setError('Pick a PNG file to upload'); return }
+    if (wrongType) { setError('Only PNG files are accepted'); return }
+    if (tooLarge) { setError(`File too large (${(file.size/1024/1024).toFixed(1)} MB). Max 50 MB.`); return }
     setSaving(true)
     try {
-      await onSubmit({
+      const errMsg = await onSubmit({
         name: name.trim(),
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         category,
@@ -377,9 +395,14 @@ function UploadDialog({
         show_frame_name: showName,
         frame_image: file,
       })
-      // Reset
+      if (errMsg) {
+        setError(errMsg)
+        return
+      }
+      // Reset on success
       setName(''); setTags(''); setCategory('business'); setFrameType('square')
       setFile(null); setShowName(true); setPremium(false); setFeatured(false)
+      setError(null)
     } finally { setSaving(false) }
   }
 
@@ -452,6 +475,13 @@ function UploadDialog({
             <div>ℹ️ {FRAME_INFO_BANNER}</div>
             <div>💡 {FRAME_TIP}</div>
           </div>
+
+          {error && (
+            <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="text-red-400 shrink-0">⚠</span>
+              <span className="break-words">{error}</span>
+            </div>
+          )}
 
           <div className="flex justify-between gap-2 pt-1">
             <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-brand-dark-border text-sm text-brand-text hover:bg-brand-dark-hover">Cancel</button>
