@@ -100,21 +100,27 @@ export default function UserDetailsModal({ user, onClose }: Props) {
           <button onClick={onClose} className="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10">✕</button>
         </div>
 
-        {/* Tabs (6 total: existing 4 + 2 new) */}
-        <div className="flex border-b border-gray-200 px-4 bg-white overflow-x-auto">
-          {(['subscription','business','political','frames','notifications','devices'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-3 text-sm font-medium capitalize whitespace-nowrap transition-colors border-b-2 ${
-                tab === t
-                  ? 'text-indigo-600 border-indigo-600'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        {/* Tabs (6 total: existing 4 + 2 new).
+            flex-shrink-0 prevents the row from collapsing inside flex-col parent
+            (the bug we hit when the row was squeezed to ~5px tall).
+            overflow-x-auto wraps the inner button row only, NOT the whole div,
+            so the row keeps its intrinsic height. */}
+        <div className="flex-shrink-0 border-b border-gray-200 bg-white">
+          <div className="flex px-4 overflow-x-auto">
+            {(['subscription','business','political','frames','notifications','devices'] as Tab[]).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-3 text-sm font-medium capitalize whitespace-nowrap transition-colors border-b-2 ${
+                  tab === t
+                    ? 'text-indigo-600 border-indigo-600'
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Body */}
