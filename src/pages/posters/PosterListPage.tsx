@@ -48,6 +48,7 @@ export default function PosterListPage() {
   const [filterRatio, setFilterRatio] = useState<string>('')
   const [filterPremium, setFilterPremium] = useState<string>('')
   const [filterActive, setFilterActive] = useState<string>('')
+  const [filterScope, setFilterScope] = useState<string>('')
   const [filterTag, setFilterTag] = useState<string>('')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
@@ -63,17 +64,18 @@ export default function PosterListPage() {
     if (filterRatio) p.aspect_ratio = filterRatio
     if (filterPremium) p.is_premium = filterPremium
     if (filterActive) p.is_active = filterActive
+    if (filterScope) p.scope = filterScope
     if (filterTag) p.tag = filterTag
     if (filterDateFrom) p['created_at__gte'] = filterDateFrom
     if (filterDateTo) p['created_at__lte'] = filterDateTo
     return p
-  }, [filterCategory, filterRatio, filterPremium, filterActive, filterTag, filterDateFrom, filterDateTo])
+  }, [filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterTag, filterDateFrom, filterDateTo])
 
-  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive || filterTag || filterDateFrom || filterDateTo)
+  const hasFilters = !!(filterCategory || filterRatio || filterPremium || filterActive || filterScope || filterTag || filterDateFrom || filterDateTo)
 
   const clearFilters = () => {
     setFilterCategory(''); setFilterRatio(''); setFilterPremium(''); setFilterActive('')
-    setFilterTag(''); setFilterDateFrom(''); setFilterDateTo('')
+    setFilterScope(''); setFilterTag(''); setFilterDateFrom(''); setFilterDateTo('')
   }
 
   const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, create, update, remove } = useAdminPaginatedCrud<Poster>(postersApi, extraParams)
@@ -383,7 +385,7 @@ export default function PosterListPage() {
         <div className="flex items-center gap-3">
           <SearchInput value={search} onChange={setSearch} placeholder="Search posters..." className="w-64" />
           <button onClick={() => setShowFilters(f => !f)} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${hasFilters ? 'bg-brand-gold/10 border-brand-gold/50 text-brand-gold' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
-            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
+            <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
           </button>
           <button onClick={() => setBulkUploadOpen(true)} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Upload className="h-4 w-4" /> Bulk Upload
@@ -421,6 +423,14 @@ export default function PosterListPage() {
             <option value="">Active & Hidden</option>
             <option value="true">Active Only</option>
             <option value="false">Hidden Only</option>
+          </select>
+          <select value={filterScope} onChange={e => setFilterScope(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50" title="Filter by scope (which admin tab the poster belongs to)">
+            <option value="">All Scopes</option>
+            <option value="home">Home Tab</option>
+            <option value="categories">Categories Tab</option>
+            <option value="business">Business Tab</option>
+            <option value="festival">Festival</option>
+            <option value="greeting">Greeting</option>
           </select>
           <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 min-w-[140px]">
             <option value="">All Tags</option>

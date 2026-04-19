@@ -26,7 +26,13 @@ const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded
 export default function BusinessPosterPage() {
   const { addToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { data, loading, create, update, remove, refresh } = useAdminCrud<Poster>(postersApi)
+
+  // Q2=ii: Business Posters page shows scope IN ('business','categories') so
+  // existing un-tagged posters stay visible until admin manually re-tags
+  // them. Memoized to keep referential equality across renders (otherwise
+  // useAdminCrud's useCallback deps would re-trigger fetches).
+  const crudParams = useMemo(() => ({ scope: 'business,categories' }), [])
+  const { data, loading, create, update, remove, refresh } = useAdminCrud<Poster>(postersApi, crudParams)
   const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi)
   const { data: festivals } = useAdminCrud(festivalsApi)
   const [modalOpen, setModalOpen] = useState(false)
@@ -104,10 +110,12 @@ export default function BusinessPosterPage() {
     if (!form.category) { addToast('Category is required', 'error'); return }
     try {
       if (editingItem) {
+        // Edit: don't override scope — preserve whatever it currently is.
         await update(editingItem.id, form)
         addToast('Poster updated successfully')
       } else {
-        await create(form)
+        // New poster created from Business Posters page → scope='business'.
+        await create({ ...form, scope: 'business' })
         addToast('Poster created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
@@ -223,6 +231,7 @@ export default function BusinessPosterPage() {
             category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
+            scope: 'business',  // bulk uploads from this page are always business scope
           } as any)
         })
       )

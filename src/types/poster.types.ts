@@ -1,6 +1,7 @@
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9'
 export type AutoPosterStatus = 'pending' | 'generated' | 'accepted' | 'failed'
 export type FestivalPosterStatus = 'scheduled' | 'generated' | 'sent' | 'failed'
+export type PosterScope = 'home' | 'categories' | 'business' | 'festival' | 'greeting'
 
 export interface PosterCategory {
   id: number
@@ -31,6 +32,7 @@ export interface Poster {
   tags: string[]
   is_premium: boolean
   is_active: boolean
+  scope: PosterScope
   download_count: number
   share_count: number
   festival: number | null
