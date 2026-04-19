@@ -123,21 +123,21 @@ export default function FramePosterPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-gray-500">Loading frames…</div>
+    return <div className="flex items-center justify-center py-20 text-brand-text-muted">Loading frames…</div>
   }
 
   // ── Empty state — PDF screenshot 1 ──────────────────────────────
   if (frames.length === 0) {
     return (
-      <div className="relative h-[70vh] bg-neutral-100 rounded-2xl flex items-center justify-center overflow-hidden">
+      <div className="relative h-[70vh] bg-brand-dark-deep rounded-2xl flex items-center justify-center overflow-hidden border border-brand-dark-border">
         <div className="text-center">
-          <div className="w-24 h-24 bg-amber-100 rounded-2xl mx-auto flex items-center justify-center text-4xl">🖼️</div>
-          <h2 className="mt-4 text-xl font-bold text-gray-900">No Frames</h2>
-          <p className="text-sm text-gray-500">Upload Your First Frame</p>
+          <div className="w-24 h-24 bg-brand-gold/10 text-brand-gold rounded-2xl mx-auto flex items-center justify-center text-4xl">🖼️</div>
+          <h2 className="mt-4 text-xl font-bold text-brand-text">No Frames</h2>
+          <p className="text-sm text-brand-text-muted">Upload Your First Frame</p>
         </div>
         <button
           onClick={() => setUploadOpen(true)}
-          className="absolute right-6 bottom-6 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500 text-white font-medium shadow-lg hover:bg-amber-600"
+          className="absolute right-6 bottom-6 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-brand-gold text-brand-dark-deep font-medium shadow-lg hover:bg-brand-gold-dark"
         >
           ＋ Add Frame
         </button>
@@ -156,16 +156,16 @@ export default function FramePosterPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Frame Studio</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-2xl font-bold text-brand-text">Frame Studio</h1>
+          <p className="text-sm text-brand-text-muted mt-0.5">
             Design poster frames with drag-and-drop text areas.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className="px-2 py-1 rounded bg-gray-100">{frames.length} total</span>
-          <span className="px-2 py-1 rounded bg-green-100 text-green-700">{frames.filter(f => f.is_active).length} active</span>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="px-2 py-1 rounded bg-brand-dark-card text-brand-text-muted border border-brand-dark-border">{frames.length} total</span>
+          <span className="px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/30">{frames.filter(f => f.is_active).length} active</span>
           {sorted.length !== frames.length && (
-            <span className="px-2 py-1 rounded bg-amber-100 text-amber-700">Showing {sorted.length}</span>
+            <span className="px-2 py-1 rounded bg-brand-gold/15 text-brand-gold border border-brand-gold/30">Showing {sorted.length}</span>
           )}
         </div>
       </div>
@@ -176,28 +176,28 @@ export default function FramePosterPage() {
           placeholder="Search frames…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm w-64"
+          className="bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2 text-sm text-brand-text placeholder-brand-text-muted focus:outline-none focus:border-brand-gold/50 w-64"
         />
-        <select value={scopeFilter} onChange={e => setScopeFilter(e.target.value as 'all' | 'global' | 'user')} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <select value={scopeFilter} onChange={e => setScopeFilter(e.target.value as 'all' | 'global' | 'user')} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="all">All scopes</option>
           <option value="global">Global</option>
           <option value="user">Per-user</option>
         </select>
-        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Categories</option>
           {FRAME_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Types</option>
           {FRAME_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         {availableTags.length > 0 && (
-          <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
             <option value="">All Tags</option>
             {availableTags.map(t => <option key={t} value={t}>#{t}</option>)}
           </select>
         )}
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
           <option value="">All Status</option>
           <option value="active">Active Only</option>
           <option value="inactive">Inactive Only</option>
@@ -207,72 +207,85 @@ export default function FramePosterPage() {
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {sorted.map(f => (
-          <div key={f.id} className="group bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="aspect-[4/5] bg-neutral-100 relative flex items-center justify-center">
+          <div key={f.id} className="group bg-brand-dark-card rounded-xl border border-brand-dark-border overflow-hidden hover:border-brand-gold/40 transition-colors">
+            {/* Checkerboard bg so transparent PNG frames show edges clearly */}
+            <div
+              className="aspect-[4/5] relative flex items-center justify-center"
+              style={{
+                backgroundColor: '#2a2a2a',
+                backgroundImage:
+                  'linear-gradient(45deg, #333 25%, transparent 25%), ' +
+                  'linear-gradient(-45deg, #333 25%, transparent 25%), ' +
+                  'linear-gradient(45deg, transparent 75%, #333 75%), ' +
+                  'linear-gradient(-45deg, transparent 75%, #333 75%)',
+                backgroundSize: '16px 16px',
+                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+              }}
+            >
               {f.thumbnail_url
                 ? <img src={f.thumbnail_url} alt={f.name} className="w-full h-full object-contain" />
-                : <div className="text-3xl">🖼️</div>}
+                : <div className="text-3xl opacity-40">🖼️</div>}
 
               {/* Badges */}
               <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                {f.is_featured && <span className="px-2 py-0.5 text-[10px] rounded-full bg-pink-100 text-pink-700 font-medium">✨ Featured</span>}
-                {f.is_premium && <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-100 text-amber-700 font-medium">⭐ Premium</span>}
-                {f.assigned_user && <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-100 text-purple-700 font-medium">User #{f.assigned_user}</span>}
-                <span className={`px-2 py-0.5 text-[10px] rounded-full ${f.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                {f.is_featured && <span className="px-2 py-0.5 text-[10px] rounded-full bg-pink-500/90 text-white font-medium backdrop-blur-sm">✨ Featured</span>}
+                {f.is_premium && <span className="px-2 py-0.5 text-[10px] rounded-full bg-brand-gold/90 text-brand-dark-deep font-medium backdrop-blur-sm">⭐ Premium</span>}
+                {f.assigned_user && <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/90 text-white font-medium backdrop-blur-sm">User #{f.assigned_user}</span>}
+                <span className={`px-2 py-0.5 text-[10px] rounded-full font-medium backdrop-blur-sm ${f.is_active ? 'bg-green-500/90 text-white' : 'bg-black/60 text-neutral-300'}`}>
                   {f.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
 
               <div className="absolute bottom-2 left-2 flex gap-1">
-                <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/80 border text-gray-700">{f.aspect_ratio}</span>
-                <span className="px-2 py-0.5 text-[10px] rounded-full bg-white/80 border text-gray-700">{f.frame_type}</span>
+                <span className="px-2 py-0.5 text-[10px] rounded-full bg-black/70 text-white backdrop-blur-sm">{f.aspect_ratio}</span>
+                <span className="px-2 py-0.5 text-[10px] rounded-full bg-black/70 text-white backdrop-blur-sm">{f.frame_type}</span>
               </div>
 
               {/* Hover actions */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+              <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
                 <button
                   onClick={() => setDesignerFrame(f)}
-                  className="p-2 rounded-lg bg-amber-500 text-white"
+                  className="p-2 rounded-lg bg-brand-gold text-brand-dark-deep hover:bg-brand-gold-dark"
                   title="Edit text areas"
                 >✎</button>
                 <div className="relative">
                   <button
                     onClick={e => { e.stopPropagation(); setDupDropdown(dupDropdown === f.id ? null : f.id) }}
-                    className="p-2 rounded-lg bg-blue-500 text-white"
+                    className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
                     title="Duplicate"
                   >⎘</button>
                   {dupDropdown === f.id && (
-                    <div className="absolute top-full mt-1 left-0 bg-white border rounded-lg shadow-xl z-30 py-1 min-w-[140px]">
-                      <button onClick={() => { duplicate(f); setDupDropdown(null) }} className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100">Same ratio</button>
+                    <div className="absolute top-full mt-1 left-0 bg-brand-dark-card border border-brand-dark-border rounded-lg shadow-xl z-30 py-1 min-w-[140px]">
+                      <button onClick={() => { duplicate(f); setDupDropdown(null) }} className="w-full text-left px-3 py-1 text-xs text-brand-text hover:bg-brand-dark-hover">Same ratio</button>
                       {['1:1', '4:5', '9:16', '16:9'].filter(r => r !== f.aspect_ratio).map(r => (
-                        <button key={r} onClick={() => { duplicate(f, r); setDupDropdown(null) }} className="w-full text-left px-3 py-1 text-xs hover:bg-gray-100">To {r}</button>
+                        <button key={r} onClick={() => { duplicate(f, r); setDupDropdown(null) }} className="w-full text-left px-3 py-1 text-xs text-brand-text hover:bg-brand-dark-hover">To {r}</button>
                       ))}
                     </div>
                   )}
                 </div>
                 <button
                   onClick={() => toggleActive(f)}
-                  className="p-2 rounded-lg bg-green-600 text-white"
+                  className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
                   title={f.is_active ? 'Deactivate' : 'Activate'}
                 >{f.is_active ? '⏸' : '▶'}</button>
                 <button
                   onClick={() => setDeleteFrame(f)}
-                  className="p-2 rounded-lg bg-red-500 text-white"
+                  className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
                   title="Delete"
                 >🗑</button>
               </div>
             </div>
 
             <div className="p-3">
-              <div className="text-sm font-medium text-gray-900 truncate">{f.name}</div>
-              <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2">
+              <div className="text-sm font-medium text-brand-text truncate">{f.name}</div>
+              <div className="text-[11px] text-brand-text-muted mt-0.5 flex items-center gap-2">
                 <span className="capitalize">{f.category}</span>
                 {f.usage_count > 0 && <span>· used {f.usage_count}×</span>}
               </div>
               {f.tags?.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {f.tags.slice(0, 4).map(t => (
-                    <span key={t} className="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600">#{t}</span>
+                    <span key={t} className="px-1.5 py-0.5 text-[10px] rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">#{t}</span>
                   ))}
                 </div>
               )}
@@ -284,7 +297,7 @@ export default function FramePosterPage() {
       {/* Floating + button */}
       <button
         onClick={() => setUploadOpen(true)}
-        className="fixed bottom-6 right-6 flex items-center gap-1.5 px-4 py-3 rounded-full bg-amber-500 text-white font-medium shadow-xl hover:bg-amber-600 z-40"
+        className="fixed bottom-6 right-6 flex items-center gap-1.5 px-4 py-3 rounded-full bg-brand-gold text-brand-dark-deep font-semibold shadow-xl hover:bg-brand-gold-dark z-40"
       >＋ Add Frame</button>
 
       <UploadDialog
@@ -372,35 +385,49 @@ function UploadDialog({
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-[440px] max-w-[95vw] overflow-hidden"
+        className="bg-brand-dark-card border border-brand-dark-border rounded-2xl shadow-2xl w-[440px] max-w-[95vw] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Dark navy header, mirroring PDF */}
-        <div className="bg-[#0b1a3a] h-12" />
+        {/* Dark header bar (matches PDF but tuned to app's dark theme) */}
+        <div className="bg-brand-dark-deep h-12 flex items-center px-5 border-b border-brand-dark-border">
+          <h3 className="text-sm font-semibold text-brand-text">Add Frame</h3>
+        </div>
 
-        <div className="bg-[#f5efe0] p-5 space-y-3">
+        <div className="p-5 space-y-3">
           <Field label="Frame Name">
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="T" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            <input
+              value={name} onChange={e => setName(e.target.value)} placeholder="My frame"
+              className="w-full px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-sm text-brand-text placeholder-brand-text-muted focus:outline-none focus:border-brand-gold/50"
+            />
           </Field>
-          <Field label="Tags ( Comma - separated)">
-            <input value={tags} onChange={e => setTags(e.target.value)} placeholder="#" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+          <Field label="Tags (comma-separated)">
+            <input
+              value={tags} onChange={e => setTags(e.target.value)} placeholder="summer, limited, shop"
+              className="w-full px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-sm text-brand-text placeholder-brand-text-muted focus:outline-none focus:border-brand-gold/50"
+            />
           </Field>
           <Field label="Category">
-            <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+            <select
+              value={category} onChange={e => setCategory(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+            >
               {FRAME_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </Field>
           <Field label="Frame Type">
-            <select value={frameType} onChange={e => setFrameType(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+            <select
+              value={frameType} onChange={e => setFrameType(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+            >
               {FRAME_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </Field>
 
-          <div className="bg-white/70 rounded-xl p-2 space-y-1">
+          <div className="bg-brand-dark rounded-xl p-1.5 space-y-0.5 border border-brand-dark-border/60">
             <ToggleRow
-              icon="ⓘ" label="Frame Name"
+              icon="ⓘ" label="Frame Name (auto-add watermark)"
               value={showName} onChange={setShowName}
             />
             <ToggleRow
@@ -413,25 +440,25 @@ function UploadDialog({
             />
           </div>
 
-          <label className={'block rounded-lg px-3 py-3 text-sm text-center cursor-pointer border-dashed border-2 ' + (tooLarge || wrongType ? 'bg-red-50 border-red-300 text-red-700' : 'bg-white border-indigo-300 text-gray-700')}>
+          <label className={'block rounded-lg px-3 py-4 text-sm text-center cursor-pointer border-dashed border-2 transition-colors ' + (tooLarge || wrongType ? 'bg-red-500/10 border-red-500/50 text-red-400' : 'bg-brand-dark border-brand-gold/40 hover:border-brand-gold text-brand-text')}>
             <input type="file" accept="image/png" onChange={e => setFile(e.target.files?.[0] ?? null)} className="hidden" />
             {file ? (
-              <>📄 {file.name} <span className="text-xs opacity-80">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
-                {tooLarge && <span className="text-red-700 font-semibold"> — too large</span>}
-                {wrongType && <span className="text-red-700 font-semibold"> — not PNG</span>}</>
+              <>📄 {file.name} <span className="text-xs text-brand-text-muted">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
+                {tooLarge && <span className="text-red-400 font-semibold"> — too large</span>}
+                {wrongType && <span className="text-red-400 font-semibold"> — not PNG</span>}</>
             ) : '📄 Select PNG Frame'}
           </label>
-          <div className="text-[11px] text-blue-900/80 bg-blue-50 rounded px-2 py-1 space-y-0.5">
+          <div className="text-[11px] text-brand-text-muted bg-brand-dark-deep rounded-lg px-3 py-2 space-y-0.5 border border-brand-dark-border/50">
             <div>ℹ️ {FRAME_INFO_BANNER}</div>
             <div>💡 {FRAME_TIP}</div>
           </div>
 
           <div className="flex justify-between gap-2 pt-1">
-            <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">Cancel</button>
+            <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-brand-dark-border text-sm text-brand-text hover:bg-brand-dark-hover">Cancel</button>
             <button
               onClick={submit}
               disabled={!name.trim() || !file || tooLarge || wrongType || saving}
-              className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+              className="flex-1 px-4 py-2 rounded-lg bg-brand-gold text-brand-dark-deep text-sm font-semibold hover:bg-brand-gold-dark disabled:opacity-50"
             >{saving ? 'Uploading…' : '↑ Upload Frame'}</button>
           </div>
         </div>
@@ -443,7 +470,7 @@ function UploadDialog({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-xs font-medium text-gray-700 mb-1">{label}</div>
+      <div className="text-xs font-medium text-brand-text-muted mb-1">{label}</div>
       {children}
     </div>
   )
@@ -461,14 +488,14 @@ function ToggleRow({
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-white"
+      className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-brand-dark-hover"
     >
       <span className="flex items-center gap-2">
         <span>{icon}</span>
-        <span className="font-medium text-gray-800">{label}</span>
+        <span className="font-medium text-brand-text">{label}</span>
       </span>
       <span
-        className={'relative inline-block w-10 h-5 rounded-full transition ' + (value ? 'bg-amber-500' : 'bg-gray-300')}
+        className={'relative inline-block w-10 h-5 rounded-full transition ' + (value ? 'bg-brand-gold' : 'bg-brand-dark-border')}
       >
         <span
           className={'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ' + (value ? 'left-5' : 'left-0.5')}

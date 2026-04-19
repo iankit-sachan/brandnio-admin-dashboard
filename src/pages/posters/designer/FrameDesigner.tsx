@@ -323,40 +323,40 @@ export function FrameDesigner({
   const selectedLayer = undo.state.find(l => l.id === selectedId) || null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-2xl w-[1200px] max-w-[98vw] h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+      <div className="bg-brand-dark-card border border-brand-dark-border rounded-2xl shadow-2xl w-[1200px] max-w-[98vw] h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-brand-dark-border bg-brand-dark-deep">
           <div>
-            <div className="font-semibold text-gray-900">Design Text Areas — {frame.name}</div>
-            <div className="text-[11px] text-gray-500">
+            <div className="font-semibold text-brand-text">Design Text Areas — {frame.name}</div>
+            <div className="text-[11px] text-brand-text-muted">
               {frame.aspect_ratio} · {frame.frame_type} · {frame.category}
               {frame.assigned_user && ` · user=${frame.assigned_user}`}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="px-2.5 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40"
+              className="px-2.5 py-1.5 text-xs rounded bg-brand-dark border border-brand-dark-border text-brand-text hover:bg-brand-dark-hover disabled:opacity-40"
               onClick={undo.undo} disabled={!undo.canUndo} title="Undo (Ctrl+Z)"
             >↶ Undo</button>
             <button
-              className="px-2.5 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40"
+              className="px-2.5 py-1.5 text-xs rounded bg-brand-dark border border-brand-dark-border text-brand-text hover:bg-brand-dark-hover disabled:opacity-40"
               onClick={undo.redo} disabled={!undo.canRedo} title="Redo (Ctrl+Shift+Z)"
             >↷ Redo</button>
             <button
-              className="px-2.5 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200"
+              className="px-2.5 py-1.5 text-xs rounded bg-brand-dark border border-brand-dark-border text-brand-text hover:bg-brand-dark-hover"
               onClick={() => setSafeZoneOn(v => !v)}
             >{safeZoneOn ? 'Hide' : 'Show'} Safe Zone</button>
             <button
-              className="px-2.5 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200"
+              className="px-2.5 py-1.5 text-xs rounded bg-brand-dark border border-brand-dark-border text-brand-text hover:bg-brand-dark-hover"
               onClick={() => setVersionsOpen(true)}
             >⌛ History</button>
             <button
-              className="px-3 py-1.5 text-sm rounded text-gray-600 hover:bg-gray-100"
+              className="px-3 py-1.5 text-sm rounded text-brand-text-muted hover:bg-brand-dark-hover hover:text-brand-text"
               onClick={onClose}
             >Cancel</button>
             <button
-              className="px-4 py-1.5 text-sm rounded bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-60"
+              className="px-4 py-1.5 text-sm rounded bg-brand-gold text-brand-dark-deep font-semibold hover:bg-brand-gold-dark disabled:opacity-60"
               onClick={onSave} disabled={saving}
             >{saving ? 'Saving…' : '💾 Save Text Areas'}</button>
           </div>
@@ -365,7 +365,7 @@ export function FrameDesigner({
         {/* Body: canvas + sidebar */}
         <div className="flex-1 flex min-h-0">
           {/* Canvas */}
-          <div className="flex-1 min-w-0 relative">
+          <div className="flex-1 min-w-0 relative bg-brand-dark-deep">
             <FrameCanvas
               backgroundUrl={backgroundUrl}
               canvasW={canvasW}
@@ -380,15 +380,15 @@ export function FrameDesigner({
           </div>
 
           {/* Sidebar */}
-          <div className="w-[340px] flex-shrink-0 border-l border-gray-200 flex flex-col min-h-0">
-            <div className="p-3 border-b border-gray-200">
+          <div className="w-[340px] flex-shrink-0 border-l border-brand-dark-border flex flex-col min-h-0 bg-brand-dark-card">
+            <div className="p-3 border-b border-brand-dark-border">
               <button
-                className="w-full px-3 py-2 text-sm rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 flex items-center justify-center gap-1"
+                className="w-full px-3 py-2 text-sm rounded-lg bg-brand-gold text-brand-dark-deep font-semibold hover:bg-brand-gold-dark flex items-center justify-center gap-1"
                 onClick={() => setPickerOpen(true)}
               >＋ Add Text Area</button>
             </div>
 
-            <div className="p-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+            <div className="p-3 text-xs font-semibold text-brand-text-muted uppercase tracking-wider">
               Text Areas ({undo.state.length})
             </div>
 
@@ -401,18 +401,18 @@ export function FrameDesigner({
                 return (
                   <div
                     key={l.id}
-                    className={`flex items-center gap-2 border rounded-lg px-2 py-2 cursor-pointer ${
-                      selectedId === l.id ? 'border-cyan-400 bg-cyan-50' : 'border-gray-200 hover:bg-gray-50'
+                    className={`flex items-center gap-2 border rounded-lg px-2 py-2 cursor-pointer transition-colors ${
+                      selectedId === l.id ? 'border-brand-gold bg-brand-gold/10' : 'border-brand-dark-border bg-brand-dark hover:bg-brand-dark-hover'
                     }`}
                     onClick={() => setSelectedId(l.id)}
                   >
                     <div className="text-lg">{f?.icon ?? '•'}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-500">{f?.label ?? l.name}</div>
-                      <div className="text-sm truncate">{preview}</div>
+                      <div className="text-xs text-brand-text-muted">{f?.label ?? l.name}</div>
+                      <div className="text-sm truncate text-brand-text">{preview}</div>
                     </div>
                     <button
-                      className="text-gray-400 hover:text-red-600"
+                      className="text-brand-text-muted hover:text-red-400"
                       onClick={e => { e.stopPropagation(); undo.set(undo.state.filter(x => x.id !== l.id)); if (selectedId === l.id) setSelectedId(null) }}
                       title="Delete"
                     >🗑</button>
@@ -421,14 +421,14 @@ export function FrameDesigner({
               })}
 
               {undo.state.length === 0 && (
-                <div className="text-xs text-gray-500 text-center py-6 border border-dashed rounded-lg">
+                <div className="text-xs text-brand-text-muted text-center py-6 border border-dashed border-brand-dark-border rounded-lg">
                   No text areas yet. Click “＋ Add Text Area”.
                 </div>
               )}
             </div>
 
             {selectedLayer && (
-              <div className="border-t border-gray-200 p-3 max-h-[50%] overflow-y-auto">
+              <div className="border-t border-brand-dark-border p-3 max-h-[50%] overflow-y-auto bg-brand-dark">
                 <StylePanel
                   layer={selectedLayer}
                   onChange={p => patchAndCommit(selectedLayer.id, p)}
