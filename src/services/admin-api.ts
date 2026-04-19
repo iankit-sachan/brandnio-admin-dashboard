@@ -167,7 +167,111 @@ export const posterTagsApi = {
   delete: (tag: string) =>
     api.post('/api/admin/posters/delete_tag/', { tag }).then(r => r.data),
 }
-export const posterFramesApi = crud('poster-frames')
+/**
+ * Unified poster-frames API. After the 2026-04 redesign, ``PosterFrame`` is
+ * the single table for both global and per-user frames. Per-user frames are
+ * filtered via ``?assigned_user=<id>``.
+ *
+ * The legacy ``userCustomFramesApi`` above is kept as a thin alias so an
+ * older admin build (deployed in-flight) doesn't 404. New code should use
+ * ``posterFramesApi`` everywhere.
+ */
+export const posterFramesApi = {
+  ...crud('poster-frames'),
+
+  /** Per-user frames: ?assigned_user=<id>. */
+  listForUser: (userId: number) =>
+    api.get('/api/admin/poster-frames/', { params: { assigned_user: userId } }).then(r => {
+      const d = r.data
+      if (Array.isArray(d)) return d
+      if (d && typeof d === 'object' && 'results' in d) return d.results
+      return []
+    }),
+
+  /** Multipart upload — create a frame with an attached PNG + structured payload. */
+  createWithFile: async (payload: {
+    name: string
+    category: string
+    frame_type: string
+    aspect_ratio: string
+    tags?: string[]
+    is_premium?: boolean
+    is_featured?: boolean
+    is_active?: boolean
+    show_frame_name?: boolean
+    sort_order?: number
+    assigned_user?: number | null
+    frame_image: File
+  }) => {
+    const fd = new FormData()
+    fd.append('name', payload.name)
+    fd.append('category', payload.category)
+    fd.append('frame_type', payload.frame_type)
+    fd.append('aspect_ratio', payload.aspect_ratio)
+    fd.append('type', 'image_overlay')
+    // tags must be JSON-encoded for DRF's JSONField
+    fd.append('tags', JSON.stringify(payload.tags ?? []))
+    fd.append('is_premium', String(payload.is_premium ?? false))
+    fd.append('is_featured', String(payload.is_featured ?? false))
+    fd.append('is_active', String(payload.is_active ?? true))
+    fd.append('show_frame_name', String(payload.show_frame_name ?? true))
+    fd.append('sort_order', String(payload.sort_order ?? 0))
+    if (payload.assigned_user != null) {
+      fd.append('assigned_user', String(payload.assigned_user))
+    }
+    fd.append('frame_image', payload.frame_image)
+    const res = await api.post('/api/admin/poster-frames/', fd)
+    return res.data
+  },
+
+  /** Update config_json + metadata (JSON body — used by the text-area designer Save). */
+  updateConfig: (id: number, data: {
+    name?: string
+    tags?: string[]
+    config_json?: Record<string, unknown>
+    show_frame_name?: boolean
+    is_featured?: boolean
+    is_premium?: boolean
+    is_active?: boolean
+    category?: string
+    frame_type?: string
+    sort_order?: number
+  }) => api.patch(`/api/admin/poster-frames/${id}/`, data).then(r => r.data),
+
+  /** Version history actions. */
+  versions: (id: number) =>
+    api.get<Array<{
+      id: number
+      name: string
+      tags: string[]
+      config_json: Record<string, unknown>
+      edited_by: string | null
+      edited_at: string
+    }>>(`/api/admin/poster-frames/${id}/versions/`).then(r => r.data),
+
+  rollback: (id: number, versionId: number) =>
+    api.post(`/api/admin/poster-frames/${id}/rollback/`, { version_id: versionId }).then(r => r.data),
+
+  duplicate: (id: number, opts?: { aspect_ratio?: string; assigned_user?: number | null }) =>
+    api.post(`/api/admin/poster-frames/${id}/duplicate/`, opts || {}).then(r => r.data),
+
+  previewAsUser: (id: number, userId: number) =>
+    api.post<{
+      user_id: number
+      name: string
+      phone: string
+      email: string
+      address: string
+      website: string
+      tagline: string
+      designation: string
+      constituency: string
+      logo_url: string
+    }>(`/api/admin/poster-frames/${id}/preview_as_user/`, { user_id: userId }).then(r => r.data),
+
+  incrementUsage: (id: number) =>
+    api.post(`/api/admin/poster-frames/${id}/increment_usage/`).then(r => r.data),
+}
 export const festivalsApi = {
   ...crud('festivals'),
   byMonth: (year: number, month: number) =>

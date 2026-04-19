@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
   usersApi, businessProfilesApi, politicianProfilesApi, userCustomFramesApi,
+  posterFramesApi,
   businessIndustriesApi, politicianCategoriesApi, politicianPositionsApi,
   usersAdminApi, publicBusinessCategoryChoicesApi,
   type UserNotificationRow, type UserSubscriptionRow,
   type UserDeviceRow, type UserReferralInfo,
 } from '../../services/admin-api'
+import { FrameDesigner } from '../posters/designer/FrameDesigner'
 import { useToast } from '../../context/ToastContext'
 import type { User, UserDetails, BusinessProfile, PoliticianProfile } from '../../types'
 import { formatDate } from '../../utils/formatters'
@@ -1115,9 +1117,15 @@ function DropdownInput({ icon, label, value, onChange, options, loading }: {
 }
 
 // ── Frames Tab ──────────────────────────────────────────────────────
+//
+// After the 2026-04 redesign this tab surfaces frames from the unified
+// PosterFrame table (scoped by ``assigned_user``). Upload now opens the
+// same FrameDesigner admin uses on the global Frame Studio page.
 function FramesTab({ details, userId, onChanged }: { details: UserDetails; userId: number; onChanged: () => void }) {
   const [uploading, setUploading] = useState(false)
+  const [designerFrame, setDesignerFrame] = useState<import('../posters/designer/FrameDesigner').PosterFrameRow | null>(null)
   const frames = details.custom_frames
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -1126,7 +1134,15 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
           📤 Upload
         </button>
       </div>
-      {uploading && <FrameUploadForm userId={userId} onCancel={() => setUploading(false)} onSaved={() => { setUploading(false); onChanged() }} />}
+      {uploading && <FrameUploadForm
+        userId={userId}
+        onCancel={() => setUploading(false)}
+        onSaved={(created) => {
+          setUploading(false)
+          onChanged()
+          if (created) setDesignerFrame(created)
+        }}
+      />}
       {frames.length === 0 && !uploading ? (
         <div className="py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
           <div className="text-5xl mb-2 opacity-30">🖼</div>
@@ -1136,7 +1152,7 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
           {frames.map(f => (
-            <div key={f.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div key={f.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden group relative">
               {/* Checkerboard bg so transparent PNG areas are visible (frames have transparent centres by design). */}
               <div
                 className="w-full h-32 flex items-center justify-center"
@@ -1158,19 +1174,39 @@ function FramesTab({ details, userId, onChanged }: { details: UserDetails; userI
                   <div className="text-sm font-medium text-gray-900 truncate">{f.name}</div>
                   <div className="text-xs text-gray-500 capitalize">{f.category} / {f.frame_type}</div>
                 </div>
-                <button
-                  onClick={async () => {
-                    if (!confirm(`Delete frame "${f.name}"?`)) return
-                    await userCustomFramesApi.delete(f.id)
-                    onChanged()
-                  }}
-                  className="text-red-500 hover:text-red-700 text-sm"
-                >🗑</button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={async () => {
+                      // Fetch full PosterFrame row (includes config_json + canvas dims) for designer
+                      try {
+                        const row = await posterFramesApi.get(f.id) as unknown as import('../posters/designer/FrameDesigner').PosterFrameRow
+                        setDesignerFrame(row)
+                      } catch { /* ignore */ }
+                    }}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                    title="Design text areas"
+                  >✎</button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete frame "${f.name}"?`)) return
+                      await userCustomFramesApi.delete(f.id)
+                      onChanged()
+                    }}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >🗑</button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <FrameDesigner
+        open={!!designerFrame}
+        frame={designerFrame}
+        onClose={() => setDesignerFrame(null)}
+        onSaved={() => { onChanged() }}
+      />
     </div>
   )
 }
@@ -1194,7 +1230,13 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
-function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCancel: () => void; onSaved: () => void }) {
+function FrameUploadForm({ userId, onCancel, onSaved }: {
+  userId: number
+  onCancel: () => void
+  /** Called on success; passes the created frame row so the caller can
+   *  open the Text Area Designer on it right away. */
+  onSaved: (created: import('../posters/designer/FrameDesigner').PosterFrameRow | null) => void
+}) {
   const { addToast } = useToast()
   const [name, setName] = useState('')
   const [category, setCategory] = useState('festival')
@@ -1214,9 +1256,26 @@ function FrameUploadForm({ userId, onCancel, onSaved }: { userId: number; onCanc
     }
     setSaving(true)
     try {
-      await userCustomFramesApi.uploadForUser({ user: userId, name, category, frame_type: frameType, frame_image: file })
+      // 2026-04: write directly to the unified PosterFrame table so the admin
+      // can immediately open the Text Area Designer on the new row.
+      const created = await posterFramesApi.createWithFile({
+        name,
+        category,
+        frame_type: frameType,
+        aspect_ratio: {
+          portrait: '4:5', landscape: '16:9', square: '1:1',
+          circular: '1:1', story: '9:16', banner: '16:9',
+        }[frameType] ?? '1:1',
+        tags: [],
+        is_premium: false,
+        is_featured: false,
+        is_active: true,
+        show_frame_name: true,
+        assigned_user: userId,
+        frame_image: file,
+      }) as unknown as import('../posters/designer/FrameDesigner').PosterFrameRow
       addToast('Frame uploaded')
-      onSaved()
+      onSaved(created ?? null)
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown } }
       const status = err.response?.status
