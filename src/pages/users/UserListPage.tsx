@@ -17,6 +17,44 @@ import UserDetailsModal from './UserDetailsModal'
 type Tab = 'active' | 'deleted'
 type PlanFilter = '' | 'free' | 'basic' | 'pro' | 'enterprise'
 type PremiumFilter = '' | 'true' | 'false'
+// Pillar 2: server-side filter on `last_seen_at`. Uses ISO string params
+// `last_seen_after` (active recently) / `last_seen_before` (inactive a while).
+// Empty = no filter, 'never' = never seen.
+type ActivityFilter = '' | 'online' | '24h' | '7d' | '30d' | 'inactive_30d' | 'never'
+
+/** Returns the ISO timestamp N hours ago — used as `last_seen_after` filter param. */
+function isoHoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 3600 * 1000).toISOString()
+}
+
+/** Renders "Online", "5m ago", "2h ago", "3d ago", or "Never" for a last_seen_at timestamp. */
+function LastSeenBadge({ value }: { value: string | null }) {
+  if (!value) {
+    return <span className="text-xs text-brand-text-muted/60">Never</span>
+  }
+  const seenMs = new Date(value).getTime()
+  if (isNaN(seenMs)) return <span className="text-xs text-brand-text-muted/60">—</span>
+  const diffMin = Math.floor((Date.now() - seenMs) / 60000)
+  if (diffMin < 5) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs">
+        <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" />
+        <span className="text-status-success font-medium">Online</span>
+      </span>
+    )
+  }
+  let label: string
+  if (diffMin < 60) label = `${diffMin}m ago`
+  else if (diffMin < 60 * 24) label = `${Math.floor(diffMin / 60)}h ago`
+  else if (diffMin < 60 * 24 * 30) label = `${Math.floor(diffMin / (60 * 24))}d ago`
+  else label = `${Math.floor(diffMin / (60 * 24 * 30))}mo ago`
+  const stale = diffMin > 60 * 24 * 7  // > 7 days = grey it out
+  return (
+    <span className={'text-xs ' + (stale ? 'text-brand-text-muted/70' : 'text-brand-text-muted')}>
+      {label}
+    </span>
+  )
+}
 
 interface EditForm {
   name: string
@@ -32,6 +70,7 @@ export default function UserListPage() {
   const [tab, setTab] = useState<Tab>('active')
   const [planFilter, setPlanFilter] = useState<PlanFilter>('')
   const [premiumFilter, setPremiumFilter] = useState<PremiumFilter>('')
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('')
   const [sortKey, setSortKey] = useState<string>('joined_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -46,8 +85,19 @@ export default function UserListPage() {
     }
     if (planFilter) p.plan = planFilter
     if (premiumFilter) p.is_premium = premiumFilter
+    // Pillar 2: server-side filter on last_seen_at via Django filter backend.
+    // Map UI labels to ISO timestamp ranges that the User queryset will respect
+    // (requires `django-filter` `last_seen_at__gte` lookup — added in views).
+    switch (activityFilter) {
+      case 'online': p.last_seen_at__gte = isoHoursAgo(0.083); break  // 5 min
+      case '24h':    p.last_seen_at__gte = isoHoursAgo(24); break
+      case '7d':     p.last_seen_at__gte = isoHoursAgo(24 * 7); break
+      case '30d':    p.last_seen_at__gte = isoHoursAgo(24 * 30); break
+      case 'inactive_30d': p.last_seen_at__lt = isoHoursAgo(24 * 30); break
+      case 'never':  p.last_seen_at__isnull = 'true'; break
+    }
     return p
-  }, [tab, planFilter, premiumFilter, sortKey, sortDir])
+  }, [tab, planFilter, premiumFilter, activityFilter, sortKey, sortDir])
 
   const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, refresh } =
     useAdminPaginatedCrud<User>(usersApi, extraParams)
@@ -227,6 +277,13 @@ export default function UserListPage() {
       ),
     },
     {
+      key: 'last_seen_at',
+      title: 'Last Seen',
+      sortable: true,
+      className: 'w-[120px]',
+      render: (u) => <LastSeenBadge value={(u as User).last_seen_at} />,
+    },
+    {
       key: 'joined_at',
       title: 'Joined',
       sortable: true,
@@ -313,9 +370,26 @@ export default function UserListPage() {
               { value: 'false', label: 'Free only' },
             ]}
           />
-          {(planFilter || premiumFilter || search) && (
+          <FilterSelect
+            label="Activity"
+            value={activityFilter}
+            onChange={(v) => { setActivityFilter(v as ActivityFilter); setPage(1) }}
+            options={[
+              { value: '', label: 'Any activity' },
+              { value: 'online', label: 'Online now (5m)' },
+              { value: '24h', label: 'Active 24h' },
+              { value: '7d', label: 'Active 7 days' },
+              { value: '30d', label: 'Active 30 days' },
+              { value: 'inactive_30d', label: 'Inactive 30+ days' },
+              { value: 'never', label: 'Never seen' },
+            ]}
+          />
+          {(planFilter || premiumFilter || activityFilter || search) && (
             <button
-              onClick={() => { setPlanFilter(''); setPremiumFilter(''); setSearch(''); setPage(1) }}
+              onClick={() => {
+                setPlanFilter(''); setPremiumFilter(''); setActivityFilter('');
+                setSearch(''); setPage(1)
+              }}
               className="text-xs px-2 py-1.5 text-brand-text-muted hover:text-brand-text underline"
             >Clear</button>
           )}

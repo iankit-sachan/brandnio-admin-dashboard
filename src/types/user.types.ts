@@ -23,6 +23,9 @@ export interface User {
   is_deleted: boolean
   joined_at: string
   updated_at: string
+  /** Pillar 2: Last time user made an authenticated API call (debounced 5min).
+   *  null = never seen since the feature shipped. */
+  last_seen_at: string | null
 }
 
 export interface BusinessProfile {
