@@ -61,6 +61,12 @@ export interface BusinessProfile {
   username?: string
   show_phone_number?: boolean
   linkedin?: string
+  /** Phase 2 (2026-04 / G6): server-computed weighted fullness 0..100. */
+  completion_score?: number
+  /** Phase 3 (2026-04 / G7): True once the user saved any non-empty field.
+   *  Distinguishes an actually-touched profile from the auto-created
+   *  placeholder row returned by get_or_create on first login. */
+  has_been_filled?: boolean
   /** Legacy CSV (auto-mirrored from industries_m2m). Use industries_m2m for writes. */
   industries?: string
   /** Canonical M2M field — array of BusinessIndustry slugs. */

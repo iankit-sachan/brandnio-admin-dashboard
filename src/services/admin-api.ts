@@ -107,6 +107,15 @@ export const businessProfilesApi = {
     )
     return res.data as Record<string, unknown>  // returns updated AdminBusinessProfile
   },
+  /** Phase 3 (G11): last 30 audit rows for a business profile. */
+  audit: (businessProfileId: number) =>
+    api.get<Array<{
+      id: number
+      edited_by_email: string | null
+      edited_by_role: 'user' | 'admin' | 'system'
+      edited_at: string
+      changed_fields: Record<string, { from: unknown; to: unknown }>
+    }>>(`/api/admin/business-profiles/${businessProfileId}/audit/`).then(r => r.data),
 }
 
 export const userCustomFramesApi = {

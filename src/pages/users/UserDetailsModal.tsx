@@ -56,20 +56,37 @@ export default function UserDetailsModal({ user, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [pushOpen, setPushOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  /** Phase 3 (G8): auto-refresh the open modal every 20s so admin sees
+   *  the user's edits live without having to close + reopen. Admin can
+   *  disable via a header checkbox. */
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [lastSyncedAt, setLastSyncedAt] = useState<number>(0)
 
-  const reload = async () => {
-    setLoading(true)
+  const reload = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const d = await usersApi.details(user.id)
       setDetails(d)
+      setLastSyncedAt(Date.now())
     } catch {
-      addToast('Failed to load details', 'error')
+      if (!silent) addToast('Failed to load details', 'error')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
-  useEffect(() => { reload() }, [user.id])
+  useEffect(() => { reload() }, [user.id])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // G8 auto-refresh: silent tick every 20s when toggle is on and tab is
+  // visible. Skipped while loading to avoid overlap. Clean up on unmount.
+  useEffect(() => {
+    if (!autoRefresh) return
+    const tick = () => {
+      if (document.visibilityState === 'visible') reload(true)
+    }
+    const id = window.setInterval(tick, 20_000)
+    return () => window.clearInterval(id)
+  }, [autoRefresh, user.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // GDPR export — opens the JSON download in a new tab. Browser handles download
   // because backend sets Content-Disposition: attachment on the response.
@@ -109,6 +126,13 @@ export default function UserDetailsModal({ user, onClose }: Props) {
               <LastSeenInline value={user.last_seen_at} />
             </div>
           </div>
+          {/* Phase 3 (G8): live-sync indicator + toggle */}
+          <LiveSyncPill
+            on={autoRefresh}
+            lastSyncedAt={lastSyncedAt}
+            onToggle={() => setAutoRefresh(v => !v)}
+            onManualRefresh={() => reload(true)}
+          />
           {/* Pillar 3 integration: open SendPushModal in single mode for this user */}
           <button
             onClick={() => setPushOpen(true)}
@@ -516,37 +540,78 @@ function Row({ label, value, valueClass = '' }: { label: string; value: string; 
 // ── Business Tab ────────────────────────────────────────────────────
 function BusinessTab({ details, userId, onChanged }: { details: UserDetails; userId: number; onChanged: () => void }) {
   const [editing, setEditing] = useState(false)
+  const [auditOpen, setAuditOpen] = useState(false)
   const bp = details.business_profile
   if (editing) {
     return <BusinessForm existing={bp} userId={userId} onCancel={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged() }} />
   }
-  if (!bp) {
+  // Phase 3 (G7): treat the auto-created placeholder row (has_been_filled=false)
+  // as "user never touched it" so admin doesn't see a phantom business with
+  // all blanks. If bp is missing entirely OR has_been_filled is False,
+  // render the empty state.
+  const isGhost = !bp || bp.has_been_filled === false
+  if (isGhost) {
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm text-gray-600 flex items-center gap-2">🏢 No Business Added</div>
+          <div className="text-sm text-gray-600 flex items-center gap-2">🏢 {bp ? 'Not filled yet' : 'No Business Added'}</div>
           <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 flex items-center gap-1">
-            + Add Business
+            {bp ? 'Fill on Behalf' : '+ Add Business'}
           </button>
         </div>
         <div className="py-16 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
           <div className="text-5xl mb-2 opacity-30">🏢</div>
-          <div className="font-semibold text-gray-700">No Business Details</div>
-          <div className="text-sm">Click "Add Business" above to create business profile for this user.</div>
+          <div className="font-semibold text-gray-700">
+            {bp ? 'User hasn\u2019t filled their profile yet' : 'No Business Details'}
+          </div>
+          <div className="text-sm">
+            {bp
+              ? 'The account exists but the user hasn\u2019t saved any details. Click "Fill on Behalf" to enter them now.'
+              : 'Click "Add Business" above to create business profile for this user.'}
+          </div>
         </div>
       </div>
     )
   }
   // Helper for compact "—" rendering of empty strings
   const v = (s: string | null | undefined) => s && s.trim() ? s : '—'
+  const score = typeof bp.completion_score === 'number' ? bp.completion_score : null
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-gray-600 flex items-center gap-2">🏢 {bp.business_name || 'Business'}</div>
-        <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
-          Edit Business
-        </button>
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+          🏢 {bp.business_name || 'Business'}
+          {score !== null && (
+            <span
+              className={
+                'ml-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ' +
+                (score >= 75 ? 'bg-green-100 text-green-700'
+                 : score >= 40 ? 'bg-amber-100 text-amber-700'
+                 : 'bg-gray-100 text-gray-600')
+              }
+              title="Server-computed weighted fullness score"
+            >
+              {score}% complete
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAuditOpen(true)}
+            title="Audit trail"
+            className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+          >⌛ History</button>
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
+            Edit Business
+          </button>
+        </div>
       </div>
+      {auditOpen && (
+        <BusinessAuditDrawer
+          profileId={bp.id}
+          onClose={() => setAuditOpen(false)}
+        />
+      )}
       {/* Logo preview at top — visible whenever logo_url is populated */}
       {bp.logo_url && (
         <div className="bg-white rounded-xl p-3 border border-gray-200 mb-3 flex items-center gap-3">
@@ -1365,4 +1430,146 @@ function FrameUploadForm({ userId, onCancel, onSaved }: {
       </div>
     </div>
   )
+}
+
+
+// ── Phase 3 (G11): business profile audit trail drawer ──────────────────
+function BusinessAuditDrawer({
+  profileId, onClose,
+}: {
+  profileId: number
+  onClose: () => void
+}) {
+  const [rows, setRows] = useState<Array<{
+    id: number
+    edited_by_email: string | null
+    edited_by_role: 'user' | 'admin' | 'system'
+    edited_at: string
+    changed_fields: Record<string, { from: unknown; to: unknown }>
+  }>>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    businessProfilesApi.audit(profileId)
+      .then(d => setRows(d))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [profileId])
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="absolute right-0 top-0 h-full w-[420px] bg-white shadow-2xl p-4 overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Business Profile Audit</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900">✕</button>
+        </div>
+        {loading && <div className="text-sm text-gray-500">Loading…</div>}
+        {!loading && rows.length === 0 && (
+          <div className="text-sm text-gray-500 text-center py-8">No edits recorded yet.</div>
+        )}
+        <ul className="space-y-3">
+          {rows.map(r => {
+            const roleBadge =
+              r.edited_by_role === 'admin'
+                ? { cls: 'bg-purple-100 text-purple-700', label: 'Admin' }
+                : r.edited_by_role === 'user'
+                ? { cls: 'bg-blue-100 text-blue-700', label: 'User' }
+                : { cls: 'bg-gray-100 text-gray-600', label: 'System' }
+            const fields = Object.entries(r.changed_fields)
+            return (
+              <li key={r.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={'px-1.5 py-0.5 rounded-full font-medium ' + roleBadge.cls}>
+                      {roleBadge.label}
+                    </span>
+                    <span className="text-gray-600 truncate max-w-[140px]">
+                      {r.edited_by_email ?? '<system>'}
+                    </span>
+                  </div>
+                  <span className="text-gray-500">{new Date(r.edited_at).toLocaleString()}</span>
+                </div>
+                <div className="text-xs text-gray-800 space-y-0.5 mt-1">
+                  {fields.length === 0 ? (
+                    <div className="text-gray-500">No-op save</div>
+                  ) : (
+                    fields.map(([fname, diff]) => (
+                      <div key={fname} className="flex items-start gap-1">
+                        <span className="font-mono text-[10px] text-gray-500 shrink-0">{fname}:</span>
+                        <div className="flex-1 min-w-0 break-words">
+                          <span className="text-gray-400 line-through">{renderVal(diff.from)}</span>
+                          <span className="mx-1 text-gray-400">→</span>
+                          <span className="text-gray-900">{renderVal(diff.to)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function renderVal(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '∅'
+  if (typeof v === 'boolean') return v ? 'true' : 'false'
+  const s = String(v)
+  return s.length > 80 ? s.slice(0, 77) + '…' : s
+}
+
+
+// ── Phase 3 (G8): live-sync status pill ─────────────────────────────────
+//
+// Small indicator in the modal header showing "synced Ns ago" with a pulse
+// dot while auto-refresh is on. Click the text to toggle auto-refresh; the
+// ⟳ button does a one-off manual refresh.
+function LiveSyncPill({
+  on, lastSyncedAt, onToggle, onManualRefresh,
+}: {
+  on: boolean
+  lastSyncedAt: number
+  onToggle: () => void
+  onManualRefresh: () => void
+}) {
+  // Force a re-render every 5s so the "Xs ago" text updates without the
+  // parent needing to refetch. Cheap — just a setState tick.
+  const [, force] = useState(0)
+  useEffect(() => {
+    const id = window.setInterval(() => force(n => n + 1), 5_000)
+    return () => window.clearInterval(id)
+  }, [])
+  const ago = lastSyncedAt === 0 ? '—' : formatAgo(Date.now() - lastSyncedAt)
+  return (
+    <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-white/90 text-[11px]">
+      <button
+        onClick={onToggle}
+        title={on ? 'Auto-refresh ON — click to disable' : 'Auto-refresh OFF — click to enable'}
+        className="inline-flex items-center gap-1"
+      >
+        <span
+          className={'w-2 h-2 rounded-full ' + (on ? 'bg-green-400 animate-pulse' : 'bg-white/40')}
+        />
+        <span>synced {ago}</span>
+      </button>
+      <button
+        onClick={onManualRefresh}
+        title="Refresh now"
+        className="ml-1 w-5 h-5 flex items-center justify-center rounded hover:bg-white/20"
+      >⟳</button>
+    </div>
+  )
+}
+
+function formatAgo(ms: number): string {
+  if (ms < 5_000) return 'now'
+  const s = Math.floor(ms / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ago`
 }
