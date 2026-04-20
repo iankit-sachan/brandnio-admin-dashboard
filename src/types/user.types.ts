@@ -43,6 +43,9 @@ export interface BusinessProfile {
   email: string
   phone: string
   website: string
+  /** Phase 1 (2026-04): role / job title — rendered on poster frames with a
+   *  "designation" text area. Added alongside the Poster Frame redesign. */
+  designation?: string
   address: string
   city: string
   state: string
@@ -53,6 +56,8 @@ export interface BusinessProfile {
   twitter: string                     // NEW — backend field added in 0015 migration
   youtube: string
   whatsapp: string
+  /** Phase 1 (2026-04): Pinterest URL for the 7th toggle-icon. */
+  pinterest?: string
   username?: string
   show_phone_number?: boolean
   linkedin?: string

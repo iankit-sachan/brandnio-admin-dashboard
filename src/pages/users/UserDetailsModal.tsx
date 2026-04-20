@@ -565,6 +565,7 @@ function BusinessTab({ details, userId, onChanged }: { details: UserDetails; use
       <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-2 text-sm mb-3">
         <Row label="Name" value={v(bp.business_name)} />
         <Row label="Tagline" value={v(bp.tagline)} />
+        <Row label="Designation" value={v(bp.designation)} />
         <Row label="Username" value={v(bp.username)} />
         <Row label="Category" value={v(bp.category)} />
         <Row label="Industries" value={v(bp.industries_m2m?.join(', ') || bp.industries)} />
@@ -583,6 +584,7 @@ function BusinessTab({ details, userId, onChanged }: { details: UserDetails; use
         <Row label="Twitter / X" value={v(bp.twitter)} />
         <Row label="YouTube" value={v(bp.youtube)} />
         <Row label="LinkedIn" value={v(bp.linkedin)} />
+        <Row label="Pinterest" value={v(bp.pinterest)} />
         <Row label="Selected icons" value={v(bp.selected_social_icons)} />
       </div>
       {/* Address card */}
@@ -623,6 +625,9 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
   const [form, setForm] = useState<BPFormShape>({
     business_name: existing?.business_name || '',
     tagline: existing?.tagline || '',
+    // Phase 1 (2026-04): designation (CEO/Owner/Manager) — round-trips from
+    // Android's Edit Business Profile + BusinessDetailsSheet.
+    designation: existing?.designation || '',
     username: existing?.username || '',
     category: existing?.category || 'other',
     industries_m2m: existing?.industries_m2m || (existing?.industries ? existing.industries.split(',').filter(Boolean) : []),
@@ -636,6 +641,9 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
     twitter: existing?.twitter || '',
     youtube: existing?.youtube || '',
     linkedin: existing?.linkedin || '',
+    // Phase 1 (2026-04): pinterest URL — 7th platform to complete the
+    // toggle-icon round-trip (admin can now link the pinterest icon).
+    pinterest: existing?.pinterest || '',
     address: existing?.address || '',
     city: existing?.city || '',
     state: existing?.state || '',
@@ -781,6 +789,7 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
       <div className="space-y-2 mb-3">
         <TextInput icon="🏢" placeholder="Business Name *" value={form.business_name || ''} onChange={v => update('business_name', v)} />
         <TextInput icon="💬" placeholder="Tagline" value={form.tagline || ''} onChange={v => update('tagline', v)} />
+        <TextInput icon="💼" placeholder="Designation (CEO, Owner, Manager…)" value={form.designation || ''} onChange={v => update('designation', v)} />
         <TextInput icon="@" placeholder="Username *" value={form.username || ''} onChange={v => update('username', v)} />
         <DropdownInput
           icon="📂"
@@ -844,6 +853,7 @@ function BusinessForm({ existing, userId, onCancel, onSaved }: {
         <TextInput icon="X" placeholder="Twitter / X URL" value={form.twitter || ''} onChange={v => update('twitter', v)} />
         <TextInput icon="▶" placeholder="YouTube URL" value={form.youtube || ''} onChange={v => update('youtube', v)} />
         <TextInput icon="in" placeholder="LinkedIn URL" value={form.linkedin || ''} onChange={v => update('linkedin', v)} />
+        <TextInput icon="📌" placeholder="Pinterest URL" value={form.pinterest || ''} onChange={v => update('pinterest', v)} />
         {/* Social-icon visibility toggles — controls which icons render on the business card */}
         <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">
           <div className="text-xs text-gray-700 mb-1.5">🎨 Show social icons on business card</div>
