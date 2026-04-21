@@ -636,6 +636,35 @@ export const subscriptionsApi = {
   },
 }
 
+// ── Feature Matrix (Phase 3A) ────────────────────────────────
+export interface FeatureMatrixPayload {
+  plans: Array<{ id: number; slug: string; name: string; sort_order: number; is_active: boolean }>
+  features: Array<{
+    id: number; slug: string; name: string; category: string; category_display: string
+    description: string; icon: string; sort_order: number; is_active: boolean
+  }>
+  cells: Array<{
+    plan_id: number; feature_id: number
+    enabled: boolean; quota: number | null; note: string
+  }>
+}
+
+export const featuresApi = {
+  ...crud('features'),
+  getMatrix: () =>
+    api.get<FeatureMatrixPayload>('/api/admin/features/matrix/').then(r => r.data),
+  bulkUpdate: (cells: Array<{
+    plan_id: number; feature_id: number
+    enabled: boolean; quota?: number | null; note?: string
+  }>) =>
+    api.post<{ created: number; updated: number }>(
+      '/api/admin/features/matrix/bulk-update/',
+      { cells },
+    ).then(r => r.data),
+}
+
+export const planFeaturesApi = crud('plan-features')
+
 export const creditTransactionsApi = crud('credit-transactions')
 export const aiUsageApi = crud('ai-usage')
 
