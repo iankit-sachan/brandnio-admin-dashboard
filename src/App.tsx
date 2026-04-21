@@ -54,6 +54,20 @@ const LanguagesPage = lazy(() => import('./pages/admin/LanguagesPage'))
 const SubscriptionListPage = lazy(() => import('./pages/subscriptions/SubscriptionListPage'))
 const PlanListPage = lazy(() => import('./pages/subscriptions/PlanListPage'))
 
+// UPGRADE — new admin surfaces grouped under the UPGRADE sidebar section.
+// Each lands as a stub / "Coming soon" placeholder until its real page is
+// built out in a follow-up session. The stubs avoid 404 on sidebar clicks
+// and document planned capabilities so the team can prioritise what to
+// build first.
+const RevenueDashboardPage = lazy(() => import('./pages/upgrade/RevenueDashboardPage'))
+const PromoCodesPage = lazy(() => import('./pages/upgrade/PromoCodesPage'))
+const FreeTrialConfigPage = lazy(() => import('./pages/upgrade/FreeTrialConfigPage'))
+const PricingPageEditorPage = lazy(() => import('./pages/upgrade/PricingPageEditorPage'))
+const PaywallEditorPage = lazy(() => import('./pages/upgrade/PaywallEditorPage'))
+const RazorpayLogPage = lazy(() => import('./pages/upgrade/RazorpayLogPage'))
+const RefundManagerPage = lazy(() => import('./pages/upgrade/RefundManagerPage'))
+const FeatureMatrixPage = lazy(() => import('./pages/upgrade/FeatureMatrixPage'))
+
 // Greetings
 const GreetingCategoryListPage = lazy(() => import('./pages/greetings/GreetingCategoryListPage'))
 const GreetingTemplateListPage = lazy(() => import('./pages/greetings/GreetingTemplateListPage'))
@@ -247,6 +261,17 @@ export default function App() {
                 {/* Subscriptions */}
                 <Route path="/subscriptions" element={<SubscriptionListPage />} />
                 <Route path="/subscriptions/plans" element={<PlanListPage />} />
+
+                {/* UPGRADE — 8 stub routes corresponding to sidebar items.
+                   Real page implementations replace these one at a time. */}
+                <Route path="/upgrade/revenue" element={<RevenueDashboardPage />} />
+                <Route path="/upgrade/promo-codes" element={<PromoCodesPage />} />
+                <Route path="/upgrade/free-trial" element={<FreeTrialConfigPage />} />
+                <Route path="/upgrade/pricing-page" element={<PricingPageEditorPage />} />
+                <Route path="/upgrade/paywall" element={<PaywallEditorPage />} />
+                <Route path="/upgrade/razorpay-log" element={<RazorpayLogPage />} />
+                <Route path="/upgrade/refunds" element={<RefundManagerPage />} />
+                <Route path="/upgrade/feature-matrix" element={<FeatureMatrixPage />} />
 
                 {/* Greetings */}
                 <Route path="/greetings/categories" element={<GreetingCategoryListPage />} />

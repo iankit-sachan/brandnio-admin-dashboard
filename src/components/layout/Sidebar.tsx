@@ -193,10 +193,6 @@ const navSections: NavSection[] = [
       { path: '/users', label: 'All Users', icon: Users },
       { path: '/users/business-profiles', label: 'Business Profiles', icon: Building },
       { path: '/users/political-profiles', label: 'Political Profiles', icon: User },
-      { path: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
-      { path: '/subscriptions/plans', label: 'Plans', icon: FileText },
-      { path: '/users/active-plans', label: 'Active Plans', icon: CreditCard },
-      { path: '/users/expired-plans', label: 'Expired Plans', icon: CreditCard },
       { path: '/business/industries', label: 'Business Industries', icon: Building },
       { path: '/business/categories', label: 'Business Categories', icon: Building },
       { path: '/business/social-platforms', label: 'Social Platforms', icon: Share2 },
@@ -234,10 +230,40 @@ const navSections: NavSection[] = [
       { path: '/misc/languages', label: 'Languages', icon: Globe },
       { path: '/misc/contact-config', label: 'Contact Config', icon: Phone },
       { path: '/settings/taglines', label: 'Taglines', icon: Type },
-      { path: '/settings/payment-plans', label: 'Payment Plans', icon: CreditCard },
       { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
       { path: '/business/setup-config', label: 'Business Setup', icon: Building },
       { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash },
+    ],
+  },
+
+  // ─── UPGRADE / MONETIZATION ─────────────────────────────
+  // Central home for every paid-tier / subscription / revenue surface.
+  // 5 existing pages moved here from USERS + SETTINGS:
+  //   - Subscriptions, Plans, Active Plans, Expired Plans, Payment Plans
+  // 8 new pages scaffolded with stub routes (build out one at a time):
+  //   - Revenue Dashboard, Promo Codes, Free Trial Config, Pricing Page,
+  //     Paywall Editor, Razorpay Log, Refund Manager, Feature Matrix.
+  {
+    title: 'UPGRADE',
+    icon: DollarSign,
+    defaultOpen: false,
+    items: [
+      // ── Existing (moved out of USERS + SETTINGS) ──
+      { path: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
+      { path: '/subscriptions/plans', label: 'Plans', icon: FileText },
+      { path: '/users/active-plans', label: 'Active Plans', icon: CreditCard },
+      { path: '/users/expired-plans', label: 'Expired Plans', icon: CreditCard },
+      { path: '/settings/payment-plans', label: 'Payment Plans', icon: CreditCard },
+
+      // ── New (stubbed — build out in follow-up sessions) ──
+      { path: '/upgrade/revenue', label: 'Revenue Dashboard', icon: BarChart3 },
+      { path: '/upgrade/promo-codes', label: 'Promo Codes', icon: Tag },
+      { path: '/upgrade/free-trial', label: 'Free Trial Config', icon: Gift },
+      { path: '/upgrade/pricing-page', label: 'Pricing Page Editor', icon: Layout },
+      { path: '/upgrade/paywall', label: 'Paywall Editor', icon: Sparkles },
+      { path: '/upgrade/razorpay-log', label: 'Razorpay Log', icon: FileText },
+      { path: '/upgrade/refunds', label: 'Refund Manager', icon: PenSquare },
+      { path: '/upgrade/feature-matrix', label: 'Feature Matrix', icon: Grid },
     ],
   },
 ]
