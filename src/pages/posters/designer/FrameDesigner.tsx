@@ -106,19 +106,35 @@ function hydrateLayers(rawLayers: Array<Record<string, unknown>>): TextAreaLayer
 
 /** Convert the designer's in-memory layers back to ``config_json.layers``.
  *
- *  We emit TWO backdrop entries so both old and new Android renderer paths work:
- *    - ``name='bg'``    — legacy dimension marker (skipped on draw)
- *    - ``name='frame'`` — actual PNG overlay, drawn full-canvas via drawOverlayImage
+ *  Emits TWO backdrop entries with DIFFERENT roles (2026-04 fix):
+ *    - ``name='bg'``    — dimension marker, ``url=''``. Not drawn. Older
+ *                         FrameRenderer versions use the bg layer's
+ *                         width/height as a fallback when canvasSize/
+ *                         canvasHeight is missing; keeping this row
+ *                         preserves back-compat without re-drawing the PNG.
+ *    - ``name='frame'`` — actual PNG overlay, drawn full-canvas via
+ *                         drawOverlayImage with the real URL.
  *
- *  Without the 'frame' entry, the FrameRenderer's multi-layer path would only
- *  draw text/logo placeholders on a transparent bitmap — the frame image itself
- *  would be MISSING on the final rendered poster.
+ *  BUG CONTEXT (what this replaces): the previous version emitted BOTH rows
+ *  with the same ``bgUrl``. After the 2026-04 Android fidelity pass removed
+ *  the legacy ``if (name == "bg") continue`` skip, the duplicate URL caused
+ *  the PNG to be drawn twice. Worse, when the uploaded PNG had placeholder
+ *  TEXT baked into its pixels (the common case — admins upload their
+ *  finished-design PNG as ``thumbnail_url``, which then flows back into
+ *  ``bgUrl`` here), the baked text showed through under the dynamic text
+ *  layers — producing the user-reported "admin placeholder overlapping
+ *  user data" bug on frames 194/196/222/223/234.
+ *
+ *  Android-side defense: FrameRenderer.renderImageOverlay now dedups image
+ *  URLs within a single frame, so even old frames with the duplicate
+ *  pattern only draw once. Designer-side fix below prevents new frames
+ *  from being saved with the broken pattern in the first place.
  */
 function dehydrateLayers(layers: TextAreaLayer[], canvasW: number, canvasH: number, bgUrl: string) {
   const bgMarker = {
     type: 'image', name: 'bg',
     x: 0, y: 0, width: canvasW, height: canvasH,
-    url: bgUrl,
+    url: '',   // dimension marker only — never drawn
   }
   const frameBackdrop = {
     type: 'image', name: 'frame',

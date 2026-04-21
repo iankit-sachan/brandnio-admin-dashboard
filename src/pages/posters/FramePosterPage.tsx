@@ -75,6 +75,25 @@ export default function FramePosterPage() {
     return 0
   }), [filtered])
 
+  /** Detect the 2026-04 "duplicate bg/frame URL" bug.
+   *
+   *  If a frame's ``config_json.layers`` has an image layer named 'bg' and
+   *  another named 'frame' whose URLs are both set and identical, the
+   *  Android renderer used to draw the PNG twice (wasteful) AND any text
+   *  pixels baked into the PNG would show through beneath the dynamic text
+   *  layers. The Android FrameRenderer now dedups URLs at render time, but
+   *  we surface a "⚠ Duplicate Layers" chip on the frame card so admins
+   *  can spot + re-design affected frames proactively. */
+  const hasDuplicateLayerUrls = (f: PosterFrameRow): boolean => {
+    const layers = (f.config_json as { layers?: Array<Record<string, unknown>> } | undefined)?.layers ?? []
+    if (!Array.isArray(layers)) return false
+    const bg = layers.find(l => l?.name === 'bg')
+    const frame = layers.find(l => l?.name === 'frame')
+    const bgUrl = (bg?.url as string | undefined) ?? ''
+    const frameUrl = (frame?.url as string | undefined) ?? ''
+    return bgUrl !== '' && frameUrl !== '' && bgUrl === frameUrl
+  }
+
   const onUpload = async (payload: UploadPayload): Promise<string | null> => {
     try {
       const created = await posterFramesApi.createWithFile(payload) as PosterFrameRow
@@ -241,6 +260,17 @@ export default function FramePosterPage() {
 
               {/* Badges */}
               <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                {hasDuplicateLayerUrls(f) && (
+                  <span
+                    className="px-2 py-0.5 text-[10px] rounded-full bg-red-500/95 text-white font-medium backdrop-blur-sm cursor-help"
+                    title={
+                      'This frame has the same PNG assigned to both the bg and frame layers. ' +
+                      'If the PNG has placeholder text baked in, users will see it through their ' +
+                      'own data. Re-open in the designer and save again to fix, or upload a ' +
+                      'text-free backdrop PNG.'
+                    }
+                  >⚠ Dup Layers</span>
+                )}
                 {f.is_featured && <span className="px-2 py-0.5 text-[10px] rounded-full bg-pink-500/90 text-white font-medium backdrop-blur-sm">✨ Featured</span>}
                 {f.is_premium && <span className="px-2 py-0.5 text-[10px] rounded-full bg-brand-gold/90 text-brand-dark-deep font-medium backdrop-blur-sm">⭐ Premium</span>}
                 {f.assigned_user && <span className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/90 text-white font-medium backdrop-blur-sm">User #{f.assigned_user}</span>}
