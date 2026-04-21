@@ -778,6 +778,56 @@ export const paywallContentApi = {
     api.post(`/api/admin/paywall-content/${id}/activate/`).then(r => r.data),
 }
 
+// ── R1 (2026-04) Pricing Page Editor ───────────────────────
+export interface PricingPageConfig {
+  id: number
+  headline: string
+  subheadline: string
+  footer_cta_text: string
+  footer_cta_deep_link: string
+  show_comparison_table: boolean
+  guarantee_text: string
+  hero_banner_url: string
+  updated_at: string
+  updated_by: string
+}
+export const pricingPageApi = {
+  current: () =>
+    api.get<PricingPageConfig>('/api/admin/pricing-page/current/').then(r => r.data),
+  update: (id: number, data: Partial<PricingPageConfig>) =>
+    api.patch<PricingPageConfig>(`/api/admin/pricing-page/${id}/`, data).then(r => r.data),
+  setMostPopular: (planId: number) =>
+    api.post<{ plan_id: number; plan_slug: string }>(
+      `/api/admin/pricing-page/set-most-popular/${planId}/`,
+    ).then(r => r.data),
+  clearMostPopular: () =>
+    api.post<{ cleared: number }>(
+      '/api/admin/pricing-page/clear-most-popular/',
+    ).then(r => r.data),
+}
+
+// ── R2 (2026-04) Razorpay Webhook Event Log ────────────────
+export interface RazorpayWebhookEvent {
+  id: number
+  event_id: string
+  event_type: string
+  razorpay_order_id: string
+  razorpay_payment_id: string
+  razorpay_refund_id: string
+  payload: Record<string, unknown>
+  signature_valid: boolean
+  processed: boolean
+  error_message: string
+  received_at: string
+  processed_at: string | null
+}
+export const razorpayEventsApi = {
+  ...crud<RazorpayWebhookEvent>('razorpay-events'),
+  replay: (id: number) =>
+    api.post<RazorpayWebhookEvent>(`/api/admin/razorpay-events/${id}/replay/`)
+      .then(r => r.data),
+}
+
 export const refundRequestsApi = {
   ...crud<RefundRequest>('refund-requests'),
   approve: (id: number, opts: {
