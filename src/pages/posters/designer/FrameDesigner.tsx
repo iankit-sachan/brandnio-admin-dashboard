@@ -143,10 +143,19 @@ function dehydrateLayers(layers: TextAreaLayer[], canvasW: number, canvasH: numb
   }
   const rest = layers.map(l => {
     if (l.type === 'image') {
+      // The logo layer is ALWAYS a user slot — its URL must be saved
+      // as '' so the Android FrameRenderer fills it with the user's
+      // uploaded BusinessProfile.logo. During design the admin sees a
+      // Brandnio placeholder in the canvas for positioning, but that
+      // placeholder URL must NOT leak into config_json — otherwise the
+      // renderer treats the layer as a hardcoded admin asset and never
+      // draws the user's logo. This was the "only 3 frames show user
+      // logo, rest show Brandnio logo" bug reported 2026-04.
+      const isLogoSlot = (l.name || '').toLowerCase() === 'logo'
       return {
         type: 'image', name: l.name,
         x: l.x, y: l.y, width: l.width, height: l.height,
-        url: l.url ?? '',
+        url: isLogoSlot ? '' : (l.url ?? ''),
       }
     }
     return {
