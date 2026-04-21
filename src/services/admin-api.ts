@@ -752,6 +752,32 @@ export interface RefundRequest {
   created_at: string
   updated_at: string
 }
+// ── Paywall Content (Phase 3E) ─────────────────────────────
+export interface PaywallContent {
+  id: number
+  surface: string
+  surface_display: string
+  name: string
+  headline: string
+  subheadline: string
+  hero_image_url: string
+  badge_text: string
+  feature_bullets: Array<{ icon: string; text: string }>
+  cta_text: string
+  default_selected_plan_slug: string
+  is_active: boolean
+  active_from: string | null
+  active_until: string | null
+  created_at: string
+  updated_at: string
+  created_by: string
+}
+export const paywallContentApi = {
+  ...crud<PaywallContent>('paywall-content'),
+  activate: (id: number) =>
+    api.post(`/api/admin/paywall-content/${id}/activate/`).then(r => r.data),
+}
+
 export const refundRequestsApi = {
   ...crud<RefundRequest>('refund-requests'),
   approve: (id: number, opts: {
