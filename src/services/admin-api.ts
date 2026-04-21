@@ -733,6 +733,43 @@ export interface TrialConfig {
 }
 export const trialConfigsApi = crud<TrialConfig>('trial-configs')
 
+// ── Refund Requests (Phase 3D) ─────────────────────────────
+export interface RefundRequest {
+  id: number
+  user: number
+  user_email: string
+  subscription: number
+  plan_name: string
+  subscription_amount: number
+  razorpay_payment_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  requested_amount: number
+  approved_amount: number
+  reason: string
+  admin_note: string
+  reviewed_at: string | null
+  reviewed_by: string
+  created_at: string
+  updated_at: string
+}
+export const refundRequestsApi = {
+  ...crud<RefundRequest>('refund-requests'),
+  approve: (id: number, opts: {
+    approved_amount?: number | string | null
+    admin_note?: string
+    speed?: 'normal' | 'optimum'
+  }) =>
+    api.post(`/api/admin/refund-requests/${id}/approve/`, {
+      approved_amount: opts.approved_amount ?? null,
+      admin_note: opts.admin_note ?? '',
+      speed: opts.speed ?? 'normal',
+    }).then(r => r.data),
+  reject: (id: number, admin_note?: string) =>
+    api.post(`/api/admin/refund-requests/${id}/reject/`, {
+      admin_note: admin_note ?? '',
+    }).then(r => r.data),
+}
+
 export const creditTransactionsApi = crud('credit-transactions')
 export const aiUsageApi = crud('ai-usage')
 
