@@ -571,8 +571,70 @@ export const usersAdminApi = {
 export const autoPostersApi = crud('auto-posters')
 export const festivalPostersApi = crud('festival-posters')
 
-export const plansApi = crud('plans')
-export const subscriptionsApi = crud('subscriptions')
+export const plansApi = {
+  ...crud('plans'),
+  // duplicate(): copies a plan by POSTing a stripped-down version of it
+  // under a new slug. Used by the Plans page's "Duplicate" row action to
+  // create yearly-from-monthly variants etc.
+  duplicate: async (id: number): Promise<{ id: number }> => {
+    const { data: src } = await api.get(`/api/admin/plans/${id}/`)
+    const copy = { ...src }
+    delete copy.id
+    delete copy.created_at
+    delete copy.subscriber_count
+    copy.name = `${src.name} (copy)`
+    copy.slug = `${src.slug}-copy-${Date.now().toString(36)}`
+    copy.is_active = false  // safer — admin toggles on when ready
+    const { data } = await api.post('/api/admin/plans/', copy)
+    return data
+  },
+}
+
+export const subscriptionsApi = {
+  ...crud('subscriptions'),
+
+  // Admin actions — match the @action endpoints on SubscriptionViewSet.
+  // All return the updated subscription row on success; throw on failure
+  // (axios rejects non-2xx, so callers .catch() to show toast).
+  cancel: (id: number, reason?: string) =>
+    api.post(`/api/admin/subscriptions/${id}/cancel/`, { reason: reason ?? '' })
+      .then(r => r.data),
+
+  refund: (id: number, opts: {
+    amount?: number | string | null
+    reason?: string
+    speed?: 'normal' | 'optimum'
+  }) =>
+    api.post(`/api/admin/subscriptions/${id}/refund/`, {
+      amount: opts.amount ?? null,
+      reason: opts.reason ?? '',
+      speed: opts.speed ?? 'normal',
+    }).then(r => r.data),
+
+  extend: (id: number, days: number, reason?: string) =>
+    api.post(`/api/admin/subscriptions/${id}/extend/`, {
+      days, reason: reason ?? '',
+    }).then(r => r.data),
+
+  activateManually: (id: number) =>
+    api.post(`/api/admin/subscriptions/${id}/activate/`).then(r => r.data),
+
+  // Revenue Dashboard data source — aggregated MRR / churn / plan split.
+  stats: (range: '12m' | '3m' | '1m' | 'all' = '12m') =>
+    api.get('/api/admin/subscriptions/stats/', { params: { range } })
+      .then(r => r.data),
+
+  // Returns a blob URL for the generated CSV so the caller can trigger
+  // a browser download. Respects the current filter/search state that
+  // the caller passes in via params.
+  exportCsv: async (params?: Record<string, string | number | undefined>): Promise<string> => {
+    const r = await api.get('/api/admin/subscriptions/export/', {
+      params,
+      responseType: 'blob',
+    })
+    return URL.createObjectURL(r.data as Blob)
+  },
+}
 
 export const creditTransactionsApi = crud('credit-transactions')
 export const aiUsageApi = crud('ai-usage')
