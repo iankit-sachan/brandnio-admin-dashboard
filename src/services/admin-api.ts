@@ -714,6 +714,25 @@ export const promoCodesApi = {
 
 export const promoRedemptionsApi = crud('promo-redemptions')
 
+// ── Free Trial Config (Phase 3C) ───────────────────────────
+export interface TrialConfig {
+  id: number
+  plan: number
+  plan_name: string
+  plan_slug: string
+  is_enabled: boolean
+  trial_days: number
+  require_card_upfront: boolean
+  auto_convert_to_paid: boolean
+  reminder_days_before_end: number
+  one_trial_per_email: boolean
+  one_trial_per_device: boolean
+  one_trial_per_phone: boolean
+  note: string
+  updated_at: string
+}
+export const trialConfigsApi = crud<TrialConfig>('trial-configs')
+
 export const creditTransactionsApi = crud('credit-transactions')
 export const aiUsageApi = crud('ai-usage')
 
