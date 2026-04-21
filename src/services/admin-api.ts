@@ -665,6 +665,55 @@ export const featuresApi = {
 
 export const planFeaturesApi = crud('plan-features')
 
+// ── Promo Codes (Phase 3B) ──────────────────────────────────
+export interface PromoCode {
+  id: number
+  code: string
+  description: string
+  discount_type: 'percent' | 'flat'
+  discount_value: number
+  max_discount_amount: number
+  applicable_plans: number[]
+  applicable_plan_slugs: string[]
+  total_usage_limit: number
+  per_user_limit: number
+  usage_count: number
+  valid_from: string | null
+  valid_until: string | null
+  campaign_tag: string
+  is_active: boolean
+  created_at: string
+  created_by: string
+  redemption_revenue: number
+}
+
+export const promoCodesApi = {
+  ...crud<PromoCode>('promo-codes'),
+  bulkGenerate: (payload: {
+    prefix?: string
+    count: number
+    length?: number
+    discount_type: 'percent' | 'flat'
+    discount_value: number
+    max_discount_amount?: number
+    description?: string
+    total_usage_limit?: number
+    per_user_limit?: number
+    valid_from?: string | null
+    valid_until?: string | null
+    campaign_tag?: string
+    is_active?: boolean
+    applicable_plan_ids?: number[]
+  }) =>
+    api.post<{ created: number; sample: string[] }>(
+      '/api/admin/promo-codes/bulk-generate/', payload,
+    ).then(r => r.data),
+  redemptions: (id: number) =>
+    api.get(`/api/admin/promo-codes/${id}/redemptions/`).then(r => r.data),
+}
+
+export const promoRedemptionsApi = crud('promo-redemptions')
+
 export const creditTransactionsApi = crud('credit-transactions')
 export const aiUsageApi = crud('ai-usage')
 
