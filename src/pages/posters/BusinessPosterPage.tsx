@@ -67,6 +67,10 @@ export default function BusinessPosterPage() {
   // ── Bulk upload state ──
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[]>([])
+  // Two-level category picker: parent chip → child subcategory.
+  // bulkCategory is the CHILD id (0 if parent has no children, in which
+  // case uploads are routed to bulkParentCategory).
+  const [bulkParentCategory, setBulkParentCategory] = useState<number>(0)
   const [bulkCategory, setBulkCategory] = useState<number>(0)
   const [bulkRatio, setBulkRatio] = useState<AspectRatio>('1:1')
   const [bulkPremium, setBulkPremium] = useState(false)
@@ -80,24 +84,55 @@ export default function BusinessPosterPage() {
   const bulkFileRef = useRef<HTMLInputElement>(null)
 
   // ── Auto-open bulk upload when arriving from BusinessCategoryPage with ?upload=1&category=X ──
+  // The supplied ?category=X can be either a parent chip or a child subcategory.
+  // We can only tell which once allCategories has loaded, so fire the effect
+  // whenever that list changes and guard with a ref so it runs exactly once.
   const urlUpload = searchParams.get('upload') === '1'
   const urlCategory = searchParams.get('category')
+  const urlOpenedRef = useRef(false)
   useEffect(() => {
-    if (urlUpload && urlCategory) {
-      setBulkCategory(Number(urlCategory))
-      setBulkUploadOpen(true)
-      setSearchParams({}, { replace: true }) // clean URL so refresh doesn't re-open
+    if (urlOpenedRef.current) return
+    if (!urlUpload || !urlCategory) return
+    if (allCategories.length === 0) return // wait for categories
+    const catId = Number(urlCategory)
+    const cat = allCategories.find(c => c.id === catId)
+    if (cat) {
+      if (cat.parent) {
+        // arrived with a child id → preselect its parent + the child itself
+        setBulkParentCategory(cat.parent)
+        setBulkCategory(catId)
+      } else {
+        // arrived with a parent id → preselect parent, let admin pick child
+        setBulkParentCategory(catId)
+        setBulkCategory(0)
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    setBulkUploadOpen(true)
+    setSearchParams({}, { replace: true }) // clean URL so refresh doesn't re-open
+    urlOpenedRef.current = true
+  }, [urlUpload, urlCategory, allCategories, setSearchParams])
 
-  // Build category options from DB (parent + children flat list)
+  // Build category options from DB (parent + children flat list).
+  // Still used by the filter bar + Add Poster modal + Bulk Move modal.
   const categoryOptions = useMemo(() => {
     return allCategories.filter(c => !c.parent).flatMap(c => {
       const children = allCategories.filter(sub => sub.parent === c.id)
       return [c, ...children]
     })
   }, [allCategories])
+
+  // Two-level picker for the Bulk Upload modal.
+  // bulkParentCategories = only top-level chip rows.
+  // bulkChildCategories  = children of the currently-selected parent (empty if
+  // no parent picked, or if the picked parent has no children).
+  const bulkParentCategories = useMemo(
+    () => allCategories.filter(c => !c.parent),
+    [allCategories],
+  )
+  const bulkChildCategories = useMemo(() => {
+    if (!bulkParentCategory) return []
+    return allCategories.filter(c => c.parent === bulkParentCategory)
+  }, [allCategories, bulkParentCategory])
 
   const filteredData = useMemo(() => {
     return data.filter(p => {
@@ -223,12 +258,20 @@ export default function BusinessPosterPage() {
   // Parallel bulk upload, 5 files at a time
   const handleBulkUpload = async () => {
     if (bulkFiles.length === 0) { addToast('No images selected', 'error'); return }
-    if (!bulkCategory) { addToast('Select a category', 'error'); return }
+    if (!bulkParentCategory) { addToast('Select a parent category', 'error'); return }
+    // If the parent has children, force the admin to pick one so posters
+    // don't silently land on the parent when a specific child exists.
+    if (bulkChildCategories.length > 0 && !bulkCategory) {
+      addToast('Select a child subcategory', 'error'); return
+    }
     if (!bulkLanguage) { addToast('Select a language', 'error'); return }
+    // Effective target: child if one is picked, otherwise the parent itself
+    // (valid only when the parent has zero children).
+    const targetCategoryId = bulkCategory || bulkParentCategory
     setBulkUploading(true)
     setBulkProgress({ done: 0, total: bulkFiles.length, failed: 0 })
 
-    const categoryName = (allCategories as any[]).find((c: any) => c.id === bulkCategory)?.name || 'Poster'
+    const categoryName = (allCategories as any[]).find((c: any) => c.id === targetCategoryId)?.name || 'Poster'
     let success = 0
     let failed = 0
     const CONCURRENCY = 5
@@ -242,7 +285,7 @@ export default function BusinessPosterPage() {
           const ratio = (detected_ratio as AspectRatio) || bulkRatio
           await create({
             title, image_url: imageUrl, thumbnail_url: thumbUrl,
-            category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
+            category: targetCategoryId, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
             language: bulkLanguage,  // Q2=B: required, picked once per batch
@@ -265,6 +308,8 @@ export default function BusinessPosterPage() {
     setBulkActive(true)
     setBulkTitlePrefix('')
     setBulkLanguage(null)
+    setBulkParentCategory(0)
+    setBulkCategory(0)
     setBulkUploadOpen(false)
     await refresh()
   }
@@ -279,7 +324,7 @@ export default function BusinessPosterPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-brand-text">Business Posters</h1>
         <button
-          onClick={() => { setBulkCategory(0); setBulkUploadOpen(true) }}
+          onClick={() => { setBulkParentCategory(0); setBulkCategory(0); setBulkUploadOpen(true) }}
           className="px-4 py-2 bg-brand-indigo text-white text-sm rounded-lg hover:bg-brand-indigo/80 transition-colors inline-flex items-center gap-2 cursor-pointer"
         >
           <Upload className="h-4 w-4" />
@@ -504,15 +549,55 @@ export default function BusinessPosterPage() {
             </div>
           )}
 
-          {/* Category — required, defaults to empty (Q5=A) */}
+          {/* Category — two-level picker: parent chip → child subcategory */}
           <div>
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category <span className="text-status-error">*</span></label>
-            <select value={bulkCategory} onChange={e => setBulkCategory(Number(e.target.value))} className={inputClass}>
-              <option value={0}>-- Select Category --</option>
-              {categoryOptions.map(c => (
-                <option key={c.id} value={c.id}>{c.parent ? `  ${c.name}` : c.name} ({c.poster_count || 0})</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Parent (chip) category */}
+              <div>
+                <select
+                  value={bulkParentCategory}
+                  onChange={e => {
+                    // Picking a new parent wipes the child — stale child ids
+                    // from a different parent would upload into the wrong bucket.
+                    setBulkParentCategory(Number(e.target.value))
+                    setBulkCategory(0)
+                  }}
+                  className={inputClass}
+                >
+                  <option value={0}>-- Select Parent --</option>
+                  {bulkParentCategories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-brand-text-muted mt-1">Top-level chip category.</p>
+              </div>
+              {/* Child subcategory */}
+              <div>
+                <select
+                  value={bulkCategory}
+                  onChange={e => setBulkCategory(Number(e.target.value))}
+                  disabled={!bulkParentCategory || bulkChildCategories.length === 0}
+                  className={inputClass}
+                >
+                  <option value={0}>
+                    {!bulkParentCategory
+                      ? '-- Pick parent first --'
+                      : bulkChildCategories.length === 0
+                        ? '-- No subcategories --'
+                        : '-- Select Child --'}
+                  </option>
+                  {bulkChildCategories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-brand-text-muted mt-1">
+                  {bulkParentCategory && bulkChildCategories.length === 0
+                    ? 'No subcategories — uploads will go to the parent.'
+                    : 'Target subcategory for these posters.'}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Language — required, applies to all files in this batch (Q3=A) */}
