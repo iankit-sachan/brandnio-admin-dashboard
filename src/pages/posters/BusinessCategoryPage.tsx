@@ -57,6 +57,29 @@ export default function BusinessCategoryPage() {
     setForm(f => ({ ...f, name, slug: editingItem ? f.slug : generateSlug(name) }))
   }
 
+  // 2026-04 fix: extract the REAL error from axios so the user sees
+  // "poster category with this name already exists" instead of the
+  // generic "Operation failed". The previous catch block swallowed
+  // the response details, leading to confusion when the op had
+  // actually succeeded but a downstream setState threw.
+  const extractErrorMessage = (err: unknown, fallback: string): string => {
+    const axiosErr = err as { response?: { data?: unknown }, message?: string } | null
+    const data = axiosErr?.response?.data
+    if (data && typeof data === 'object') {
+      const detail = (data as { detail?: string }).detail
+      if (typeof detail === 'string') return detail
+      // DRF field-level errors: {name: ["already exists"], slug: [...]}
+      const firstField = Object.entries(data).find(([, v]) => Array.isArray(v) && v.length)
+      if (firstField) {
+        const [, arr] = firstField
+        const msg = (arr as string[])[0]
+        if (typeof msg === 'string') return msg
+      }
+    }
+    if (typeof data === 'string' && data.length) return data
+    return axiosErr?.message || fallback
+  }
+
   const handleSubmit = async () => {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
     if (!form.slug.trim()) { addToast('Slug is required', 'error'); return }
@@ -70,8 +93,12 @@ export default function BusinessCategoryPage() {
         addToast('Category created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
-    } catch {
-      addToast('Operation failed. Please try again.', 'error')
+      // Keep the client-side list authoritative so the next attempt's
+      // dupe check (data.some(...)) sees the newly-created row and
+      // doesn't send a redundant request that the backend will reject.
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Operation failed. Please try again.'), 'error')
     }
   }
 
@@ -81,8 +108,8 @@ export default function BusinessCategoryPage() {
       await remove(deleteItem.id)
       addToast('Category deleted successfully')
       setDeleteItem(null)
-    } catch {
-      addToast('Delete failed. Please try again.', 'error')
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Delete failed. Please try again.'), 'error')
     }
   }
 
