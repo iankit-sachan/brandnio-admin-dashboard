@@ -906,6 +906,24 @@ export const servicesApi = crud('services')
 export const greetingCategoriesApi = crud('greeting-categories')
 export const greetingTemplatesApi = crud('greeting-templates')
 export const customersApi = crud('customers')
+
+// 2026-04 Phase 1 — power-admin bulk operations for GreetingTemplate.
+// Mirrors the posterBulkApi pattern. Backend implementations live in
+// admin_api.views.GreetingTemplateViewSet.
+export const greetingTemplateBulkApi = {
+  bulkDelete: (ids: number[]) =>
+    api.post('/api/admin/greeting-templates/bulk_delete/', { ids }).then(r => r.data),
+  bulkMove: (ids: number[], category: number) =>
+    api.post('/api/admin/greeting-templates/bulk_move/', { ids, category }).then(r => r.data),
+  bulkTags: (ids: number[], op: 'add' | 'remove' | 'replace', tags: string[]) =>
+    api.post('/api/admin/greeting-templates/bulk_tags/', { ids, op, tags }).then(r => r.data),
+  csvExportUrl: (): string => '/api/admin/greeting-templates/csv-export/',
+  csvImport: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/greeting-templates/csv-import/', fd).then(r => r.data)
+  },
+}
 export const greetingConfigApi = {
   get: () => api.get('/api/admin/greeting-config/').then(r => {
     const items = Array.isArray(r.data) ? r.data : r.data.results || [r.data]
