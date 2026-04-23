@@ -402,9 +402,81 @@ function UploadDialog({
   const [featured, setFeatured] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * 2026-04: opacity analysis of the uploaded PNG.
+   *   - null  → not analyzed yet (no file, or analysis pending)
+   *   - true  → PNG is ≥ 85 % opaque. When a user applies this frame
+   *             over a poster, the poster is completely hidden. If the
+   *             admin intended this frame as a STANDALONE template that's
+   *             OK; if they intended it as an OVERLAY (decorative border,
+   *             watermark, contact strip) this is a bug.
+   *   - false → PNG has enough transparency that the poster will show
+   *             through (the normal overlay case).
+   *
+   * Heuristic mirrors `FrameRenderer.isMostlyOpaqueSamples` in the Android
+   * app (5 × 5 grid, 240/255 alpha threshold, 85 % ratio threshold) so
+   * admins see a warning that lines up with what Android will actually
+   * do — if the PNG is flagged opaque here, Android's e7f42ee guard
+   * will skip drawing it as an overlay layer too.
+   */
+  const [opacityOpaque, setOpacityOpaque] = useState<boolean | null>(null)
 
   const tooLarge = !!file && file.size > FRAME_MAX_BYTES
   const wrongType = !!file && !file.name.toLowerCase().endsWith('.png')
+
+  /**
+   * Decodes the PNG in the browser and samples 25 pixels across a 5 × 5
+   * grid, reporting `true` if ≥ 85 % are effectively opaque (alpha ≥ 240).
+   * Runs off the main thread via requestAnimationFrame so a large PNG
+   * doesn't block the dialog. Any decode failure silently returns null
+   * (no warning shown) — the admin's upload is never blocked by this check.
+   */
+  useEffect(() => {
+    setOpacityOpaque(null)
+    if (!file || wrongType || tooLarge) return
+    let cancelled = false
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      if (cancelled) { URL.revokeObjectURL(url); return }
+      try {
+        const canvas = document.createElement('canvas')
+        const w = img.naturalWidth
+        const h = img.naturalHeight
+        if (w < 5 || h < 5) { setOpacityOpaque(null); return }
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { setOpacityOpaque(null); return }
+        ctx.drawImage(img, 0, 0)
+        let opaqueSamples = 0
+        let totalSamples = 0
+        for (let gy = 0; gy < 5; gy++) {
+          for (let gx = 0; gx < 5; gx++) {
+            const x = Math.min(Math.floor((gx + 0.5) / 5 * w), w - 1)
+            const y = Math.min(Math.floor((gy + 0.5) / 5 * h), h - 1)
+            const alpha = ctx.getImageData(x, y, 1, 1).data[3]
+            if (alpha >= 240) opaqueSamples++
+            totalSamples++
+          }
+        }
+        if (!cancelled) {
+          setOpacityOpaque(opaqueSamples / totalSamples >= 0.85)
+        }
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
+    img.onerror = () => {
+      if (!cancelled) setOpacityOpaque(null)
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
+    return () => {
+      cancelled = true
+      URL.revokeObjectURL(url)
+    }
+  }, [file, wrongType, tooLarge])
 
   const submit = async () => {
     setError(null)
@@ -505,6 +577,31 @@ function UploadDialog({
             <div>ℹ️ {FRAME_INFO_BANNER}</div>
             <div>💡 {FRAME_TIP}</div>
           </div>
+
+          {/*
+            2026-04 regression guard (user-reported "frame replaces entire
+            poster" bug): warn the admin at upload time when the PNG is
+            mostly opaque. The Android renderer's e7f42ee guard will skip
+            drawing this PNG as an overlay layer, so users will see their
+            poster through instead. That's the safe default, but we want
+            the admin to KNOW this is happening so they can either (a) fix
+            the PNG by adding transparency to the centre, or (b) re-classify
+            the frame as a standalone template (no poster beneath).
+          */}
+          {opacityOpaque === true && !tooLarge && !wrongType && (
+            <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="text-amber-400 shrink-0">⚠</span>
+              <span className="break-words">
+                <b>Opaque PNG detected.</b> This frame will completely cover the
+                user's poster. If you meant this as a decorative OVERLAY (border,
+                watermark, contact strip), re-export the PNG with a
+                transparent centre. If you meant this as a standalone
+                TEMPLATE (no poster beneath), this is fine — but note that
+                users who apply it over a loaded poster will only see this
+                frame, not their poster.
+              </span>
+            </div>
+          )}
 
           {error && (
             <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-2 flex items-start gap-2">
