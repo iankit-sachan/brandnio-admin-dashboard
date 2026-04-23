@@ -16,6 +16,12 @@ interface BusinessCategory {
   slug: string
   poster_count: number
   is_active: boolean
+  // 2026-04: parent/child hierarchy so admin can nest categories
+  // (e.g., "Auto mobile" > "Bikes", "Cars"). Android reads the
+  // `children` field on /api/categories/ for chip-tab subcategory
+  // display. Null = this is a top-level (parent) category.
+  parent: number | null
+  parent_name: string | null
 }
 
 interface FormState {
@@ -23,9 +29,10 @@ interface FormState {
   name: string
   slug: string
   is_active: boolean
+  parent: number | null
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
@@ -49,9 +56,19 @@ export default function BusinessCategoryPage() {
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (item: BusinessCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, is_active: item.is_active })
+    setForm({
+      icon_url: item.icon_url, name: item.name, slug: item.slug,
+      is_active: item.is_active, parent: item.parent,
+    })
     setModalOpen(true)
   }
+
+  // Only top-level rows can be parents; a category can't be its own
+  // parent, and (for now) only one level of nesting is supported
+  // (a child can't itself be made a parent via the dropdown).
+  const parentChoices = data.filter(c =>
+    c.parent === null && c.id !== editingItem?.id
+  )
 
   const handleNameChange = (name: string) => {
     setForm(f => ({ ...f, name, slug: editingItem ? f.slug : generateSlug(name) }))
@@ -120,7 +137,23 @@ export default function BusinessCategoryPage() {
       render: (item) => <CategoryIcon iconUrl={item.icon_url} name={item.name} />,
       className: 'w-16',
     },
-    { key: 'name', title: 'Name', sortable: true },
+    {
+      key: 'name',
+      title: 'Name',
+      sortable: true,
+      // 2026-04: children get a small "under PARENT" chip next to
+      // their name so admins can see hierarchy at a glance.
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <span>{item.name}</span>
+          {item.parent_name && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+              under {item.parent_name}
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'slug',
       title: 'Slug',
@@ -195,6 +228,29 @@ export default function BusinessCategoryPage() {
             <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Slug</label>
             <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} className={inputClass} placeholder="auto-generated-slug" />
           </div>
+
+          {/* 2026-04: parent-selector so the Category tab on Android
+              can show real subcategories under each parent chip. Leave
+              empty to make the row a top-level category. */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+              Parent category <span className="text-brand-text-muted/60">(optional — leave empty for top-level)</span>
+            </label>
+            <select
+              value={form.parent ?? ''}
+              onChange={e => setForm(f => ({
+                ...f,
+                parent: e.target.value === '' ? null : Number(e.target.value),
+              }))}
+              className={inputClass}
+            >
+              <option value="">— None (this is a top-level category) —</option>
+              {parentChoices.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-center gap-2">
             <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
             <label className="text-sm text-brand-text-muted">Active</label>
