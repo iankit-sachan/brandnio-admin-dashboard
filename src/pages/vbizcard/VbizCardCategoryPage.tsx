@@ -95,9 +95,14 @@ export default function VbizCardCategoryPage() {
   const columns: Column<VbizCardCategory>[] = [
     {
       key: 'name', title: 'Category', sortable: true,
+      // 2026-04 alignment fix: always reserve a 32px icon slot so the
+      // text column is consistently left-aligned. When icon_url is
+      // missing we render a deterministic letter chip (coloured by the
+      // first letter) instead of collapsing the slot, which is what
+      // made the CATEGORY column look ragged on this page.
       render: (item) => (
         <div className="flex items-center gap-3">
-          {item.icon_url && <img src={item.icon_url} alt="" className="w-8 h-8 rounded-full object-cover" />}
+          <VbizCategoryIcon iconUrl={item.icon_url} name={item.name} />
           <span className="font-medium text-brand-text">{item.name}</span>
         </div>
       ),
@@ -194,5 +199,48 @@ export default function VbizCardCategoryPage() {
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Delete "${deleteItem?.name}"? All templates in this category will also be deleted.`} confirmText="Delete" variant="danger" />
     </div>
+  )
+}
+
+/**
+ * 2026-04: 32×32 icon slot for the Category column. Renders the
+ * category's `icon_url` when present; otherwise renders a deterministic
+ * letter chip (first letter of the name, background colour picked from
+ * an 8-colour palette keyed by the letter) so every row's text column
+ * starts at the same x-position and the broken-image icon never appears.
+ *
+ * Same pattern as the BusinessCategoryPage CategoryIcon — kept local
+ * here because the styling choices (rounded full vs rounded lg) differ
+ * between the two pages.
+ */
+const FALLBACK_COLORS = [
+  '#6637d9', '#16a34a', '#f59e0b', '#ef4444',
+  '#3b82f6', '#ec4899', '#14b8a6', '#a855f7',
+]
+
+function VbizCategoryIcon({ iconUrl, name }: { iconUrl: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  const trimmedUrl = (iconUrl || '').trim()
+  const letter = (name.trim().charAt(0) || '?').toUpperCase()
+  const color = FALLBACK_COLORS[letter.charCodeAt(0) % FALLBACK_COLORS.length]
+
+  if (!trimmedUrl || failed) {
+    return (
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+        style={{ backgroundColor: color }}
+        title={name}
+      >
+        {letter}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={trimmedUrl}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="w-8 h-8 rounded-full object-cover shrink-0"
+    />
   )
 }
