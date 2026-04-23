@@ -79,14 +79,74 @@ export const navSections: NavSection[] = [
     color: '#6637D9',
     defaultOpen: false,
     items: [
+      // 2026-04 Home-Tools reshuffle: Explore Features chip list + the
+      // 3 Feed pages previously lived here. Moved to the new EXPLORE
+      // TOOLS section below so the tools chip-bar on Home and all its
+      // admin surfaces are managed in one place.
       { path: '/posters/home-banners', label: 'Home Banners', icon: Image },
       { path: '/posters/home-cards', label: 'Home Cards', icon: CreditCard },
       { path: '/posters/home-card-sections', label: 'Card Sections', icon: Layers },
       { path: '/posters/promo-announcements', label: 'Promo Announcements', icon: Megaphone },
-      { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
-      { path: '/feeds/items', label: 'Feed Items', icon: Rss },
+    ],
+  },
+
+  // 2026-04 reshuffle: dedicated section for the 6 tools admin sees on
+  // the Home screen's "Explore Features" chip row. Groups every admin
+  // page that controls those tools under one collapsible section with
+  // per-tool subheadings — matches the product mental model (admin
+  // thinks "Birthday tool", finds one block, not three scattered
+  // sections). AI TOOLS TAB retains only the generic AI infrastructure
+  // pages (Tool List, Dashboard, AI Config, Credit Transactions); the
+  // BG-specific subset moved here into Remove Background.
+  {
+    title: 'EXPLORE TOOLS',
+    group: 'APP TABS',
+    icon: Compass,
+    color: '#E11D48',
+    defaultOpen: false,
+    items: [
+      // Meta-control for the chip row on Home.
+      { path: '/misc/explore-features', label: 'Chip Order & Visibility', icon: Compass, subheading: 'Master' },
+
+      // 1. WhatsApp Sticker (was under CREATE TAB > Banners & Tools).
+      { path: '/stickers', label: 'Sticker Packs', icon: Smile, subheading: 'WhatsApp Sticker' },
+      { path: '/sticker-banners', label: 'Sticker Banners', icon: ImagePlus },
+
+      // 2. Auto Product Ad (was under AI TOOLS TAB > Product Ads).
+      { path: '/product-ads/categories', label: 'Ad Categories', icon: Tag, subheading: 'Auto Product Ad' },
+      { path: '/product-ads/templates', label: 'Ad Templates', icon: FileText },
+      { path: '/product-ads/products', label: 'Products', icon: Package },
+      { path: '/product-ads', label: 'Generated Ads', icon: Zap },
+      { path: '/product-ads/config', label: 'Ad Config', icon: Cog },
+
+      // 3. Remove Background — only the BG-specific pages move here.
+      // The generic AI admin (Tool List, Dashboard, AI Config, Credit
+      // Transactions) stays in AI TOOLS TAB because it manages all 13
+      // AI tools, not just BG removal.
+      { path: '/ai-tools/bg-credits', label: 'BG Credits', icon: CreditCard, subheading: 'Remove Background' },
+      { path: '/ai-tools/faqs', label: 'BG FAQs', icon: HelpCircle },
+      { path: '/ai-tools/testimonials', label: 'BG Testimonials', icon: MessageSquare },
+
+      // 4. Free Status (was under CATEGORY TAB).
+      { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare, subheading: 'Free Status' },
+      { path: '/statuses/quotes', label: 'Status Quotes', icon: Quote },
+
+      // 5. Birthday & Anniversary (was under CREATE TAB > Greetings
+      // + Customers from CONTENT > Customers).
+      { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift, subheading: 'Birthday & Anniversary' },
+      { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
+      { path: '/greetings/customers', label: 'Customers', icon: Users },
+      { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
+
+      // 6. Feeds (was under HOME TAB).
+      { path: '/feeds/items', label: 'Feed Items', icon: Rss, subheading: 'Feeds' },
       { path: '/feeds/banners', label: 'Feed Banners', icon: ImagePlus },
       { path: '/feeds/config', label: 'Feed Config', icon: Settings },
+
+      // Shared CMS surfaces that serve multiple tools — UI Strings
+      // lives here since it is exclusively the editable string store
+      // for the 6 Explore Features tools.
+      { path: '/misc/ui-strings', label: 'UI Strings', icon: Type, subheading: 'Shared' },
     ],
   },
   {
@@ -96,14 +156,15 @@ export const navSections: NavSection[] = [
     color: '#F5A623',
     defaultOpen: false,
     items: [
+      // 2026-04 reshuffle: Status Categories + Quotes moved to
+      // EXPLORE TOOLS > Free Status. Paths unchanged — existing
+      // bookmarks still work; only the sidebar grouping changed.
       { path: '/categories/general', label: 'Poster Categories', icon: FolderTree },
       { path: '/posters', label: 'Poster Templates', icon: Image },
       { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
       { path: '/posters/category-banners', label: 'Category Banners', icon: ImagePlus },
       { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
       { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
-      { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
-      { path: '/statuses/quotes', label: 'Status Quotes', icon: Quote },
     ],
   },
   {
@@ -113,13 +174,12 @@ export const navSections: NavSection[] = [
     color: '#3F5F92',
     defaultOpen: false,
     items: [
+      // 2026-04 reshuffle: Sticker Packs + Sticker Banners + all 3
+      // Greetings pages moved to EXPLORE TOOLS. CREATE TAB keeps
+      // editor-adjacent builders (video / collage / logo / slideshow)
+      // which are creation pipelines, not Explore chips.
       { path: '/posters/create-banners', label: 'Screen Banners', icon: Image, subheading: 'Banners & Tools' },
       { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
-      { path: '/stickers', label: 'Sticker Packs', icon: Smile },
-      { path: '/sticker-banners', label: 'Sticker Banners', icon: ImagePlus },
-      { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift, subheading: 'Greetings' },
-      { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
-      { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
       { path: '/posters/video-categories', label: 'Video Categories', icon: Video, subheading: 'Video' },
       { path: '/posters/video-templates', label: 'Video Templates', icon: Film },
       { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout, subheading: 'Collage' },
@@ -158,18 +218,16 @@ export const navSections: NavSection[] = [
     color: '#22C55E',
     defaultOpen: false,
     items: [
-      { path: '/ai-tools/manage', label: 'Tool List', icon: Wrench, subheading: 'BG Remover' },
+      // 2026-04 reshuffle: section scope narrowed to GENERIC AI
+      // admin (covers all 13 AI tools in AITool). BG-specific pages
+      // (bg-credits, faqs, testimonials) moved to EXPLORE TOOLS >
+      // Remove Background. Product Ads × 5 moved to EXPLORE TOOLS >
+      // Auto Product Ad. The "BG Remover" subheading was dropped
+      // because every remaining item is tool-agnostic.
+      { path: '/ai-tools/manage', label: 'Tool List', icon: Wrench },
       { path: '/ai-tools', label: 'Dashboard', icon: BarChart3 },
-      { path: '/ai-tools/bg-credits', label: 'BG Credits', icon: CreditCard },
       { path: '/ai-tools/config', label: 'AI Config', icon: Settings },
-      { path: '/ai-tools/faqs', label: 'BG FAQs', icon: HelpCircle },
-      { path: '/ai-tools/testimonials', label: 'BG Testimonials', icon: MessageSquare },
       { path: '/ai-tools/credit-transactions', label: 'Credit Transactions', icon: DollarSign },
-      { path: '/product-ads/categories', label: 'Ad Categories', icon: Tag, subheading: 'Product Ads' },
-      { path: '/product-ads/templates', label: 'Ad Templates', icon: FileText },
-      { path: '/product-ads/products', label: 'Products', icon: Package },
-      { path: '/product-ads', label: 'Generated Ads', icon: Zap },
-      { path: '/product-ads/config', label: 'Ad Config', icon: Cog },
     ],
   },
 
@@ -248,7 +306,10 @@ export const navSections: NavSection[] = [
       { path: '/services/categories', label: 'Service Categories', icon: Grid },
       { path: '/services', label: 'Services', icon: Wrench },
       { path: '/reels/music', label: 'Music Tracks', icon: Music },
-      { path: '/greetings/customers', label: 'Customers', icon: Users, subheading: 'Customers' },
+      // 2026-04 reshuffle: Customers (/greetings/customers) moved to
+      // EXPLORE TOOLS > Birthday & Anniversary — it's a tool-specific
+      // surface, not generic content. Previously isolated under a
+      // "Customers" subheading with no siblings.
     ],
   },
   {
@@ -257,9 +318,10 @@ export const navSections: NavSection[] = [
     icon: Settings,
     defaultOpen: false,
     items: [
+      // 2026-04 reshuffle: UI Strings moved to EXPLORE TOOLS > Shared
+      // where its primary use case lives (CMS for the 6 tool chips).
       { path: '/misc/languages', label: 'Languages', icon: Globe },
       { path: '/misc/contact-config', label: 'Contact Config', icon: Phone },
-      { path: '/misc/ui-strings', label: 'UI Strings', icon: Type },
       { path: '/settings/taglines', label: 'Taglines', icon: Type },
       { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
       { path: '/business/setup-config', label: 'Business Setup', icon: Building },
