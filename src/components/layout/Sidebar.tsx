@@ -1,333 +1,96 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, CreditCard, Briefcase,
-  Image, Frame, Building,
-  Grid, Smile, Wrench, Layers,
-  MessageSquare,
-  Type, Droplets, Palette, FileText, Trash,
   LogOut, PanelLeftClose, PanelLeft,
-  Calendar, Tag,
-  Package,
-  Film, Music, Video,
-  Settings,
-  Megaphone,
-  BookOpen, Mail, Handshake, Store,
-  ChevronRight, ChevronDown, Home, Rss,
-  Share2,
-  Paintbrush, PenSquare,
-  Globe,
-  BarChart3, Compass, FolderTree, Quote,
-  PlusCircle, Layout, Star, Gift,
-  PlayCircle, Shield, Bell,
-  ShoppingBag, User,
-  Sparkles, HelpCircle, Zap,
-  DollarSign, Phone,
+  ChevronRight, ChevronDown,
+  Star,
+  Search,
 } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
+import { navSections, sectionContainsPath, type NavItem } from './navConfig'
+import { useSidebarPrefs } from '../../hooks/useSidebarPrefs'
 
-interface NavItem {
-  label: string
-  path: string
-  icon: React.ElementType
+interface Props {
+  /** Open the Cmd+K command palette. Wired from AdminLayout. */
+  onOpenPalette: () => void
 }
 
-interface NavSection {
-  title: string
-  icon: React.ElementType
-  color?: string
-  items: NavItem[]
-  defaultOpen?: boolean
-  group?: string  // Group label shown as divider above this section
-}
+const PINNED_SECTION = 'PINNED'
 
-const navSections: NavSection[] = [
-  // ─── ADMIN ──────────────────────────────────────────────
-  {
-    title: 'DASHBOARD',
-    icon: LayoutDashboard,
-    defaultOpen: true,
-    items: [
-      { path: '/', label: 'Overview', icon: BarChart3 },
-    ],
-  },
-
-  // ─── APP TABS (matches 5 bottom nav tabs in the app) ────
-  {
-    title: 'HOME TAB',
-    group: 'APP TABS',
-    icon: Home,
-    color: '#6637D9',
-    defaultOpen: false,
-    items: [
-      { path: '/posters/home-banners', label: 'Home Banners', icon: Image },
-      { path: '/posters/home-cards', label: 'Home Cards', icon: CreditCard },
-      { path: '/posters/home-card-sections', label: 'Card Sections', icon: Layers },
-      { path: '/posters/promo-announcements', label: 'Promo Announcements', icon: Megaphone },
-      { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
-      { path: '/feeds/items', label: 'Feed Items', icon: Rss },
-      { path: '/feeds/banners', label: 'Feed Banners', icon: Image },
-      { path: '/feeds/config', label: 'Feed Config', icon: Settings },
-    ],
-  },
-  {
-    title: 'CATEGORY TAB',
-    icon: Grid,
-    color: '#F5A623',
-    defaultOpen: false,
-    items: [
-      { path: '/categories/general', label: 'All Categories', icon: FolderTree },
-      { path: '/posters', label: 'Poster Templates', icon: Image },
-      { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
-      { path: '/posters/category-banners', label: 'Category Banners', icon: Image },
-      { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
-      { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
-      { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
-      { path: '/statuses/quotes', label: 'Status Quotes', icon: Quote },
-    ],
-  },
-  {
-    title: 'CREATE TAB',
-    icon: PlusCircle,
-    color: '#3F5F92',
-    defaultOpen: false,
-    items: [
-      { path: '/posters/create-banners', label: 'Screen Banners', icon: Image },
-      { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
-      { path: '/stickers', label: 'Sticker Packs', icon: Smile },
-      { path: '/sticker-banners', label: 'Sticker Banners', icon: Image },
-      { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift },
-      { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
-      { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
-      { path: '/posters/video-categories', label: 'Video Categories', icon: Video },
-      { path: '/posters/video-templates', label: 'Video Templates', icon: Film },
-      { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout },
-      { path: '/collage/config', label: 'Collage Config', icon: Settings },
-      { path: '/logo-maker/industries', label: 'Logo Industries', icon: Palette },
-      { path: '/logo-maker/styles', label: 'Logo Styles', icon: Paintbrush },
-      { path: '/logo-maker/configs', label: 'Logo Config', icon: Settings },
-      { path: '/slideshow/config', label: 'Slideshow Config', icon: PlayCircle },
-    ],
-  },
-  {
-    title: 'BUSINESS TAB',
-    icon: Briefcase,
-    color: '#745B3B',
-    defaultOpen: false,
-    items: [
-      { path: '/posters/business', label: 'Business Posters', icon: Image },
-      { path: '/posters/business-category', label: 'Business Categories', icon: Layout },
-      { path: '/vbizcard/categories', label: 'Card Categories', icon: CreditCard },
-      { path: '/vbizcard/templates', label: 'Card Templates', icon: FileText },
-      { path: '/vbizcard/home-sections', label: 'Card Home Sections', icon: Layout },
-      { path: '/vbizcard/promo-banners', label: 'Card Promo Banners', icon: Image },
-      { path: '/vbizcard/testimonials', label: 'Card Testimonials', icon: MessageSquare },
-      { path: '/card-wizard/configs', label: 'Wizard Config', icon: Settings },
-      { path: '/card-wizard/features', label: 'Wizard Features', icon: Star },
-      { path: '/card-wizard/form-fields', label: 'Wizard Fields', icon: FileText },
-      { path: '/card-wizard/social-channels', label: 'Wizard Socials', icon: Share2 },
-      { path: '/card-wizard/payment-gateways', label: 'Wizard Payments', icon: CreditCard },
-    ],
-  },
-  {
-    title: 'AI TOOLS TAB',
-    icon: Sparkles,
-    color: '#22C55E',
-    defaultOpen: false,
-    items: [
-      { path: '/ai-tools/manage', label: 'Tool List', icon: Wrench },
-      { path: '/ai-tools', label: 'Dashboard', icon: BarChart3 },
-      { path: '/ai-tools/bg-credits', label: 'BG Credits', icon: CreditCard },
-      { path: '/ai-tools/config', label: 'AI Config', icon: Settings },
-      { path: '/ai-tools/faqs', label: 'BG FAQs', icon: HelpCircle },
-      { path: '/ai-tools/testimonials', label: 'BG Testimonials', icon: MessageSquare },
-      { path: '/ai-tools/credit-transactions', label: 'Credit Transactions', icon: DollarSign },
-      { path: '/product-ads/categories', label: 'Ad Categories', icon: Tag },
-      { path: '/product-ads/templates', label: 'Ad Templates', icon: FileText },
-      { path: '/product-ads/products', label: 'Products', icon: Package },
-      { path: '/product-ads', label: 'Generated Ads', icon: Zap },
-      { path: '/product-ads/config', label: 'Ad Config', icon: Settings },
-    ],
-  },
-
-  // ─── POSTER EDITOR ──────────────────────────────────────
-  {
-    title: 'POST EDITOR',
-    group: 'TOOLS',
-    icon: PenSquare,
-    color: '#0EA5E9',
-    defaultOpen: false,
-    items: [
-      { path: '/posters/frames', label: 'Poster Frames', icon: Frame },
-      { path: '/posters/canvas-presets', label: 'Canvas Presets', icon: Layout },
-      { path: '/misc/format-categories', label: 'Format Categories', icon: Grid },
-      { path: '/misc/editor-sticker-categories', label: 'Editor Sticker Cats', icon: Grid },
-      { path: '/editor-stickers', label: 'Editor Stickers', icon: Star },
-      { path: '/settings/watermark', label: 'Watermark', icon: Droplets },
-      { path: '/settings/design', label: 'Design Settings', icon: Palette },
-    ],
-  },
-
-  // ─── FESTIVALS ──────────────────────────────────────────
-  {
-    title: 'FESTIVALS',
-    icon: Calendar,
-    color: '#E91E63',
-    defaultOpen: false,
-    items: [
-      { path: '/festival-calendar', label: 'Festival Calendar', icon: Calendar },
-      { path: '/festivals', label: 'Festivals List', icon: Tag },
-      { path: '/posters/festival', label: 'Festival Posters', icon: Image },
-      { path: '/languages', label: 'Languages', icon: Tag },
-    ],
-  },
-
-  // ─── ADMIN MANAGEMENT ───────────────────────────────────
-  {
-    title: 'USERS',
-    group: 'ADMIN',
-    icon: Users,
-    defaultOpen: false,
-    items: [
-      { path: '/users', label: 'All Users', icon: Users },
-      { path: '/users/business-profiles', label: 'Business Profiles', icon: Building },
-      { path: '/users/political-profiles', label: 'Political Profiles', icon: User },
-      { path: '/business/industries', label: 'Business Industries', icon: Building },
-      { path: '/business/categories', label: 'Business Categories', icon: Building },
-      { path: '/business/social-platforms', label: 'Social Platforms', icon: Share2 },
-    ],
-  },
-  {
-    title: 'CONTENT',
-    icon: FileText,
-    defaultOpen: false,
-    items: [
-      { path: '/content/tutorials', label: 'Tutorials', icon: BookOpen },
-      { path: '/notifications/send', label: 'Send Notification', icon: Bell },
-      { path: '/notifications/history', label: 'Notification History', icon: Bell },
-      { path: '/content/contact', label: 'Contact Inbox', icon: Mail },
-      { path: '/content/partners', label: 'Partner Inbox', icon: Handshake },
-      { path: '/content/policies', label: 'Policies', icon: Shield },
-      { path: '/misc/mall-categories', label: 'Mall Categories', icon: ShoppingBag },
-      { path: '/content/mall', label: 'Mall Listings', icon: Store },
-      { path: '/brand-mall/config', label: 'Mall Config', icon: Settings },
-      { path: '/brand-mall/spotlight', label: 'Mall Spotlight', icon: ShoppingBag },
-      { path: '/categories/politician', label: 'Politician Cats', icon: User },
-      { path: '/categories/politician-image', label: 'Politician Images', icon: Image },
-      { path: '/reels', label: 'Reels', icon: Film },
-      { path: '/services/categories', label: 'Service Categories', icon: Grid },
-      { path: '/services', label: 'Services', icon: Wrench },
-      { path: '/reels/music', label: 'Music Tracks', icon: Music },
-      { path: '/greetings/customers', label: 'Customers', icon: Users },
-    ],
-  },
-  {
-    title: 'SETTINGS',
-    icon: Settings,
-    defaultOpen: false,
-    items: [
-      { path: '/misc/languages', label: 'Languages', icon: Globe },
-      { path: '/misc/contact-config', label: 'Contact Config', icon: Phone },
-      { path: '/settings/taglines', label: 'Taglines', icon: Type },
-      { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
-      { path: '/business/setup-config', label: 'Business Setup', icon: Building },
-      { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash },
-    ],
-  },
-
-  // ─── UPGRADE / MONETIZATION ─────────────────────────────
-  // Central home for every paid-tier / subscription / revenue surface.
-  // 5 existing pages moved here from USERS + SETTINGS:
-  //   - Subscriptions, Plans, Active Plans, Expired Plans, Payment Plans
-  // 8 new pages scaffolded with stub routes (build out one at a time):
-  //   - Revenue Dashboard, Promo Codes, Free Trial Config, Pricing Page,
-  //     Paywall Editor, Razorpay Log, Refund Manager, Feature Matrix.
-  {
-    title: 'UPGRADE',
-    icon: DollarSign,
-    defaultOpen: false,
-    items: [
-      // ── Existing (moved out of USERS + SETTINGS) ──
-      { path: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
-      { path: '/subscriptions/plans', label: 'Plans', icon: FileText },
-      { path: '/users/active-plans', label: 'Active Plans', icon: CreditCard },
-      { path: '/users/expired-plans', label: 'Expired Plans', icon: CreditCard },
-      { path: '/settings/payment-plans', label: 'Payment Plans', icon: CreditCard },
-
-      // ── New (stubbed — build out in follow-up sessions) ──
-      { path: '/upgrade/revenue', label: 'Revenue Dashboard', icon: BarChart3 },
-      { path: '/upgrade/promo-codes', label: 'Promo Codes', icon: Tag },
-      { path: '/upgrade/free-trial', label: 'Free Trial Config', icon: Gift },
-      { path: '/upgrade/pricing-page', label: 'Pricing Page Editor', icon: Layout },
-      { path: '/upgrade/paywall', label: 'Paywall Editor', icon: Sparkles },
-      { path: '/upgrade/razorpay-log', label: 'Razorpay Log', icon: FileText },
-      { path: '/upgrade/refunds', label: 'Refund Manager', icon: PenSquare },
-      { path: '/upgrade/feature-matrix', label: 'Feature Matrix', icon: Grid },
-    ],
-  },
-]
-
-/** Check if a section contains a link matching the current path */
-function sectionContainsPath(section: NavSection, pathname: string): boolean {
-  return section.items.some(item =>
-    item.path === '/'
-      ? pathname === '/'
-      : pathname === item.path || pathname.startsWith(item.path + '/')
-  )
-}
-
-function computeOpenSections(pathname: string): Set<string> {
-  const open = new Set<string>()
+function computeInitialOpen(pathname: string): string[] {
+  const open: string[] = []
   for (const section of navSections) {
     if (section.defaultOpen || sectionContainsPath(section, pathname)) {
-      open.add(section.title)
+      open.push(section.title)
     }
   }
   return open
 }
 
-export function Sidebar() {
+export function Sidebar({ onOpenPalette }: Props) {
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
-  const [openSections, setOpenSections] = useState<Set<string>>(() =>
-    computeOpenSections(location.pathname)
-  )
+  const {
+    collapsed, setCollapsed,
+    openSections, toggleSection, openSection,
+    pinned, togglePin,
+  } = useSidebarPrefs(computeInitialOpen(location.pathname))
   const { logout } = useAuth()
   const navigate = useNavigate()
 
-  // Auto-expand section when navigating to a link inside a collapsed section
+  // Resolve pinned paths to their full NavItem (with icon + section) so we
+  // can render a real row. A pinned path that no longer exists (page got
+  // deleted or renamed) is silently skipped rather than showing a ghost row.
+  const pinnedItems: NavItem[] = useMemo(() => {
+    const byPath = new Map<string, NavItem>()
+    for (const section of navSections) {
+      for (const item of section.items) byPath.set(item.path, item)
+    }
+    return [...pinned].map(p => byPath.get(p)).filter((x): x is NavItem => !!x)
+  }, [pinned])
+
+  // Auto-expand the section containing the current route.
   useEffect(() => {
     for (const section of navSections) {
-      if (sectionContainsPath(section, location.pathname) && !openSections.has(section.title)) {
-        setOpenSections(prev => {
-          const next = new Set(prev)
-          next.add(section.title)
-          return next
-        })
+      if (sectionContainsPath(section, location.pathname)) {
+        openSection(section.title)
         break
       }
     }
-  }, [location.pathname])
+    // openSection is memoized with useCallback in the hook
+  }, [location.pathname, openSection])
 
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
   }
 
-  const toggleSection = (title: string) => {
-    setOpenSections(prev => {
-      const next = new Set(prev)
-      if (next.has(title)) next.delete(title)
-      else next.add(title)
-      return next
-    })
+  const renderStar = (path: string) => {
+    const isPinned = pinned.has(path)
+    return (
+      <button
+        onClick={e => { e.preventDefault(); e.stopPropagation(); togglePin(path) }}
+        className={cn(
+          'shrink-0 p-0.5 rounded transition-opacity',
+          isPinned
+            ? 'text-brand-gold opacity-100'
+            : 'text-brand-text-muted opacity-0 group-hover:opacity-100 hover:text-brand-gold',
+        )}
+        title={isPinned ? 'Unpin from top' : 'Pin to top'}
+        aria-label={isPinned ? 'Unpin' : 'Pin'}
+      >
+        <Star
+          style={{ width: '14px', height: '14px' }}
+          fill={isPinned ? 'currentColor' : 'none'}
+        />
+      </button>
+    )
   }
 
   return (
     <aside className={cn(
       'h-screen bg-brand-dark-deep border-r border-brand-dark-border flex flex-col transition-all duration-200 shrink-0',
-      collapsed ? 'w-16' : 'w-64'
+      collapsed ? 'w-16' : 'w-64',
     )}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-brand-dark-border shrink-0">
@@ -337,13 +100,74 @@ export function Sidebar() {
         {!collapsed && <span className="text-lg font-bold text-brand-text">Brandnio</span>}
       </div>
 
+      {/* Cmd+K search trigger (hidden when collapsed, styled as a button+kbd hint) */}
+      {!collapsed && (
+        <button
+          onClick={onOpenPalette}
+          className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-dark border border-brand-dark-border text-sm text-brand-text-muted hover:border-brand-gold/40 hover:text-brand-text transition-colors"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="text-[10px] px-1.5 py-0.5 bg-brand-dark-hover rounded">Ctrl K</kbd>
+        </button>
+      )}
+      {collapsed && (
+        <button
+          onClick={onOpenPalette}
+          title="Search (Ctrl+K)"
+          className="mx-auto mt-3 flex items-center justify-center h-9 w-9 rounded-lg bg-brand-dark border border-brand-dark-border text-brand-text-muted hover:border-brand-gold/40 hover:text-brand-text transition-colors"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
+        {/* ─── Pinned section (only shown if admin has pinned items) ─── */}
+        {pinnedItems.length > 0 && (
+          <div>
+            {!collapsed ? (
+              <div className="flex items-center gap-2 px-4 mt-1 mb-2">
+                <div className="flex-1 h-px bg-brand-dark-border" />
+                <span className="text-[10px] uppercase tracking-widest text-brand-gold font-medium flex items-center gap-1">
+                  <Star className="h-2.5 w-2.5 fill-current" /> PINNED
+                </span>
+                <div className="flex-1 h-px bg-brand-dark-border" />
+              </div>
+            ) : (
+              <div className="border-t border-brand-gold/40 my-2 mx-2" />
+            )}
+            {pinnedItems.map(item => {
+              const Icon = item.icon
+              return (
+                <div key={`pinned:${item.path}`} className="group relative">
+                  <NavLink
+                    to={item.path}
+                    end
+                    className={({ isActive }) => cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors',
+                      collapsed && 'justify-center',
+                      isActive
+                        ? 'text-brand-gold bg-brand-gold/10'
+                        : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50',
+                    )}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon style={{ width: '18px', height: '18px' }} className="shrink-0" />
+                    {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                    {!collapsed && renderStar(item.path)}
+                  </NavLink>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ─── Regular sections ─── */}
         {navSections.map((section) => {
           const isOpen = openSections.has(section.title)
           return (
             <div key={section.title}>
-              {/* Group divider label */}
               {section.group && !collapsed && (
                 <div className="flex items-center gap-2 px-4 mt-5 mb-2">
                   <div className="flex-1 h-px bg-brand-dark-border" />
@@ -354,7 +178,6 @@ export function Sidebar() {
               {section.group && collapsed && (
                 <div className="border-t border-brand-gold/30 my-3 mx-2" />
               )}
-              {/* Section header — clickable to toggle */}
               {!collapsed ? (
                 <button
                   onClick={() => toggleSection(section.title)}
@@ -368,33 +191,33 @@ export function Sidebar() {
                   </span>
                   {isOpen
                     ? <ChevronDown className="h-3 w-3" />
-                    : <ChevronRight className="h-3 w-3" />
-                  }
+                    : <ChevronRight className="h-3 w-3" />}
                 </button>
               ) : (
                 <div className="border-t border-brand-dark-border/30 my-2 mx-2" />
               )}
 
-              {/* Nav items — collapsed sections only show when sidebar is collapsed (icon-only mode) */}
               {(isOpen || collapsed) && section.items.map((item) => {
                 const Icon = item.icon
                 return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end
-                    className={({ isActive }) => cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors',
-                      collapsed && 'justify-center',
-                      isActive
-                        ? 'text-brand-gold bg-brand-gold/10'
-                        : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50'
-                    )}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <Icon style={{ width: '18px', height: '18px' }} className="shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </NavLink>
+                  <div key={item.path} className="group relative">
+                    <NavLink
+                      to={item.path}
+                      end
+                      className={({ isActive }) => cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors',
+                        collapsed && 'justify-center',
+                        isActive
+                          ? 'text-brand-gold bg-brand-gold/10'
+                          : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover/50',
+                      )}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <Icon style={{ width: '18px', height: '18px' }} className="shrink-0" />
+                      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                      {!collapsed && renderStar(item.path)}
+                    </NavLink>
+                  </div>
                 )
               })}
             </div>
@@ -410,7 +233,7 @@ export function Sidebar() {
             onClick={handleLogout}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-brand-text-muted hover:text-status-error hover:bg-status-error/10',
-              collapsed && 'justify-center'
+              collapsed && 'justify-center',
             )}
             title={collapsed ? 'Logout' : undefined}
           >
@@ -422,8 +245,9 @@ export function Sidebar() {
 
       {/* Collapse toggle */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => setCollapsed(v => !v)}
         className="flex items-center justify-center h-12 border-t border-brand-dark-border text-brand-text-muted hover:text-brand-text transition-colors"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
       </button>
