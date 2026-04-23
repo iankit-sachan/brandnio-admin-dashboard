@@ -907,6 +907,24 @@ export const greetingCategoriesApi = crud('greeting-categories')
 export const greetingTemplatesApi = crud('greeting-templates')
 export const customersApi = crud('customers')
 
+// 2026-04 Phase 3 — power-admin bulk operations for Customer.
+// Bulk delete is strictly user-scoped per approved Q1=(a); server
+// rejects the request if `user` is missing. Phone-duplicate
+// detection is global (Q2=(b)) — spans all users.
+export const customerBulkApi = {
+  bulkDelete: (userId: number, ids: number[]) =>
+    api.post('/api/admin/customers/bulk_delete/', { user: userId, ids }).then(r => r.data),
+  duplicates: () =>
+    api.get('/api/admin/customers/duplicates/').then(r => r.data),
+  csvExportUrl: (userId?: number): string =>
+    userId ? `/api/admin/customers/csv-export/?user=${userId}` : '/api/admin/customers/csv-export/',
+  csvImport: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/customers/csv-import/', fd).then(r => r.data)
+  },
+}
+
 // 2026-04 Phase 2 — power-admin bulk operations for GreetingCategory.
 // Same pattern as posterCategoryBulkApi. Backend implementations live
 // in admin_api.views.GreetingCategoryViewSet.

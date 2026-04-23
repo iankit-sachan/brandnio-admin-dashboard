@@ -47,6 +47,13 @@ export interface Customer {
   dob: string | null
   anniversary: string | null
   notes: string
+  // 2026-04 Tier 2 F#5 — per-user customer segment (VIP / Family /
+  // Business / custom). Empty = ungrouped.
+  group?: string
+  // 2026-04 admin-only fields — AdminCustomerSerializer exposes
+  // user + user_email so admin can see/filter by owner account.
+  user?: number
+  user_email?: string
   created_at: string
   updated_at: string
 }
