@@ -82,6 +82,21 @@ export const dashboardApi = {
   stats: () => api.get('/api/admin/dashboard/').then(r => r.data),
 }
 
+// ── Sidebar Badges ───────────────────────────────────────────────
+// Pending/unread counts shown as red pills next to inbox-style nav items.
+// Polled every 60s by useSidebarBadges in AdminLayout.
+
+export interface SidebarBadges {
+  contact_inbox: number
+  partner_inbox: number
+  delete_requests: number
+}
+
+export const sidebarBadgesApi = {
+  fetch: (): Promise<SidebarBadges> =>
+    api.get('/api/admin/sidebar-badges/').then(r => r.data),
+}
+
 // ── Resource CRUD APIs ───────────────────────────────────────────
 
 export const usersApi = {

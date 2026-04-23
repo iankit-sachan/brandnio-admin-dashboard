@@ -26,12 +26,20 @@ import {
   ShoppingBag, User,
   Sparkles, HelpCircle, Zap,
   DollarSign, Phone,
+  // Tier 2a — added to dedupe in-section icon collisions.
+  Settings2, Cog, LayoutGrid, Wallet, Hash, ImagePlus,
 } from 'lucide-react'
 
 export interface NavItem {
   label: string
   path: string
   icon: React.ElementType
+  /**
+   * If set, the sidebar fetches /api/admin/sidebar-badges/ every 60s and
+   * shows a red pill with the matching count. Key must exactly match a
+   * key in the backend `sidebar_badges` view response.
+   */
+  badgeKey?: 'contact_inbox' | 'partner_inbox' | 'delete_requests'
 }
 
 export interface NavSection {
@@ -44,9 +52,10 @@ export interface NavSection {
 }
 
 export const navSections: NavSection[] = [
-  // ─── ADMIN ──────────────────────────────────────────────
+  // ─── OVERVIEW ───────────────────────────────────────────
   {
     title: 'DASHBOARD',
+    group: 'OVERVIEW',
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -68,12 +77,13 @@ export const navSections: NavSection[] = [
       { path: '/posters/promo-announcements', label: 'Promo Announcements', icon: Megaphone },
       { path: '/misc/explore-features', label: 'Explore Features', icon: Compass },
       { path: '/feeds/items', label: 'Feed Items', icon: Rss },
-      { path: '/feeds/banners', label: 'Feed Banners', icon: Image },
+      { path: '/feeds/banners', label: 'Feed Banners', icon: ImagePlus },
       { path: '/feeds/config', label: 'Feed Config', icon: Settings },
     ],
   },
   {
     title: 'CATEGORY TAB',
+    group: 'APP TABS',
     icon: Grid,
     color: '#F5A623',
     defaultOpen: false,
@@ -81,7 +91,7 @@ export const navSections: NavSection[] = [
       { path: '/categories/general', label: 'All Categories', icon: FolderTree },
       { path: '/posters', label: 'Poster Templates', icon: Image },
       { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
-      { path: '/posters/category-banners', label: 'Category Banners', icon: Image },
+      { path: '/posters/category-banners', label: 'Category Banners', icon: ImagePlus },
       { path: '/posters/home-sections', label: 'Home Sections', icon: Compass },
       { path: '/categories/recycle-bin', label: 'Recycle Bin', icon: Trash },
       { path: '/statuses/categories', label: 'Status Categories', icon: MessageSquare },
@@ -90,6 +100,7 @@ export const navSections: NavSection[] = [
   },
   {
     title: 'CREATE TAB',
+    group: 'APP TABS',
     icon: PlusCircle,
     color: '#3F5F92',
     defaultOpen: false,
@@ -97,22 +108,23 @@ export const navSections: NavSection[] = [
       { path: '/posters/create-banners', label: 'Screen Banners', icon: Image },
       { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
       { path: '/stickers', label: 'Sticker Packs', icon: Smile },
-      { path: '/sticker-banners', label: 'Sticker Banners', icon: Image },
+      { path: '/sticker-banners', label: 'Sticker Banners', icon: ImagePlus },
       { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift },
       { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
       { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
       { path: '/posters/video-categories', label: 'Video Categories', icon: Video },
       { path: '/posters/video-templates', label: 'Video Templates', icon: Film },
       { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout },
-      { path: '/collage/config', label: 'Collage Config', icon: Settings },
+      { path: '/collage/config', label: 'Collage Config', icon: Cog },
       { path: '/logo-maker/industries', label: 'Logo Industries', icon: Palette },
       { path: '/logo-maker/styles', label: 'Logo Styles', icon: Paintbrush },
-      { path: '/logo-maker/configs', label: 'Logo Config', icon: Settings },
+      { path: '/logo-maker/configs', label: 'Logo Config', icon: Settings2 },
       { path: '/slideshow/config', label: 'Slideshow Config', icon: PlayCircle },
     ],
   },
   {
     title: 'BUSINESS TAB',
+    group: 'APP TABS',
     icon: Briefcase,
     color: '#745B3B',
     defaultOpen: false,
@@ -121,18 +133,19 @@ export const navSections: NavSection[] = [
       { path: '/posters/business-category', label: 'Business Categories', icon: Layout },
       { path: '/vbizcard/categories', label: 'Card Categories', icon: CreditCard },
       { path: '/vbizcard/templates', label: 'Card Templates', icon: FileText },
-      { path: '/vbizcard/home-sections', label: 'Card Home Sections', icon: Layout },
-      { path: '/vbizcard/promo-banners', label: 'Card Promo Banners', icon: Image },
+      { path: '/vbizcard/home-sections', label: 'Card Home Sections', icon: LayoutGrid },
+      { path: '/vbizcard/promo-banners', label: 'Card Promo Banners', icon: ImagePlus },
       { path: '/vbizcard/testimonials', label: 'Card Testimonials', icon: MessageSquare },
       { path: '/card-wizard/configs', label: 'Wizard Config', icon: Settings },
       { path: '/card-wizard/features', label: 'Wizard Features', icon: Star },
-      { path: '/card-wizard/form-fields', label: 'Wizard Fields', icon: FileText },
+      { path: '/card-wizard/form-fields', label: 'Wizard Fields', icon: Hash },
       { path: '/card-wizard/social-channels', label: 'Wizard Socials', icon: Share2 },
-      { path: '/card-wizard/payment-gateways', label: 'Wizard Payments', icon: CreditCard },
+      { path: '/card-wizard/payment-gateways', label: 'Wizard Payments', icon: Wallet },
     ],
   },
   {
     title: 'AI TOOLS TAB',
+    group: 'APP TABS',
     icon: Sparkles,
     color: '#22C55E',
     defaultOpen: false,
@@ -148,7 +161,7 @@ export const navSections: NavSection[] = [
       { path: '/product-ads/templates', label: 'Ad Templates', icon: FileText },
       { path: '/product-ads/products', label: 'Products', icon: Package },
       { path: '/product-ads', label: 'Generated Ads', icon: Zap },
-      { path: '/product-ads/config', label: 'Ad Config', icon: Settings },
+      { path: '/product-ads/config', label: 'Ad Config', icon: Cog },
     ],
   },
 
@@ -163,7 +176,7 @@ export const navSections: NavSection[] = [
       { path: '/posters/frames', label: 'Poster Frames', icon: Frame },
       { path: '/posters/canvas-presets', label: 'Canvas Presets', icon: Layout },
       { path: '/misc/format-categories', label: 'Format Categories', icon: Grid },
-      { path: '/misc/editor-sticker-categories', label: 'Editor Sticker Cats', icon: Grid },
+      { path: '/misc/editor-sticker-categories', label: 'Editor Sticker Cats', icon: LayoutGrid },
       { path: '/editor-stickers', label: 'Editor Stickers', icon: Star },
       { path: '/settings/watermark', label: 'Watermark', icon: Droplets },
       { path: '/settings/design', label: 'Design Settings', icon: Palette },
@@ -173,6 +186,9 @@ export const navSections: NavSection[] = [
   // ─── FESTIVALS ──────────────────────────────────────────
   {
     title: 'FESTIVALS',
+    // Same 'TOOLS' group as POST EDITOR above — festival posters + calendar
+    // are editor-adjacent content the admin works WITH, not user-facing tabs.
+    group: 'TOOLS',
     icon: Calendar,
     color: '#E91E63',
     defaultOpen: false,
@@ -187,7 +203,7 @@ export const navSections: NavSection[] = [
   // ─── ADMIN MANAGEMENT ───────────────────────────────────
   {
     title: 'USERS',
-    group: 'ADMIN',
+    group: 'MANAGEMENT',
     icon: Users,
     defaultOpen: false,
     items: [
@@ -204,14 +220,15 @@ export const navSections: NavSection[] = [
   },
   {
     title: 'CONTENT',
+    group: 'MANAGEMENT',
     icon: FileText,
     defaultOpen: false,
     items: [
       { path: '/content/tutorials', label: 'Tutorials', icon: BookOpen },
       { path: '/notifications/send', label: 'Send Notification', icon: Bell },
       { path: '/notifications/history', label: 'Notification History', icon: Bell },
-      { path: '/content/contact', label: 'Contact Inbox', icon: Mail },
-      { path: '/content/partners', label: 'Partner Inbox', icon: Handshake },
+      { path: '/content/contact', label: 'Contact Inbox', icon: Mail, badgeKey: 'contact_inbox' },
+      { path: '/content/partners', label: 'Partner Inbox', icon: Handshake, badgeKey: 'partner_inbox' },
       { path: '/content/policies', label: 'Policies', icon: Shield },
       { path: '/misc/mall-categories', label: 'Mall Categories', icon: ShoppingBag },
       { path: '/content/mall', label: 'Mall Listings', icon: Store },
@@ -228,6 +245,7 @@ export const navSections: NavSection[] = [
   },
   {
     title: 'SETTINGS',
+    group: 'MANAGEMENT',
     icon: Settings,
     defaultOpen: false,
     items: [
@@ -236,13 +254,14 @@ export const navSections: NavSection[] = [
       { path: '/settings/taglines', label: 'Taglines', icon: Type },
       { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
       { path: '/business/setup-config', label: 'Business Setup', icon: Building },
-      { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash },
+      { path: '/settings/delete-requests', label: 'Delete Requests', icon: Trash, badgeKey: 'delete_requests' },
     ],
   },
 
   // ─── UPGRADE / MONETIZATION ─────────────────────────────
   {
     title: 'UPGRADE',
+    group: 'REVENUE',
     icon: DollarSign,
     defaultOpen: false,
     items: [

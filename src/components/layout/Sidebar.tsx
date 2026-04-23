@@ -10,6 +10,7 @@ import { cn } from '../../utils/cn'
 import { useAuth } from '../../context/AuthContext'
 import { navSections, sectionContainsPath, type NavItem } from './navConfig'
 import { useSidebarPrefs } from '../../hooks/useSidebarPrefs'
+import { useSidebarBadges } from '../../hooks/useSidebarBadges'
 
 interface Props {
   /** Open the Cmd+K command palette. Wired from AdminLayout. */
@@ -37,6 +38,7 @@ export function Sidebar({ onOpenPalette }: Props) {
   } = useSidebarPrefs(computeInitialOpen(location.pathname))
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const badges = useSidebarBadges()
 
   // Resolve pinned paths to their full NavItem (with icon + section) so we
   // can render a real row. A pinned path that no longer exists (page got
@@ -63,6 +65,24 @@ export function Sidebar({ onOpenPalette }: Props) {
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
+  }
+
+  /**
+   * Red pill next to inbox-style items. Returns null when the item has
+   * no badgeKey or the count is zero (nothing to nag the admin about).
+   */
+  const renderBadge = (item: NavItem) => {
+    if (!item.badgeKey) return null
+    const count = badges[item.badgeKey]
+    if (!count || count <= 0) return null
+    return (
+      <span
+        className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-status-error/90 text-white text-[10px] font-semibold leading-none"
+        aria-label={`${count} pending`}
+      >
+        {count > 99 ? '99+' : count}
+      </span>
+    )
   }
 
   const renderStar = (path: string) => {
@@ -155,6 +175,7 @@ export function Sidebar({ onOpenPalette }: Props) {
                   >
                     <Icon style={{ width: '18px', height: '18px' }} className="shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                    {!collapsed && renderBadge(item)}
                     {!collapsed && renderStar(item.path)}
                   </NavLink>
                 </div>
@@ -164,18 +185,24 @@ export function Sidebar({ onOpenPalette }: Props) {
         )}
 
         {/* ─── Regular sections ─── */}
-        {navSections.map((section) => {
+        {navSections.map((section, sIdx) => {
           const isOpen = openSections.has(section.title)
+          // Only show the group divider when the group label actually
+          // CHANGES from the previous section — otherwise contiguous
+          // sections in the same group (e.g. POST EDITOR + FESTIVALS in
+          // TOOLS) would render the divider twice in a row.
+          const prevGroup = sIdx > 0 ? navSections[sIdx - 1].group : undefined
+          const showGroupDivider = !!section.group && section.group !== prevGroup
           return (
             <div key={section.title}>
-              {section.group && !collapsed && (
+              {showGroupDivider && !collapsed && (
                 <div className="flex items-center gap-2 px-4 mt-5 mb-2">
                   <div className="flex-1 h-px bg-brand-dark-border" />
                   <span className="text-[10px] uppercase tracking-widest text-brand-text-muted font-medium">{section.group}</span>
                   <div className="flex-1 h-px bg-brand-dark-border" />
                 </div>
               )}
-              {section.group && collapsed && (
+              {showGroupDivider && collapsed && (
                 <div className="border-t border-brand-gold/30 my-3 mx-2" />
               )}
               {!collapsed ? (
