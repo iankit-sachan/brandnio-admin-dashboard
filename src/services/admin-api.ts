@@ -907,6 +907,28 @@ export const greetingCategoriesApi = crud('greeting-categories')
 export const greetingTemplatesApi = crud('greeting-templates')
 export const customersApi = crud('customers')
 
+// 2026-04 Phase 2 — power-admin bulk operations for GreetingCategory.
+// Same pattern as posterCategoryBulkApi. Backend implementations live
+// in admin_api.views.GreetingCategoryViewSet.
+export const greetingCategoryBulkApi = {
+  bulkDelete: (ids: number[]) =>
+    api.post('/api/admin/greeting-categories/bulk_delete/', { ids }).then(r => r.data),
+  bulkCreate: (names: string[]) =>
+    api.post('/api/admin/greeting-categories/bulk_create/', { names }).then(r => r.data),
+  bulkSetActive: (ids: number[], is_active: boolean) =>
+    api.post('/api/admin/greeting-categories/bulk_set_active/', { ids, is_active }).then(r => r.data),
+  mergeInto: (sourceId: number, targetId: number) =>
+    api.post(`/api/admin/greeting-categories/${sourceId}/merge_into/`, { target_id: targetId }).then(r => r.data),
+  reorder: (items: { id: number; sort_order: number }[]) =>
+    api.post('/api/admin/greeting-categories/reorder/', { items }).then(r => r.data),
+  csvExportUrl: (): string => '/api/admin/greeting-categories/csv-export/',
+  csvImport: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/greeting-categories/csv-import/', fd).then(r => r.data)
+  },
+}
+
 // 2026-04 Phase 1 — power-admin bulk operations for GreetingTemplate.
 // Mirrors the posterBulkApi pattern. Backend implementations live in
 // admin_api.views.GreetingTemplateViewSet.

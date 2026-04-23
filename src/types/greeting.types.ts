@@ -9,6 +9,15 @@ export interface GreetingCategory {
   default_caption: string
   accent_color: string
   banner_text: string
+  // 2026-04 Tier 3 F#9 — optional promo code the Android share
+  // sheet appends to the outgoing greeting. Admin edits both via
+  // the /greetings/categories page. Coupon_caption supports the
+  // same {name}/{business} placeholders as default_caption.
+  coupon_code?: string
+  coupon_caption?: string
+  // 2026-04 Phase 2 — surfaced by the admin serializer for the
+  // new Activity column. Server-written.
+  created_at?: string
 }
 
 export interface GreetingTemplate {
