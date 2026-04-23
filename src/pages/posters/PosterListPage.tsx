@@ -10,7 +10,7 @@ import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, Layers, CheckSquare, Upload, X, Loader2, Eye, EyeOff, Maximize2, Filter, RotateCcw, BarChart3 } from 'lucide-react'
 import { TagInput } from '../../components/ui/TagInput'
 import TemplateLayerEditor from './TemplateLayerEditor'
-import { postersApi, posterCategoriesApi, festivalsApi, posterFramesApi, uploadApi, posterTagsApi, posterBulkApi, posterAnalyticsApi, languagesApi } from '../../services/admin-api'
+import { postersApi, posterCategoriesApi, festivalsApi, uploadApi, posterTagsApi, posterBulkApi, posterAnalyticsApi, languagesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { formatNumber } from '../../utils/formatters'
@@ -85,18 +85,18 @@ export default function PosterListPage() {
   const { data: categories } = useAdminCrud(posterCategoriesApi)
   const { data: festivals } = useAdminCrud(festivalsApi)
   const { data: languages } = useAdminCrud<{id: number; name: string; code: string; is_active: boolean}>(languagesApi)
-  const { data: allFrames } = useAdminCrud(posterFramesApi)
+  // 2026-04 UX fix: removed `allFrames` + `matchingFrames` + the
+  // "Frames for <ratio>" preview block from the Add/Edit Poster
+  // modal. It was read-only visual trivia that confused admins into
+  // thinking it was selectable. Frame-poster compatibility is still
+  // computed automatically by aspect-ratio match at Android read
+  // time (no curated relation). Admins manage frame coverage from
+  // the Frames page directly.
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<Poster | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
 
-  // Filter frames by current form aspect ratio (must be after form declaration)
-  const matchingFrames = useMemo(() => {
-    return (allFrames as any[]).filter((f: any) =>
-      f.aspect_ratio === form.aspect_ratio || !f.aspect_ratio || f.aspect_ratio === ''
-    )
-  }, [allFrames, form.aspect_ratio])
   const [deleteItem, setDeleteItem] = useState<Poster | null>(null)
   const [layerEditorPoster, setLayerEditorPoster] = useState<Poster | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -607,38 +607,9 @@ export default function PosterListPage() {
             </div>
           </div>
 
-          {/* Matching Frames Preview */}
-          {matchingFrames.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
-                Frames for {form.aspect_ratio}
-                <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/15 text-indigo-400">{matchingFrames.length} available</span>
-              </label>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                {matchingFrames.slice(0, 20).map((frame: any) => (
-                  <div key={frame.id} className="flex-shrink-0 w-16 h-20 rounded-lg border border-brand-dark-border overflow-hidden bg-brand-dark">
-                    {(frame.thumbnail_url || frame.overlay_image_url) ? (
-                      <img
-                        src={frame.thumbnail_url || frame.overlay_image_url}
-                        alt={frame.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[8px] text-brand-text-muted text-center px-1">{frame.name}</div>
-                    )}
-                  </div>
-                ))}
-                {matchingFrames.length > 20 && (
-                  <div className="flex-shrink-0 w-16 h-20 rounded-lg border border-brand-dark-border flex items-center justify-center text-xs text-brand-text-muted">
-                    +{matchingFrames.length - 20}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {matchingFrames.length === 0 && (
-            <p className="text-xs text-status-warning">No frames available for {form.aspect_ratio} — users won't see any frames for this poster size</p>
-          )}
+          {/* 2026-04: "Frames for <ratio>" preview removed — was
+              read-only noise that confused admins. See Frames admin
+              page for frame coverage per aspect ratio. */}
 
           {/* Festival (P3 fix) */}
           <div>
