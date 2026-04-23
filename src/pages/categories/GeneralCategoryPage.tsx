@@ -1,12 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { Grid3X3, Pencil, Trash2, Plus, Search, ChevronRight, FolderTree, Image, X, ChevronLeft, ArrowUp, ArrowDown } from 'lucide-react'
-import { posterCategoriesApi, postersApi, uploadApi } from '../../services/admin-api'
+import { Grid3X3, Pencil, Trash2, Plus, Search, ChevronRight, FolderTree, Image, X, ChevronLeft, ArrowUp, ArrowDown, CheckSquare, Square } from 'lucide-react'
+import { posterCategoriesApi, postersApi, uploadApi, languagesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 import { CategoryTabNav } from '../../components/CategoryTabNav'
+
+interface LanguageOption {
+  id: number
+  name: string
+  code: string
+  is_active: boolean
+}
 
 interface GeneralCategory {
   id: number
@@ -22,6 +29,10 @@ interface GeneralCategory {
   children_count: number
   poster_count: number
   section_type: string
+  // 2026-04: optional language — NULL means language-agnostic
+  language: number | null
+  language_name: string
+  language_code: string
 }
 
 interface PosterItem {
@@ -45,9 +56,10 @@ interface FormState {
   show_in_create: boolean
   parent: number | null
   section_type: string
+  language: number | null
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal' }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal', language: null }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -55,7 +67,19 @@ function toSlug(name: string) {
 
 export default function GeneralCategoryPage() {
   const { addToast } = useToast()
-  const { data, loading, error, create, update, remove, refresh } = useAdminCrud<GeneralCategory>(posterCategoriesApi)
+
+  // Language filter: '' = all, 'null' = language-agnostic rows only,
+  // otherwise a numeric language ID. Passed as `?language=` query param.
+  const [languageFilter, setLanguageFilter] = useState<string>('')
+  const crudParams = useMemo(
+    () => (languageFilter ? { language: languageFilter } : undefined),
+    [languageFilter],
+  )
+
+  const { data, loading, error, create, update, remove, refresh } =
+    useAdminCrud<GeneralCategory>(posterCategoriesApi, crudParams)
+  const { data: languages } = useAdminCrud<LanguageOption>(languagesApi)
+
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<GeneralCategory | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -63,6 +87,39 @@ export default function GeneralCategoryPage() {
   const [search, setSearch] = useState('')
   const [viewingParent, setViewingParent] = useState<GeneralCategory | null>(null)
   const [viewingSubcat, setViewingSubcat] = useState<GeneralCategory | null>(null)
+
+  // Bulk-select mode: while active, clicking a card toggles selection
+  // instead of navigating into it. Toggle off to return to nav mode.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const clearSelection = () => { setSelectedIds(new Set()); setSelectMode(false) }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    try {
+      const ids = Array.from(selectedIds)
+      await Promise.all(ids.map(id => remove(id).catch(() => null)))
+      addToast(`Moved ${ids.length} ${ids.length === 1 ? 'category' : 'categories'} to Recycle Bin`)
+      clearSelection()
+      setBulkDeleteOpen(false)
+      refresh()
+    } catch {
+      addToast('Some deletes failed', 'error')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   // Poster management state for subcategory view
   const [posters, setPosters] = useState<PosterItem[]>([])
@@ -171,7 +228,7 @@ export default function GeneralCategoryPage() {
 
   const openEdit = (item: GeneralCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, sort_order: item.sort_order ?? 0, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal' })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, sort_order: item.sort_order ?? 0, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal', language: item.language })
     setModalOpen(true)
   }
 
@@ -336,6 +393,26 @@ export default function GeneralCategoryPage() {
                 <option value="video_cards">Video Cards</option>
               </select>
             </div>
+            {/* Level-3 modal also exposes the language field so edits
+                made while drilled into a subcategory stay consistent. */}
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+                Language <span className="text-brand-text-muted/60">(optional)</span>
+              </label>
+              <select
+                value={form.language ?? ''}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  language: e.target.value === '' ? null : Number(e.target.value),
+                }))}
+                className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+              >
+                <option value="">— All languages —</option>
+                {languages.filter(l => l.is_active).map(l => (
+                  <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
@@ -364,7 +441,7 @@ export default function GeneralCategoryPage() {
   return (
     <div className="space-y-4">
       <CategoryTabNav />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           {viewingParent ? (
             <>
@@ -377,18 +454,107 @@ export default function GeneralCategoryPage() {
             <h1 className="text-2xl font-bold text-brand-text">General Categories</h1>
           )}
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search categories..." className="pl-10 pr-4 py-2 bg-brand-dark border border-brand-dark-border rounded-lg text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-64" />
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Bulk-select mode toggle — when ON, card clicks toggle
+              selection instead of navigating. */}
+          <button
+            onClick={() => { setSelectMode(v => !v); setSelectedIds(new Set()) }}
+            className={`px-3 py-2 text-sm rounded-lg flex items-center gap-1.5 transition-colors ${
+              selectMode
+                ? 'bg-brand-gold text-gray-900 hover:bg-brand-gold-dark'
+                : 'bg-brand-dark border border-brand-dark-border text-brand-text hover:bg-brand-dark-hover'
+            }`}
+            title="Toggle multi-select mode"
+          >
+            <CheckSquare className="h-4 w-4" />
+            {selectMode ? 'Exit select' : 'Select'}
+          </button>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search categories..." className="pl-10 pr-4 py-2 bg-brand-dark border border-brand-dark-border rounded-lg text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 w-64" />
+          </div>
         </div>
       </div>
+
+      {/* Filter bar — language dropdown. Mirrors BusinessCategoryPage. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-xs text-brand-text-muted">Filter by language:</label>
+        <select
+          value={languageFilter}
+          onChange={e => { setLanguageFilter(e.target.value); setSelectedIds(new Set()) }}
+          className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-1.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+        >
+          <option value="">All languages</option>
+          <option value="null">Language-agnostic only</option>
+          {languages.filter(l => l.is_active).map(l => (
+            <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+          ))}
+        </select>
+        {languageFilter && (
+          <button
+            onClick={() => { setLanguageFilter(''); setSelectedIds(new Set()) }}
+            className="text-xs text-brand-text-muted hover:text-brand-text underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Bulk action bar — visible whenever selectMode is on OR there
+          is an active selection. Select-all selects every visible card. */}
+      {(selectMode || selectedIds.size > 0) && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-brand-gold/10 border border-brand-gold/30 rounded-lg">
+          <span className="text-sm text-brand-text font-medium">
+            {selectedIds.size} selected
+          </span>
+          <button
+            onClick={() => {
+              if (selectedIds.size === filtered.length && filtered.length > 0) {
+                setSelectedIds(new Set())
+              } else {
+                setSelectedIds(new Set(filtered.map(c => c.id)))
+              }
+            }}
+            className="text-xs text-brand-text-muted hover:text-brand-text underline"
+          >
+            {selectedIds.size === filtered.length && filtered.length > 0
+              ? 'Deselect all'
+              : `Select all ${filtered.length} visible`}
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            disabled={selectedIds.size === 0}
+            className="px-3 py-1.5 bg-status-error/90 hover:bg-status-error disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete selected
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1.5 text-brand-text-muted hover:text-brand-text rounded hover:bg-brand-dark-hover transition-colors"
+            title="Exit select mode"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filtered.map(cat => (
           <div
             key={cat.id}
-            className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50 p-4 text-center group relative cursor-pointer hover:border-brand-gold/30 transition-colors"
+            className={`bg-brand-dark-card rounded-xl border p-4 text-center group relative cursor-pointer transition-colors ${
+              selectedIds.has(cat.id)
+                ? 'border-brand-gold ring-2 ring-brand-gold/40'
+                : 'border-brand-dark-border/50 hover:border-brand-gold/30'
+            }`}
             onClick={() => {
+              if (selectMode) {
+                // In select mode, card click toggles the checkbox
+                // rather than navigating into the category.
+                toggleSelect(cat.id)
+                return
+              }
               if (!viewingParent) {
                 setViewingParent(cat)
               } else {
@@ -399,6 +565,14 @@ export default function GeneralCategoryPage() {
               }
             }}
           >
+            {/* Select-mode checkbox overlay in top-left of the card */}
+            {selectMode && (
+              <div className="absolute top-2 left-2 z-10 pointer-events-none">
+                {selectedIds.has(cat.id)
+                  ? <CheckSquare className="h-5 w-5 text-brand-gold" />
+                  : <Square className="h-5 w-5 text-brand-text-muted" />}
+              </div>
+            )}
             <div className="w-16 h-16 mx-auto rounded-xl bg-neutral-900 overflow-hidden mb-3 flex items-center justify-center">
               {cat.icon_url ? <img src={cat.icon_url} className="w-full h-full object-contain p-1" /> : <Grid3X3 className="w-8 h-8 text-brand-text-muted" />}
             </div>
@@ -417,6 +591,13 @@ export default function GeneralCategoryPage() {
                 <Image className="h-3 w-3" />
                 {cat.poster_count} posters
               </div>
+            )}
+            {/* Language badge — only shown when set. Sits in the same
+                row as the other mini-badges for visual consistency. */}
+            {cat.language_name && (
+              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+                {cat.language_code || cat.language_name}
+              </span>
             )}
             {!cat.is_active && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-status-error/20 text-status-error">Inactive</span>}
             {!viewingParent && (
@@ -499,6 +680,26 @@ export default function GeneralCategoryPage() {
               <option value="video_cards">Video Cards</option>
             </select>
           </div>
+          {/* 2026-04: optional language so admin can maintain
+              language-specific category trees. NULL = all languages. */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+              Language <span className="text-brand-text-muted/60">(optional — leave empty for all languages)</span>
+            </label>
+            <select
+              value={form.language ?? ''}
+              onChange={e => setForm(f => ({
+                ...f,
+                language: e.target.value === '' ? null : Number(e.target.value),
+              }))}
+              className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+            >
+              <option value="">— All languages —</option>
+              {languages.filter(l => l.is_active).map(l => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
@@ -521,6 +722,16 @@ export default function GeneralCategoryPage() {
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Move to Recycle Bin" message={`Are you sure you want to delete "${deleteItem?.name}"?${(deleteItem as GeneralCategory)?.children_count > 0 ? ' This will also move all subcategories.' : ''} You can restore it later from the Recycle Bin.`} confirmText="Move to Recycle Bin" variant="danger" />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => !bulkDeleting && setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'category' : 'categories'}?`}
+        message={`This moves ${selectedIds.size === 1 ? 'the selected category' : 'all selected categories'} (and their subcategories) to the Recycle Bin. You can restore them from the Recycle Bin page.`}
+        confirmText={bulkDeleting ? 'Deleting…' : 'Move to Recycle Bin'}
+        variant="danger"
+      />
     </div>
   )
 }

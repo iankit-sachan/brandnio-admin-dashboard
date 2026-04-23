@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, Trash2, Upload } from 'lucide-react'
+import { Pencil, Trash2, Upload, CheckSquare, Square, X as XIcon } from 'lucide-react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { posterCategoriesApi } from '../../services/admin-api'
+import { posterCategoriesApi, languagesApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
+
+interface LanguageOption {
+  id: number
+  name: string
+  code: string
+  is_active: boolean
+}
 
 interface BusinessCategory {
   id: number
@@ -22,6 +29,10 @@ interface BusinessCategory {
   // display. Null = this is a top-level (parent) category.
   parent: number | null
   parent_name: string | null
+  // 2026-04: optional language tag. NULL = language-agnostic.
+  language: number | null
+  language_name: string
+  language_code: string
 }
 
 interface FormState {
@@ -30,9 +41,10 @@ interface FormState {
   slug: string
   is_active: boolean
   parent: number | null
+  language: number | null
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null }
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null, language: null }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
@@ -47,18 +59,73 @@ function generateSlug(name: string): string {
 export default function BusinessCategoryPage() {
   const { addToast } = useToast()
   const navigate = useNavigate()
-  const { data, loading, error, create, update, remove, refresh } = useAdminCrud<BusinessCategory>(posterCategoriesApi)
+
+  // Language filter — empty string = all, 'null' = language-agnostic only,
+  // otherwise the string ID of a specific language. Sent as the `language`
+  // query param to /api/admin/poster-categories/ which the backend handles.
+  const [languageFilter, setLanguageFilter] = useState<string>('')
+  const crudParams = useMemo(
+    () => (languageFilter ? { language: languageFilter } : undefined),
+    [languageFilter],
+  )
+
+  const { data, loading, error, create, update, remove, refresh } =
+    useAdminCrud<BusinessCategory>(posterCategoriesApi, crudParams)
+  const { data: languages } = useAdminCrud<LanguageOption>(languagesApi)
+
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<BusinessCategory | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [deleteItem, setDeleteItem] = useState<BusinessCategory | null>(null)
+
+  // Multi-select + bulk delete
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      if (prev.size === data.length && data.length > 0) return new Set()
+      return new Set(data.map(d => d.id))
+    })
+  }, [data])
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    try {
+      const ids = Array.from(selectedIds)
+      // Client-side parallel deletes — matches the BusinessPosterPage
+      // bulk-delete pattern. Swallows individual failures so a single
+      // 4xx doesn't abort the whole batch.
+      await Promise.all(ids.map(id => remove(id).catch(() => null)))
+      addToast(`Deleted ${ids.length} ${ids.length === 1 ? 'category' : 'categories'}`)
+      setSelectedIds(new Set())
+      setBulkDeleteOpen(false)
+      refresh()
+    } catch {
+      addToast('Some deletes failed', 'error')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (item: BusinessCategory) => {
     setEditingItem(item)
     setForm({
       icon_url: item.icon_url, name: item.name, slug: item.slug,
-      is_active: item.is_active, parent: item.parent,
+      is_active: item.is_active, parent: item.parent, language: item.language,
     })
     setModalOpen(true)
   }
@@ -130,7 +197,27 @@ export default function BusinessCategoryPage() {
     }
   }
 
+  const allSelected = data.length > 0 && selectedIds.size === data.length
+
   const columns: Column<BusinessCategory>[] = [
+    {
+      // Multi-select checkbox column. Select-all lives in the bulk
+      // action bar above the table, not in the header (DataTable's
+      // Column.title is typed as `string`, so a button there would
+      // require changing the component signature).
+      key: 'select' as 'id',
+      title: '',
+      render: (item) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(item.id)}
+          onChange={() => toggleSelect(item.id)}
+          onClick={e => e.stopPropagation()}
+          className="rounded cursor-pointer"
+        />
+      ),
+      className: 'w-10',
+    },
     {
       key: 'icon_url',
       title: 'Icon',
@@ -158,6 +245,20 @@ export default function BusinessCategoryPage() {
       key: 'slug',
       title: 'Slug',
       render: (item) => <code className="text-xs bg-brand-dark px-2 py-1 rounded text-brand-text-muted">{item.slug}</code>,
+    },
+    {
+      key: 'language_name' as 'name',
+      title: 'Language',
+      render: (item) => (
+        item.language_name
+          ? (
+            <span className="text-xs px-2 py-0.5 rounded bg-brand-dark-hover text-brand-text">
+              {item.language_name}
+              {item.language_code ? <span className="text-brand-text-muted"> ({item.language_code})</span> : null}
+            </span>
+          )
+          : <span className="text-xs text-brand-text-muted/60">—</span>
+      ),
     },
     {
       key: 'poster_count',
@@ -197,10 +298,66 @@ export default function BusinessCategoryPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-brand-text">Business Categories</h1>
         <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Category</button>
       </div>
+
+      {/* Filter bar — language dropdown. Empty = all; 'null' = language-
+          agnostic rows only; numeric ID = categories for that language. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-xs text-brand-text-muted">Filter by language:</label>
+        <select
+          value={languageFilter}
+          onChange={e => { setLanguageFilter(e.target.value); clearSelection() }}
+          className="bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-1.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+        >
+          <option value="">All languages</option>
+          <option value="null">Language-agnostic only</option>
+          {languages.filter(l => l.is_active).map(l => (
+            <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+          ))}
+        </select>
+        {languageFilter && (
+          <button
+            onClick={() => { setLanguageFilter(''); clearSelection() }}
+            className="text-xs text-brand-text-muted hover:text-brand-text underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Bulk action bar — only visible when selection is non-empty.
+          Select-all lives here rather than in the table header because
+          DataTable's Column.title is typed as string, not ReactNode. */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-brand-gold/10 border border-brand-gold/30 rounded-lg">
+          <span className="text-sm text-brand-text font-medium">
+            {selectedIds.size} selected
+          </span>
+          <button
+            onClick={toggleSelectAll}
+            className="text-xs text-brand-text-muted hover:text-brand-text underline"
+          >
+            {allSelected ? 'Deselect all' : `Select all ${data.length}`}
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            className="px-3 py-1.5 bg-status-error/90 hover:bg-status-error text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete selected
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1.5 text-brand-text-muted hover:text-brand-text rounded hover:bg-brand-dark-hover transition-colors"
+            title="Clear selection"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
@@ -251,6 +408,28 @@ export default function BusinessCategoryPage() {
             </select>
           </div>
 
+          {/* 2026-04: optional language so admin can maintain language-
+              specific category trees. NULL = category shows for every
+              language in the app (useful for system-wide taxonomy). */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+              Language <span className="text-brand-text-muted/60">(optional — leave empty for all languages)</span>
+            </label>
+            <select
+              value={form.language ?? ''}
+              onChange={e => setForm(f => ({
+                ...f,
+                language: e.target.value === '' ? null : Number(e.target.value),
+              }))}
+              className={inputClass}
+            >
+              <option value="">— All languages —</option>
+              {languages.filter(l => l.is_active).map(l => (
+                <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-center gap-2">
             <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} className="rounded" />
             <label className="text-sm text-brand-text-muted">Active</label>
@@ -263,6 +442,16 @@ export default function BusinessCategoryPage() {
       </Modal>
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => !bulkDeleting && setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'category' : 'categories'}?`}
+        message={`This moves ${selectedIds.size === 1 ? 'the selected category' : 'all selected categories'} to the Recycle Bin. Their child categories are also soft-deleted. You can restore them from the Recycle Bin page.`}
+        confirmText={bulkDeleting ? 'Deleting…' : 'Delete all'}
+        variant="danger"
+      />
     </div>
   )
 }
