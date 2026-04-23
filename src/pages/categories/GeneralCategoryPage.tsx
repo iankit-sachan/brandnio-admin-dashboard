@@ -78,10 +78,17 @@ export default function GeneralCategoryPage() {
   // Language filter: '' = all, 'null' = language-agnostic rows only,
   // otherwise a numeric language ID. Passed as `?language=` query param.
   const [languageFilter, setLanguageFilter] = useState<string>('')
-  const crudParams = useMemo(
-    () => (languageFilter ? { language: languageFilter } : undefined),
-    [languageFilter],
-  )
+
+  // 2026-04 strict scope separation: this page (reached via CATEGORY
+  // TAB → Poster Categories) only manages Category-tab rows. Business-
+  // scope rows are hidden here — admin goes to BUSINESS TAB → Business
+  // Categories to manage those. Mirror structure of Business Categories
+  // page which filters to ?default_scope=business.
+  const crudParams = useMemo(() => {
+    const params: Record<string, string> = { default_scope: 'categories' }
+    if (languageFilter) params.language = languageFilter
+    return params
+  }, [languageFilter])
 
   const { data, loading, error, create, update, remove, refresh } =
     useAdminCrud<GeneralCategory>(posterCategoriesApi, crudParams)
@@ -483,7 +490,7 @@ export default function GeneralCategoryPage() {
               <span className="text-sm text-brand-text-muted ml-1">({subcategories.length} subcategories)</span>
             </>
           ) : (
-            <h1 className="text-2xl font-bold text-brand-text">General Categories</h1>
+            <h1 className="text-2xl font-bold text-brand-text">Poster Categories</h1>
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">

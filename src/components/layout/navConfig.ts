@@ -96,7 +96,7 @@ export const navSections: NavSection[] = [
     color: '#F5A623',
     defaultOpen: false,
     items: [
-      { path: '/categories/general', label: 'All Categories', icon: FolderTree },
+      { path: '/categories/general', label: 'Poster Categories', icon: FolderTree },
       { path: '/posters', label: 'Poster Templates', icon: Image },
       { path: '/posters/tags', label: 'Tag Manager', icon: Tag },
       { path: '/posters/category-banners', label: 'Category Banners', icon: ImagePlus },
