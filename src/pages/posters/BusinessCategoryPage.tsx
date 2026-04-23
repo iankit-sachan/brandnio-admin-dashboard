@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Pencil, Trash2, Upload, CheckSquare, Square, X as XIcon, Plus, Download, GitMerge, ToggleLeft, ToggleRight, AlertTriangle, FolderInput } from 'lucide-react'
+import { Pencil, Trash2, Upload, X as XIcon, Plus, Download, GitMerge, ToggleLeft, ToggleRight, AlertTriangle, FolderInput, GripVertical, List, Network, ChevronDown, ChevronRight } from 'lucide-react'
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { SortableRow } from '../../components/common/SortableRow'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
@@ -147,6 +150,20 @@ export default function BusinessCategoryPage() {
   }
 
   // ── 2026-04 power-admin state ───────────────────────────────────
+  // View mode (I + K): flat table | drag-to-reorder | nested tree.
+  // 'flat' is the default table view. 'reorder' enables DnD handles
+  // on each row and sends a single reorder request on drop. 'tree'
+  // renders parents with their children nested beneath — read-only
+  // so DnD is disabled (cross-parent moves require a separate flow).
+  const [viewMode, setViewMode] = useState<'flat' | 'reorder' | 'tree'>('flat')
+  // Collapsed parents in tree view. Empty set = all expanded.
+  const [collapsedParents, setCollapsedParents] = useState<Set<number>>(new Set())
+  const [reorderSaving, setReorderSaving] = useState(false)
+  // Local sort_order override used only during a reorder. Until the
+  // server refresh lands, we keep the dragged order client-side so
+  // the UI doesn't snap back to the old positions mid-save.
+  const [localSortOverride, setLocalSortOverride] = useState<number[] | null>(null)
+
   // Bulk create (A): modal with textarea, one category per line
   const [bulkCreateOpen, setBulkCreateOpen] = useState(false)
   const [bulkCreateText, setBulkCreateText] = useState('')
@@ -268,6 +285,101 @@ export default function BusinessCategoryPage() {
     }
     return map
   }, [data])
+
+  // ── 2026-04 power-admin I: drag-to-reorder plumbing ──────────────
+  // Reorder mode is flat-only — we sort strictly by sort_order so the
+  // drag-and-drop hitboxes match what the admin sees. When a drop
+  // happens we optimistically reflect the new order via
+  // `localSortOverride` (the list of IDs in new order), then POST the
+  // full ordered list to /api/admin/poster-categories/reorder/ and
+  // refresh.
+  const sortedForReorder = useMemo(() => {
+    const base = [...data].sort((a, b) => {
+      // @ts-expect-error — sort_order exists on PosterCategory but our
+      // local interface doesn't declare it; fall back to name order.
+      const ao = a.sort_order ?? 0
+      // @ts-expect-error — same as above.
+      const bo = b.sort_order ?? 0
+      if (ao !== bo) return ao - bo
+      return a.name.localeCompare(b.name)
+    })
+    if (!localSortOverride) return base
+    const byId = new Map(base.map(c => [c.id, c]))
+    const ordered = localSortOverride
+      .map(id => byId.get(id))
+      .filter((x): x is BusinessCategory => !!x)
+    // Append anything the override didn't cover (e.g. newly-created).
+    for (const c of base) if (!localSortOverride.includes(c.id)) ordered.push(c)
+    return ordered
+  }, [data, localSortOverride])
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = sortedForReorder.findIndex(d => d.id === active.id)
+    const newIndex = sortedForReorder.findIndex(d => d.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    const reordered = arrayMove(sortedForReorder, oldIndex, newIndex)
+    // Optimistic UI — keep the new order locally while the request runs.
+    setLocalSortOverride(reordered.map(c => c.id))
+    setReorderSaving(true)
+    try {
+      await posterCategoryBulkApi.reorder(
+        reordered.map((c, i) => ({ id: c.id, sort_order: i })),
+      )
+      addToast('Order updated')
+      await refresh()
+      // Clear override once the server-side order matches our local view.
+      setLocalSortOverride(null)
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Reorder failed'), 'error')
+      // Roll back the optimistic update on failure so the admin sees
+      // the real server state.
+      setLocalSortOverride(null)
+    } finally {
+      setReorderSaving(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedForReorder])
+
+  // ── 2026-04 power-admin K: tree view grouping ────────────────────
+  // Group children under their parents for the nested tree renderer.
+  // Orphan children (parent id missing from `data`, which can happen
+  // when a language filter excludes the parent) are surfaced at the
+  // top level so they still render, labelled with their parent_name.
+  const treeGroups = useMemo(() => {
+    const parents: BusinessCategory[] = []
+    const childrenByParent = new Map<number, BusinessCategory[]>()
+    const byId = new Map(data.map(c => [c.id, c]))
+    for (const c of data) {
+      if (c.parent === null) {
+        parents.push(c)
+      } else {
+        if (!byId.has(c.parent)) {
+          // Parent is filtered out — render at the top level.
+          parents.push(c)
+          continue
+        }
+        const list = childrenByParent.get(c.parent) ?? []
+        list.push(c)
+        childrenByParent.set(c.parent, list)
+      }
+    }
+    // Alphabetic parent + child ordering within the tree view.
+    parents.sort((a, b) => a.name.localeCompare(b.name))
+    for (const arr of childrenByParent.values()) {
+      arr.sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return { parents, childrenByParent }
+  }, [data])
+
+  const toggleParentCollapse = useCallback((id: number) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (item: BusinessCategory) => {
@@ -531,6 +643,33 @@ export default function BusinessCategoryPage() {
             from the backend; CSV Import + Bulk Create open their
             respective modals. */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* 2026-04 power-admin I + K: view-mode switcher.
+              Flat (default DataTable), Reorder (flat + DnD handles),
+              Tree (nested parent/child read-only). Segmented control
+              styling keeps the three modes obviously mutually exclusive. */}
+          <div className="inline-flex rounded-lg border border-brand-dark-border overflow-hidden">
+            {([
+              { mode: 'flat',    label: 'Flat',    Icon: List,          title: 'Default flat list' },
+              { mode: 'reorder', label: 'Reorder', Icon: GripVertical,  title: 'Drag rows to change sort order' },
+              { mode: 'tree',    label: 'Tree',    Icon: Network,       title: 'Nested parent → children view' },
+            ] as const).map(({ mode, label, Icon, title }) => (
+              <button
+                key={mode}
+                onClick={() => {
+                  setViewMode(mode)
+                  if (mode !== 'flat') clearSelection()
+                }}
+                title={title}
+                className={`px-3 py-2 text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                  viewMode === mode
+                    ? 'bg-brand-gold text-gray-900'
+                    : 'bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" /> {label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setBulkCreateOpen(true)}
             className="px-3 py-2 text-xs font-medium rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors flex items-center gap-1.5"
@@ -650,7 +789,7 @@ export default function BusinessCategoryPage() {
         </div>
       )}
 
-      {/* Data Table */}
+      {/* Data Table / Reorder DnD / Tree view — 2026-04 power-admin I + K */}
       <div className="bg-brand-dark-card rounded-xl border border-brand-dark-border/50">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-brand-text-muted">Loading...</div>
@@ -658,6 +797,148 @@ export default function BusinessCategoryPage() {
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <p className="text-status-error text-sm">{error}</p>
             <button onClick={refresh} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">Retry</button>
+          </div>
+        ) : viewMode === 'reorder' ? (
+          // Reorder mode: flat DataTable with a drag handle column.
+          // We feed it the strictly-sort_order sorted list so drag
+          // hit-boxes match what the admin sees. Each row is wrapped
+          // in SortableRow; the whole tbody is wrapped in a DndContext
+          // + SortableContext so @dnd-kit can measure positions.
+          <div className="relative">
+            {reorderSaving && (
+              <div className="absolute inset-0 bg-brand-dark-card/60 flex items-center justify-center z-10 text-xs text-brand-text-muted">
+                Saving order…
+              </div>
+            )}
+            <DataTable
+              columns={columns}
+              data={sortedForReorder}
+              showDragHandle
+              tbodyWrapper={children => (
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext
+                    items={sortedForReorder.map(d => d.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {children}
+                  </SortableContext>
+                </DndContext>
+              )}
+              renderRow={(item, key, cells) => (
+                <SortableRow key={key} id={item.id}>{cells}</SortableRow>
+              )}
+            />
+          </div>
+        ) : viewMode === 'tree' ? (
+          // Tree view: nested parent → children layout, read-only with
+          // expand/collapse. Intentionally NOT a DataTable — the
+          // indentation + collapse toggles don't map cleanly to table
+          // rows, and trying to force it creates visual bugs when
+          // children span multiple columns.
+          <div className="divide-y divide-brand-dark-border/40">
+            {treeGroups.parents.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-brand-text-muted">
+                No categories to display.
+              </div>
+            ) : (
+              treeGroups.parents.map(parent => {
+                const children = treeGroups.childrenByParent.get(parent.id) ?? []
+                const collapsed = collapsedParents.has(parent.id)
+                return (
+                  <div key={parent.id}>
+                    <div className="flex items-center gap-2 px-4 py-2.5 hover:bg-brand-dark-hover/40">
+                      {children.length > 0 ? (
+                        <button
+                          onClick={() => toggleParentCollapse(parent.id)}
+                          className="p-0.5 rounded hover:bg-brand-dark-border text-brand-text-muted"
+                          aria-label={collapsed ? 'Expand' : 'Collapse'}
+                        >
+                          {collapsed
+                            ? <ChevronRight className="h-4 w-4" />
+                            : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        <span className="w-5 inline-block" />
+                      )}
+                      <CategoryIcon iconUrl={parent.icon_url} name={parent.name} />
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-sm font-medium text-brand-text truncate">{parent.name}</span>
+                        {!parent.is_active && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+                            Inactive
+                          </span>
+                        )}
+                        <span className="text-[11px] text-brand-text-muted">
+                          {parent.poster_count} poster{parent.poster_count === 1 ? '' : 's'}
+                          {children.length > 0 && ` · ${children.length} subcategor${children.length === 1 ? 'y' : 'ies'}`}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/posters/business?upload=1&category=${parent.id}`)}
+                        className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-indigo transition-colors"
+                        title={`Bulk upload posters to "${parent.name}"`}
+                      >
+                        <Upload className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openEdit(parent)}
+                        className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"
+                        title="Edit category"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteItem(parent)}
+                        className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"
+                        title="Delete category"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {!collapsed && children.map(child => (
+                      <div
+                        key={child.id}
+                        className="flex items-center gap-2 pl-12 pr-4 py-2 hover:bg-brand-dark-hover/40"
+                      >
+                        <CategoryIcon iconUrl={child.icon_url} name={child.name} />
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-sm text-brand-text truncate">{child.name}</span>
+                          {!child.is_active && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+                              Inactive
+                            </span>
+                          )}
+                          <span className="text-[11px] text-brand-text-muted">
+                            {child.poster_count} poster{child.poster_count === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => navigate(`/posters/business?upload=1&category=${child.id}`)}
+                          className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-indigo transition-colors"
+                          title={`Bulk upload posters to "${child.name}"`}
+                        >
+                          <Upload className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => openEdit(child)}
+                          className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-brand-gold transition-colors"
+                          title="Edit category"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteItem(child)}
+                          className="p-1.5 rounded-lg hover:bg-brand-dark-hover text-brand-text-muted hover:text-status-error transition-colors"
+                          title="Delete category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })
+            )}
           </div>
         ) : (
           <DataTable columns={columns} data={data} />

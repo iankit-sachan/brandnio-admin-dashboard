@@ -204,6 +204,11 @@ export const posterCategoryBulkApi = {
     fd.append('file', file)
     return api.post('/api/admin/poster-categories/csv-import/', fd).then(r => r.data)
   },
+  // 2026-04 power-admin I: write the whole ordered list in one request.
+  // The backend runs one UPDATE per row (N queries, still fast for <500
+  // categories), so we don't need to call it per-drag.
+  reorder: (items: { id: number; sort_order: number }[]) =>
+    api.post('/api/admin/poster-categories/reorder/', { items }).then(r => r.data),
 }
 export const posterTagsApi = {
   list: (): Promise<{ tag: string; count: number }[]> =>
