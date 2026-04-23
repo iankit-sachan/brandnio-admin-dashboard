@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Pencil, Trash2, Plus, Maximize2, Image as ImageIcon, Download, Upload, X, Loader2, CheckSquare, Square } from 'lucide-react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { Pencil, Trash2, Plus, Maximize2, Image as ImageIcon, Download, Upload, X, Loader2, CheckSquare, Square, Edit3, ExternalLink } from 'lucide-react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -33,6 +33,7 @@ const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded
 
 export default function BusinessPosterPage() {
   const { addToast } = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // 2026-04 scope fix v2: filter by CATEGORY's default_scope, not by
@@ -381,6 +382,53 @@ export default function BusinessPosterPage() {
           ))}
         </select>
       </div>
+
+      {/* 2026-04: Category context pill — shown when the admin has
+          filtered to a specific category. Surfaces the category name,
+          its live poster count, its parent (if any), and gives one-tap
+          access to edit the category (deep-links to the Business
+          Categories admin page with ?edit=<id>, which auto-opens the
+          edit modal). Keeps admins from having to back-navigate just
+          to fix a typo in the category name or flip its Admin Tab. */}
+      {(() => {
+        if (!categoryFilter) return null
+        const cat = (allCategories as unknown as PosterCategory[])
+          .find(c => c.id === Number(categoryFilter))
+        if (!cat) return null
+        const parentName = cat.parent_name || null
+        return (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-gold/10 border border-brand-gold/30 text-sm">
+            <span className="text-brand-text-muted">Viewing:</span>
+            <span className="font-semibold text-brand-text">{cat.name}</span>
+            {parentName && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+                under {parentName}
+              </span>
+            )}
+            <span className="text-[11px] text-brand-text-muted">
+              · {cat.poster_count ?? 0} poster{(cat.poster_count ?? 0) === 1 ? '' : 's'}
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={() => navigate(`/posters/business-category?edit=${cat.id}`)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors cursor-pointer"
+              title="Open this category's edit form on the Business Categories page"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              Edit category
+              <ExternalLink className="h-3 w-3 opacity-60" />
+            </button>
+            <button
+              onClick={() => setCategoryFilter('')}
+              aria-label="Clear category filter"
+              className="p-1 rounded text-brand-text-muted hover:text-brand-text hover:bg-brand-dark-hover transition-colors cursor-pointer"
+              title="Clear category filter"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Bulk action bar — appears only when something selected */}
       {selectedIds.size > 0 && (

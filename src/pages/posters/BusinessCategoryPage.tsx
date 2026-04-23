@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Pencil, Trash2, Upload, CheckSquare, Square, X as XIcon } from 'lucide-react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ImageUpload } from '../../components/ui/ImageUpload'
@@ -68,6 +68,7 @@ function generateSlug(name: string): string {
 export default function BusinessCategoryPage() {
   const { addToast } = useToast()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Language filter — empty string = all, 'null' = language-agnostic only,
   // otherwise the string ID of a specific language. Sent as the `language`
@@ -151,6 +152,35 @@ export default function BusinessCategoryPage() {
     })
     setModalOpen(true)
   }
+
+  /**
+   * 2026-04: auto-open the Edit modal when the page is entered with
+   * `?edit=<id>` in the URL. BusinessPosterPage links here with that
+   * param when the admin clicks the "Edit category" button on the
+   * viewing-context pill. Ref-guarded one-shot so subsequent re-renders
+   * or a fresh `data` fetch don't re-open the modal after the admin
+   * dismissed it. The param is cleaned out of the URL so a refresh
+   * doesn't re-trigger either.
+   */
+  const editUrlHandledRef = useRef(false)
+  useEffect(() => {
+    if (editUrlHandledRef.current) return
+    const editId = searchParams.get('edit')
+    if (!editId) return
+    if (data.length === 0) return  // wait for the list to load
+    const target = data.find(c => c.id === Number(editId))
+    if (target) {
+      openEdit(target)
+    } else {
+      addToast(`Category #${editId} not found or not a business category.`, 'error')
+    }
+    setSearchParams({}, { replace: true })
+    editUrlHandledRef.current = true
+    // addToast + openEdit + setSearchParams are stable across renders
+    // but ESLint can't prove that, so disable the exhaustive-deps rule
+    // for this one-shot effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, searchParams])
 
   // Only top-level rows can be parents; a category can't be its own
   // parent, and (for now) only one level of nesting is supported
