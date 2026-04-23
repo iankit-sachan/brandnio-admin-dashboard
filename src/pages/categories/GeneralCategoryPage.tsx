@@ -33,6 +33,9 @@ interface GeneralCategory {
   language: number | null
   language_name: string
   language_code: string
+  // 2026-04 scope fix: which admin tab this category belongs to.
+  // See BusinessCategoryPage for details.
+  default_scope: 'home' | 'categories' | 'business' | 'festival' | 'greeting'
 }
 
 interface PosterItem {
@@ -57,9 +60,13 @@ interface FormState {
   parent: number | null
   section_type: string
   language: number | null
+  default_scope: 'home' | 'categories' | 'business' | 'festival' | 'greeting'
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal', language: null }
+// 2026-04: on this page (All Categories admin), NEW categories default
+// to scope='categories' so they land in the Category tab. Admin can
+// flip via the edit form.
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', sort_order: 0, is_active: true, show_in_home: true, show_in_create: true, parent: null, section_type: 'normal', language: null, default_scope: 'categories' }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/ & /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -228,7 +235,7 @@ export default function GeneralCategoryPage() {
 
   const openEdit = (item: GeneralCategory) => {
     setEditingItem(item)
-    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, sort_order: item.sort_order ?? 0, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal', language: item.language })
+    setForm({ icon_url: item.icon_url, name: item.name, slug: item.slug, sort_order: item.sort_order ?? 0, is_active: item.is_active, show_in_home: item.show_in_home ?? true, show_in_create: item.show_in_create ?? true, parent: item.parent, section_type: item.section_type || 'normal', language: item.language, default_scope: item.default_scope ?? 'categories' })
     setModalOpen(true)
   }
 
@@ -392,6 +399,31 @@ export default function GeneralCategoryPage() {
                 <option value="calendar_anchor">Calendar Anchor</option>
                 <option value="video_cards">Video Cards</option>
               </select>
+            </div>
+            {/* 2026-04 scope fix: admin tab assignment. Level-3 modal
+                also exposes this so edits drilled into a subcategory
+                can re-classify. */}
+            <div>
+              <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+                Admin Tab <span className="text-status-error">*</span>
+              </label>
+              <select
+                value={form.default_scope}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  default_scope: e.target.value as FormState['default_scope'],
+                }))}
+                className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+              >
+                <option value="categories">Categories Tab</option>
+                <option value="business">Business Tab</option>
+                <option value="home">Home Tab</option>
+                <option value="festival">Festival</option>
+                <option value="greeting">Greeting</option>
+              </select>
+              <p className="text-[11px] text-brand-text-muted mt-1">
+                Posters uploaded into this category will appear under this tab.
+              </p>
             </div>
             {/* Level-3 modal also exposes the language field so edits
                 made while drilled into a subcategory stay consistent. */}
@@ -679,6 +711,32 @@ export default function GeneralCategoryPage() {
               <option value="calendar_anchor">Calendar Anchor</option>
               <option value="video_cards">Video Cards</option>
             </select>
+          </div>
+          {/* 2026-04 scope fix: admin tab assignment — controls which
+              admin page this category appears under AND which scope
+              posters uploaded into it inherit. Posters already in this
+              category are re-tagged on save. */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+              Admin Tab <span className="text-status-error">*</span>
+            </label>
+            <select
+              value={form.default_scope}
+              onChange={e => setForm(f => ({
+                ...f,
+                default_scope: e.target.value as FormState['default_scope'],
+              }))}
+              className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+            >
+              <option value="categories">Categories Tab</option>
+              <option value="business">Business Tab</option>
+              <option value="home">Home Tab</option>
+              <option value="festival">Festival</option>
+              <option value="greeting">Greeting</option>
+            </select>
+            <p className="text-[11px] text-brand-text-muted mt-1">
+              Posters uploaded into this category will appear under this tab.
+            </p>
           </div>
           {/* 2026-04: optional language so admin can maintain
               language-specific category trees. NULL = all languages. */}

@@ -35,19 +35,23 @@ export default function BusinessPosterPage() {
   const { addToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // 2026-04: STRICT scope separation. Previously this page pulled scope
-  // IN ('business', 'categories') so legacy un-tagged posters stayed
-  // visible during the scope-migration rollout — but that was a
-  // transition window, not a permanent rule. The Business Posters
-  // admin page should ONLY show scope='business' posters, otherwise
-  // every poster uploaded under the Category tab shows up here too
-  // (reported as a bug: "posters uploaded to Category tab are also
-  // appearing in Business tab"). Memoized to keep referential equality
-  // across renders (otherwise useAdminCrud's useCallback deps would
-  // re-trigger fetches every render).
-  const crudParams = useMemo(() => ({ scope: 'business' }), [])
+  // 2026-04 scope fix v2: filter by CATEGORY's default_scope, not by
+  // per-poster scope. This closes the bug where bulk uploads through
+  // this page hardcoded scope='business' on posters going into
+  // Category-tab categories. Now visibility follows the category:
+  // if `category.default_scope='business'`, its posters show here;
+  // otherwise they don't. Admin can move a category between tabs
+  // from the Business Categories / All Categories admin pages by
+  // editing `default_scope` — and existing posters in that category
+  // are auto-retagged by the backend save hook on next edit.
+  //
+  // Also filter the category list this page reads from to only
+  // business categories, so the bulk-upload and Add Poster pickers
+  // only show categories that actually belong on this tab.
+  const crudParams = useMemo(() => ({ category_scope: 'business' }), [])
+  const categoriesParams = useMemo(() => ({ default_scope: 'business' }), [])
   const { data, loading, create, update, remove, refresh } = useAdminCrud<Poster>(postersApi, crudParams)
-  const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi)
+  const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi, categoriesParams)
   const { data: festivals } = useAdminCrud(festivalsApi)
   const { data: languages } = useAdminCrud<LanguageOption>(languagesApi)
   const [modalOpen, setModalOpen] = useState(false)
@@ -168,8 +172,14 @@ export default function BusinessPosterPage() {
         await update(editingItem.id, form)
         addToast('Poster updated successfully')
       } else {
-        // New poster created from Business Posters page → scope='business'.
-        await create({ ...form, scope: 'business' })
+        // 2026-04 scope fix: no longer hardcoding scope='business' here.
+        // The backend's Poster.save hook inherits scope from the selected
+        // category's default_scope. This page only shows business
+        // categories (categoriesParams default_scope=business filter), so
+        // the inherited scope will be 'business' in practice — but if an
+        // admin moves a category to a different tab later, new posters
+        // will follow the category rather than being stuck on 'business'.
+        await create({ ...form })
         addToast('Poster created successfully')
       }
       setForm(emptyForm); setEditingItem(null); setModalOpen(false)
@@ -289,13 +299,18 @@ export default function BusinessPosterPage() {
           const { url: imageUrl, thumbnail_url: thumbUrl, detected_ratio } = await uploadApi.uploadWithThumbnail(file)
           const title = smartTitle(file.name, categoryName, i + batchIdx)
           const ratio = (detected_ratio as AspectRatio) || bulkRatio
+          // 2026-04 scope fix: scope is no longer sent from here. The
+          // backend's Poster.save hook inherits it from the selected
+          // category's default_scope — so the category is the single
+          // source of truth for tab assignment. If an admin later
+          // re-classifies the category (via Business Categories / All
+          // Categories admin page), existing posters are auto-retagged.
           await create({
             title, image_url: imageUrl, thumbnail_url: thumbUrl,
             category: targetCategoryId, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
             language: bulkLanguage,  // Q2=B: required, picked once per batch
-            scope: 'business',       // bulk uploads from this page are always business scope
           } as any)
         })
       )

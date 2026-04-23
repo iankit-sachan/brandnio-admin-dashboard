@@ -33,6 +33,11 @@ interface BusinessCategory {
   language: number | null
   language_name: string
   language_code: string
+  // 2026-04 scope fix: which admin tab this category belongs to.
+  // Drives visibility on the Business Posters page (which filters by
+  // `category__default_scope='business'`) and dictates the scope
+  // inherited by posters uploaded into this category.
+  default_scope: 'home' | 'categories' | 'business' | 'festival' | 'greeting'
 }
 
 interface FormState {
@@ -42,9 +47,13 @@ interface FormState {
   is_active: boolean
   parent: number | null
   language: number | null
+  default_scope: 'home' | 'categories' | 'business' | 'festival' | 'greeting'
 }
 
-const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null, language: null }
+// 2026-04: on this page (Business Categories admin), NEW categories
+// default to scope='business' so they land in the Business tab. Admin
+// can flip to a different scope via the edit form if needed.
+const emptyForm: FormState = { icon_url: null, name: '', slug: '', is_active: true, parent: null, language: null, default_scope: 'business' }
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 
@@ -64,8 +73,18 @@ export default function BusinessCategoryPage() {
   // otherwise the string ID of a specific language. Sent as the `language`
   // query param to /api/admin/poster-categories/ which the backend handles.
   const [languageFilter, setLanguageFilter] = useState<string>('')
+
+  // 2026-04 scope fix: this admin page only manages BUSINESS-tab
+  // categories. Strictly filters by ?default_scope=business so admin
+  // can't accidentally land on a Category-tab row here. To edit a
+  // category from a different tab, use the "All Categories" admin
+  // page under Category Tab → All Categories.
   const crudParams = useMemo(
-    () => (languageFilter ? { language: languageFilter } : undefined),
+    () => {
+      const params: Record<string, string> = { default_scope: 'business' }
+      if (languageFilter) params.language = languageFilter
+      return params
+    },
     [languageFilter],
   )
 
@@ -126,6 +145,9 @@ export default function BusinessCategoryPage() {
     setForm({
       icon_url: item.icon_url, name: item.name, slug: item.slug,
       is_active: item.is_active, parent: item.parent, language: item.language,
+      // Fall back to 'business' when editing a row that somehow
+      // lacks the field (e.g. row was fetched before backend upgrade).
+      default_scope: item.default_scope ?? 'business',
     })
     setModalOpen(true)
   }
@@ -428,6 +450,36 @@ export default function BusinessCategoryPage() {
                 <option key={l.id} value={l.id}>{l.name} ({l.code})</option>
               ))}
             </select>
+          </div>
+
+          {/* 2026-04 scope fix: admin tab assignment. Controls which
+              admin page this category (and all posters uploaded into
+              it) appears under. Defaults to 'business' on this page;
+              flipping to anything else moves the category out of the
+              Business Posters view the next time the list refreshes.
+              All existing posters in this category are automatically
+              re-tagged to match (backend save hook).  */}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">
+              Admin Tab <span className="text-status-error">*</span>
+            </label>
+            <select
+              value={form.default_scope}
+              onChange={e => setForm(f => ({
+                ...f,
+                default_scope: e.target.value as FormState['default_scope'],
+              }))}
+              className={inputClass}
+            >
+              <option value="business">Business Tab</option>
+              <option value="categories">Categories Tab</option>
+              <option value="home">Home Tab</option>
+              <option value="festival">Festival</option>
+              <option value="greeting">Greeting</option>
+            </select>
+            <p className="text-[11px] text-brand-text-muted mt-1">
+              Posters uploaded into this category will appear under this tab.
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
