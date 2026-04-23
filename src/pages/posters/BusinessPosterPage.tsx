@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Pencil, Trash2, Plus, Maximize2, Image as ImageIcon, Download, Upload, X, Loader2, CheckSquare, Square, Edit3, ExternalLink } from 'lucide-react'
+import { Pencil, Trash2, Plus, Maximize2, Image as ImageIcon, Download, Upload, X, Loader2, CheckSquare, Square, Edit3, ExternalLink, Tag, BarChart3, Lightbulb } from 'lucide-react'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
@@ -74,6 +74,14 @@ export default function BusinessPosterPage() {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false)
   const [bulkMoveCategory, setBulkMoveCategory] = useState<number>(0)
   const [bulkMoving, setBulkMoving] = useState(false)
+
+  // 2026-04 power-admin E: bulk re-tag. Admin picks add/remove/replace
+  // and a list of tags, we call posters/bulk_tags/ which iterates with
+  // poster.save() so the backend dedup/normalisation logic runs.
+  const [bulkTagsOpen, setBulkTagsOpen] = useState(false)
+  const [bulkTagsOp, setBulkTagsOp] = useState<'add' | 'remove' | 'replace'>('add')
+  const [bulkTagsList, setBulkTagsList] = useState<string[]>([])
+  const [bulkTagsSaving, setBulkTagsSaving] = useState(false)
 
   // ── Bulk upload state ──
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
@@ -252,6 +260,62 @@ export default function BusinessPosterPage() {
     }
   }
 
+  // ── Bulk re-tag (2026-04 power-admin E) ──
+  // Supports three ops:
+  //   add     – merge the new tags into each poster's existing list
+  //   remove  – strip any matching tags from each poster
+  //   replace – overwrite every selected poster's tag list with these
+  // Backend iterates with poster.save() so tag normalisation and
+  // dedup rules run for each row.
+  const handleBulkTags = async () => {
+    if (selectedIds.size === 0) { addToast('No posters selected', 'error'); return }
+    if (bulkTagsOp !== 'remove' && bulkTagsList.length === 0) {
+      // replace-with-empty would silently clear all tags — force the admin
+      // to explicitly confirm that by first entering at least one tag.
+      addToast('Enter at least one tag (or switch op)', 'error'); return
+    }
+    setBulkTagsSaving(true)
+    try {
+      const resp = await posterBulkApi.bulkTags(
+        Array.from(selectedIds), bulkTagsOp, bulkTagsList,
+      ) as { affected: number; op: string }
+      const opLabel = { add: 'tagged', remove: 'detagged', replace: 'retagged' }[bulkTagsOp]
+      addToast(`${opLabel} ${resp.affected} poster${resp.affected === 1 ? '' : 's'}`)
+      setBulkTagsOpen(false)
+      setBulkTagsList([])
+      setSelectedIds(new Set())
+      await refresh()
+    } catch {
+      addToast('Bulk tag update failed', 'error')
+    } finally {
+      setBulkTagsSaving(false)
+    }
+  }
+
+  // 2026-04 power-admin J: dashboard summary card inputs.
+  // Purely derived from already-loaded `data` — no extra API call.
+  const stats = useMemo(() => {
+    const total = data.length
+    const active = data.filter(p => p.is_active !== false).length
+    const premium = data.filter(p => p.is_premium).length
+    const downloads = data.reduce((n, p) => n + (p.download_count || 0), 0)
+    const byCat = new Map<number, number>()
+    for (const p of data) {
+      if (!p.category) continue
+      byCat.set(p.category, (byCat.get(p.category) || 0) + 1)
+    }
+    // Top 3 categories by poster count. Useful at-a-glance signal for
+    // where the admin has been spending their upload effort.
+    const topCats = [...byCat.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([id, count]) => {
+        const cat = allCategories.find(c => c.id === id)
+        return { id, count, name: cat?.name ?? `#${id}` }
+      })
+    return { total, active, premium, downloads, topCats }
+  }, [data, allCategories])
+
   // ── Bulk upload helpers ──
   const handleBulkFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -354,6 +418,72 @@ export default function BusinessPosterPage() {
         </button>
       </div>
 
+      {/* 2026-04 power-admin J: dashboard summary card.
+          Derived locally from the already-loaded poster list so it
+          costs nothing extra at render time. Hidden while loading so
+          admins don't see a zero-state flash. */}
+      {data.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 rounded-xl bg-brand-dark-card border border-brand-dark-border/50">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-brand-gold/10 text-brand-gold">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-text-muted">Total posters</p>
+              <p className="text-lg font-semibold text-brand-text">{stats.total.toLocaleString()}</p>
+              <p className="text-[11px] text-brand-text-muted">{stats.active.toLocaleString()} active</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-brand-gold/10 text-brand-gold">
+              <Tag className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-text-muted">Premium</p>
+              <p className="text-lg font-semibold text-brand-text">{stats.premium.toLocaleString()}</p>
+              <p className="text-[11px] text-brand-text-muted">
+                {stats.total > 0 ? `${Math.round((stats.premium / stats.total) * 100)}% of catalog` : '—'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-status-info/10 text-status-info">
+              <Download className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-brand-text-muted">Downloads (all-time)</p>
+              <p className="text-lg font-semibold text-brand-text">{stats.downloads.toLocaleString()}</p>
+              <p className="text-[11px] text-brand-text-muted">across all posters</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-brand-indigo/10 text-brand-indigo">
+              <ImageIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-brand-text-muted">Top categories</p>
+              {stats.topCats.length === 0 ? (
+                <p className="text-sm text-brand-text-muted/60">—</p>
+              ) : (
+                <ul className="space-y-0.5 mt-0.5">
+                  {stats.topCats.map(tc => (
+                    <li key={tc.id} className="text-[12px] text-brand-text truncate">
+                      <button
+                        onClick={() => setCategoryFilter(String(tc.id))}
+                        className="hover:text-brand-gold transition-colors cursor-pointer"
+                        title={`Filter to ${tc.name}`}
+                      >
+                        {tc.name} <span className="text-brand-text-muted">({tc.count})</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-3">
         <input
@@ -444,6 +574,14 @@ export default function BusinessPosterPage() {
           <button onClick={() => setBulkMoveOpen(true)} className="ml-auto px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 cursor-pointer">
             Move to Category
           </button>
+          {/* 2026-04 power-admin E: bulk tag add/remove/replace. */}
+          <button
+            onClick={() => { setBulkTagsOp('add'); setBulkTagsList([]); setBulkTagsOpen(true) }}
+            className="px-4 py-1.5 bg-brand-indigo text-white text-sm rounded-lg hover:bg-brand-indigo/80 transition-colors flex items-center gap-2 cursor-pointer"
+            title="Add, remove, or replace tags on selected posters"
+          >
+            <Tag className="h-4 w-4" /> Tags
+          </button>
           <button onClick={() => setBulkDeleteOpen(true)} className="px-4 py-1.5 bg-status-error text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 cursor-pointer">
             <Trash2 className="h-4 w-4" /> Delete Selected
           </button>
@@ -511,10 +649,87 @@ export default function BusinessPosterPage() {
         })}
       </div>
 
+      {/* 2026-04 power-admin L: empty-state coaching.
+          Three distinct empty states:
+            1. `data` is genuinely empty (no business posters yet at all)
+               — point the admin at Bulk Upload and the Business
+               Categories page so they know where to start.
+            2. `data` has rows but filters exclude everything — offer a
+               one-click Clear filters.
+            3. `allCategories` has no business-scope categories — tell
+               the admin they need to create one first (common snag
+               after the scope-reset migration). */}
       {filteredData.length === 0 && (
-        <div className="text-center py-16">
-          <ImageIcon className="h-12 w-12 text-brand-text-muted/30 mx-auto mb-3" />
-          <p className="text-brand-text-muted">No posters found matching your filters.</p>
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <ImageIcon className="h-12 w-12 text-brand-text-muted/30 mb-3" />
+          {data.length === 0 ? (
+            // Total-empty state
+            allCategories.length === 0 ? (
+              <>
+                <p className="text-brand-text font-medium mb-1">No Business categories yet</p>
+                <p className="text-sm text-brand-text-muted max-w-md">
+                  Business posters are grouped under categories. Create at least one business category before uploading posters.
+                </p>
+                <button
+                  onClick={() => navigate('/posters/business-category')}
+                  className="mt-4 px-4 py-2 bg-brand-gold text-gray-900 text-sm font-medium rounded-lg hover:bg-brand-gold-dark transition-colors inline-flex items-center gap-2"
+                >
+                  <Lightbulb className="h-4 w-4" /> Go to Business Categories
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-brand-text font-medium mb-1">No business posters yet</p>
+                <p className="text-sm text-brand-text-muted max-w-md">
+                  Upload your first batch of posters with Bulk Upload — it auto-detects aspect ratios and generates thumbnails.
+                </p>
+                <div className="flex items-center gap-2 mt-4 flex-wrap justify-center">
+                  <button
+                    onClick={() => { setBulkParentCategory(0); setBulkCategory(0); setBulkUploadOpen(true) }}
+                    className="px-4 py-2 bg-brand-indigo text-white text-sm rounded-lg hover:bg-brand-indigo/80 transition-colors inline-flex items-center gap-2"
+                  >
+                    <Upload className="h-4 w-4" /> Start Bulk Upload
+                  </button>
+                  <button
+                    onClick={openAdd}
+                    className="px-4 py-2 bg-brand-dark-hover text-brand-text text-sm rounded-lg hover:bg-brand-dark-border transition-colors inline-flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" /> Add single poster
+                  </button>
+                </div>
+                <p className="text-[11px] text-brand-text-muted/70 mt-3 max-w-md">
+                  Tip: categories control which tab posters show up under.{' '}
+                  Re-classify a category from{' '}
+                  <button
+                    onClick={() => navigate('/posters/business-category')}
+                    className="underline hover:text-brand-gold cursor-pointer"
+                  >
+                    Business Categories
+                  </button>
+                  {' '}to move its posters to a different Admin Tab automatically.
+                </p>
+              </>
+            )
+          ) : (
+            // Filter-empty state — we have data but current filters hide it all.
+            <>
+              <p className="text-brand-text font-medium mb-1">No posters match your filters</p>
+              <p className="text-sm text-brand-text-muted max-w-md">
+                {data.length} poster{data.length === 1 ? '' : 's'} loaded, but the current search + filter combo hides every one.
+              </p>
+              <button
+                onClick={() => {
+                  setSearch('')
+                  setCategoryFilter('')
+                  setRatioFilter('')
+                  setLanguageFilter('')
+                }}
+                className="mt-4 px-4 py-2 bg-brand-dark-hover text-brand-text text-sm rounded-lg hover:bg-brand-dark-border transition-colors inline-flex items-center gap-2"
+              >
+                <X className="h-4 w-4" /> Clear all filters
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -813,6 +1028,59 @@ export default function BusinessPosterPage() {
         confirmText={bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}
         variant="danger"
       />
+
+      {/* ─── 2026-04 Bulk Tags Modal (E) ─── */}
+      <Modal
+        isOpen={bulkTagsOpen}
+        onClose={() => !bulkTagsSaving && setBulkTagsOpen(false)}
+        title={`Tag ${selectedIds.size} poster${selectedIds.size === 1 ? '' : 's'}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Operation</label>
+            <div className="flex gap-2 flex-wrap">
+              {(['add', 'remove', 'replace'] as const).map(op => (
+                <button
+                  key={op}
+                  onClick={() => setBulkTagsOp(op)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors cursor-pointer ${
+                    bulkTagsOp === op
+                      ? 'bg-brand-gold text-gray-900 font-medium'
+                      : 'bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border'
+                  }`}
+                >
+                  {op === 'add' ? 'Add tags' : op === 'remove' ? 'Remove tags' : 'Replace all tags'}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-brand-text-muted mt-1.5">
+              {bulkTagsOp === 'add' && 'Merges these tags into each poster\'s existing list (dedup preserved).'}
+              {bulkTagsOp === 'remove' && 'Strips any matching tags from each selected poster.'}
+              {bulkTagsOp === 'replace' && 'Overwrites every selected poster\'s tag list with exactly these.'}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Tags</label>
+            <TagInput value={bulkTagsList} onChange={setBulkTagsList} />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setBulkTagsList([]); setBulkTagsOpen(false) }}
+              disabled={bulkTagsSaving}
+              className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkTags}
+              disabled={bulkTagsSaving || (bulkTagsOp !== 'remove' && bulkTagsList.length === 0)}
+              className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {bulkTagsSaving ? 'Applying…' : `Apply to ${selectedIds.size}`}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

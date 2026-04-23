@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Pencil, Trash2, Upload, CheckSquare, Square, X as XIcon } from 'lucide-react'
+import { Pencil, Trash2, Upload, CheckSquare, Square, X as XIcon, Plus, Download, GitMerge, ToggleLeft, ToggleRight, AlertTriangle, FolderInput } from 'lucide-react'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { Modal } from '../../components/ui/Modal'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../context/ToastContext'
-import { posterCategoriesApi, languagesApi } from '../../services/admin-api'
+import { posterCategoriesApi, languagesApi, posterCategoryBulkApi } from '../../services/admin-api'
 import { useAdminCrud } from '../../hooks/useAdminCrud'
 
 interface LanguageOption {
@@ -38,6 +38,12 @@ interface BusinessCategory {
   // `category__default_scope='business'`) and dictates the scope
   // inherited by posters uploaded into this category.
   default_scope: 'home' | 'categories' | 'business' | 'festival' | 'greeting'
+  // 2026-04: audit-trail columns — populated server-side. `created_at`
+  // is set on create, `deleted_by` is written when an admin soft-deletes
+  // the row (stays in the Recycle Bin view; not shown here since this
+  // page filters out soft-deleted rows).
+  created_at?: string
+  deleted_by?: string
 }
 
 interface FormState {
@@ -139,6 +145,129 @@ export default function BusinessCategoryPage() {
       setBulkDeleting(false)
     }
   }
+
+  // ── 2026-04 power-admin state ───────────────────────────────────
+  // Bulk create (A): modal with textarea, one category per line
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false)
+  const [bulkCreateText, setBulkCreateText] = useState('')
+  const [bulkCreating, setBulkCreating] = useState(false)
+  // Bulk change scope (B): modal with target-scope picker
+  const [bulkScopeOpen, setBulkScopeOpen] = useState(false)
+  const [bulkScopeTarget, setBulkScopeTarget] = useState<FormState['default_scope']>('categories')
+  const [bulkScoping, setBulkScoping] = useState(false)
+  // Merge (H): modal with target-category picker
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeTargetId, setMergeTargetId] = useState<number>(0)
+  const [merging, setMerging] = useState(false)
+  // CSV import (F): file input state
+  const [csvImportOpen, setCsvImportOpen] = useState(false)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvImporting, setCsvImporting] = useState(false)
+
+  const handleBulkCreate = async () => {
+    const names = bulkCreateText.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+    if (names.length === 0) { addToast('Enter at least one category name', 'error'); return }
+    setBulkCreating(true)
+    try {
+      const resp = await posterCategoryBulkApi.bulkCreate(names, 'business') as { created: unknown[]; skipped: unknown[] }
+      const createdN = (resp.created || []).length
+      const skippedN = (resp.skipped || []).length
+      addToast(
+        skippedN > 0
+          ? `Created ${createdN}; skipped ${skippedN} (duplicates)`
+          : `Created ${createdN} categories`,
+      )
+      setBulkCreateOpen(false)
+      setBulkCreateText('')
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Bulk create failed'), 'error')
+    } finally { setBulkCreating(false) }
+  }
+
+  const handleBulkChangeScope = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setBulkScoping(true)
+    try {
+      const resp = await posterCategoryBulkApi.bulkChangeScope(ids, bulkScopeTarget) as { affected: number }
+      addToast(`Moved ${resp.affected} categor${resp.affected === 1 ? 'y' : 'ies'} to ${bulkScopeTarget}`)
+      setBulkScopeOpen(false)
+      clearSelection()
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Bulk change scope failed'), 'error')
+    } finally { setBulkScoping(false) }
+  }
+
+  const handleBulkActivate = async (active: boolean) => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    try {
+      const resp = await posterCategoryBulkApi.bulkSetActive(ids, active) as { affected: number }
+      addToast(`${active ? 'Activated' : 'Deactivated'} ${resp.affected} categor${resp.affected === 1 ? 'y' : 'ies'}`)
+      clearSelection()
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, `Bulk ${active ? 'activate' : 'deactivate'} failed`), 'error')
+    }
+  }
+
+  const handleMerge = async () => {
+    if (selectedIds.size !== 1 || !mergeTargetId) return
+    const [sourceId] = Array.from(selectedIds)
+    if (sourceId === mergeTargetId) { addToast('Source and target must differ', 'error'); return }
+    setMerging(true)
+    try {
+      const resp = await posterCategoryBulkApi.mergeInto(sourceId, mergeTargetId) as { moved_posters: number }
+      addToast(`Merged: ${resp.moved_posters} poster${resp.moved_posters === 1 ? '' : 's'} moved, source deleted`)
+      setMergeOpen(false)
+      setMergeTargetId(0)
+      clearSelection()
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'Merge failed'), 'error')
+    } finally { setMerging(false) }
+  }
+
+  const handleCsvImport = async () => {
+    if (!csvFile) { addToast('Pick a CSV file first', 'error'); return }
+    setCsvImporting(true)
+    try {
+      const resp = await posterCategoryBulkApi.csvImport(csvFile) as { created: unknown[]; updated: unknown[]; skipped: unknown[] }
+      addToast(`CSV import: ${resp.created.length} created, ${resp.updated.length} updated, ${resp.skipped.length} skipped`)
+      setCsvImportOpen(false)
+      setCsvFile(null)
+      refresh()
+    } catch (err) {
+      addToast(extractErrorMessage(err, 'CSV import failed'), 'error')
+    } finally { setCsvImporting(false) }
+  }
+
+  // Duplicate detection (G): for each row, look up categories whose
+  // names share a prefix or substring. Memoised so it only runs when
+  // `data` changes. Pure client-side heuristic — flags rows where the
+  // admin might have created two categories for the same concept
+  // (e.g. "Agarbatti" and "Agarbatti Post").
+  const duplicatesByIdBus = useMemo(() => {
+    const map = new Map<number, string[]>()
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
+    for (const a of data) {
+      const na = norm(a.name)
+      const hits: string[] = []
+      for (const b of data) {
+        if (b.id === a.id) continue
+        const nb = norm(b.name)
+        if (!nb || !na) continue
+        // Heuristic: same prefix of 5+ chars OR one contains the other
+        if (nb.startsWith(na) || na.startsWith(nb) || nb.includes(na) || na.includes(nb)) {
+          if (nb.length > 3) hits.push(b.name)
+        }
+      }
+      if (hits.length) map.set(a.id, hits)
+    }
+    return map
+  }, [data])
 
   const openAdd = () => { setEditingItem(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (item: BusinessCategory) => {
@@ -282,16 +411,30 @@ export default function BusinessCategoryPage() {
       sortable: true,
       // 2026-04: children get a small "under PARENT" chip next to
       // their name so admins can see hierarchy at a glance.
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <span>{item.name}</span>
-          {item.parent_name && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
-              under {item.parent_name}
-            </span>
-          )}
-        </div>
-      ),
+      // 2026-04 power-admin G: an amber ⚠ icon appears when the
+      // client-side duplicate heuristic (see duplicatesByIdBus) detects
+      // a similarly-named row. Hover for the list of matches.
+      render: (item) => {
+        const dupMatches = duplicatesByIdBus.get(item.id)
+        return (
+          <div className="flex items-center gap-2">
+            <span>{item.name}</span>
+            {item.parent_name && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-dark-hover text-brand-text-muted">
+                under {item.parent_name}
+              </span>
+            )}
+            {dupMatches && dupMatches.length > 0 && (
+              <span
+                className="text-amber-400"
+                title={`Possible duplicate of: ${dupMatches.join(', ')}`}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'slug',
@@ -328,6 +471,28 @@ export default function BusinessCategoryPage() {
       ),
     },
     {
+      // 2026-04 power-admin M: surface the audit-trail data the model
+      // already carries (created_at on every row; deleted_by only on
+      // soft-deleted rows which this page filters out anyway). Keeps
+      // the column compact by showing only the date, with the full
+      // ISO timestamp in the title attr for hover inspection.
+      key: 'created_at' as 'name',
+      title: 'Activity',
+      sortable: true,
+      render: (item) => {
+        if (!item.created_at) return <span className="text-xs text-brand-text-muted/60">—</span>
+        const d = new Date(item.created_at)
+        return (
+          <span
+            className="text-xs text-brand-text-muted"
+            title={`Created ${d.toISOString()}`}
+          >
+            {d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+          </span>
+        )
+      },
+    },
+    {
       key: 'actions',
       title: 'Actions',
       render: (item) => (
@@ -351,8 +516,49 @@ export default function BusinessCategoryPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-brand-text">Business Categories</h1>
-        <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Category</button>
+        <div>
+          <h1 className="text-2xl font-bold text-brand-text">Business Categories</h1>
+          <p className="text-xs text-brand-text-muted mt-1">
+            {data.length} categor{data.length === 1 ? 'y' : 'ies'}
+            {duplicatesByIdBus.size > 0 && (
+              <> · <span className="text-amber-400">{duplicatesByIdBus.size} possible duplicate{duplicatesByIdBus.size === 1 ? '' : 's'}</span></>
+            )}
+          </p>
+        </div>
+        {/* Header action row — one-click bulk tools alongside the
+            single-row "Add Category" button. CSV Export is a plain
+            anchor with a download attr so the browser streams straight
+            from the backend; CSV Import + Bulk Create open their
+            respective modals. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setBulkCreateOpen(true)}
+            className="px-3 py-2 text-xs font-medium rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors flex items-center gap-1.5"
+            title="Create multiple categories from a list of names"
+          >
+            <Plus className="h-3.5 w-3.5" /> Bulk Create
+          </button>
+          <a
+            href={posterCategoryBulkApi.csvExportUrl()}
+            className="px-3 py-2 text-xs font-medium rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors flex items-center gap-1.5"
+            title="Download all categories as CSV"
+          >
+            <Download className="h-3.5 w-3.5" /> CSV Export
+          </a>
+          <button
+            onClick={() => setCsvImportOpen(true)}
+            className="px-3 py-2 text-xs font-medium rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors flex items-center gap-1.5"
+            title="Import / update categories from a CSV file"
+          >
+            <Upload className="h-3.5 w-3.5" /> CSV Import
+          </button>
+          <button
+            onClick={openAdd}
+            className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors"
+          >
+            + Add Category
+          </button>
+        </div>
       </div>
 
       {/* Filter bar — language dropdown. Empty = all; 'null' = language-
@@ -382,9 +588,12 @@ export default function BusinessCategoryPage() {
 
       {/* Bulk action bar — only visible when selection is non-empty.
           Select-all lives here rather than in the table header because
-          DataTable's Column.title is typed as string, not ReactNode. */}
+          DataTable's Column.title is typed as string, not ReactNode.
+          2026-04 power-admin: extended with Change Admin Tab, Activate
+          and Deactivate, Merge (shown only when exactly one row is
+          selected — merging requires picking a single SOURCE). */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-brand-gold/10 border border-brand-gold/30 rounded-lg">
+        <div className="flex items-center gap-2 px-4 py-2 bg-brand-gold/10 border border-brand-gold/30 rounded-lg flex-wrap">
           <span className="text-sm text-brand-text font-medium">
             {selectedIds.size} selected
           </span>
@@ -395,6 +604,36 @@ export default function BusinessCategoryPage() {
             {allSelected ? 'Deselect all' : `Select all ${data.length}`}
           </button>
           <div className="flex-1" />
+          <button
+            onClick={() => setBulkScopeOpen(true)}
+            className="px-3 py-1.5 bg-brand-dark-hover hover:bg-brand-dark-border text-brand-text text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+            title="Change Admin Tab for selected categories"
+          >
+            <FolderInput className="h-3.5 w-3.5" /> Change Admin Tab
+          </button>
+          <button
+            onClick={() => handleBulkActivate(true)}
+            className="px-3 py-1.5 bg-brand-dark-hover hover:bg-status-success/20 hover:text-status-success text-brand-text text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+            title="Mark selected as Active"
+          >
+            <ToggleRight className="h-3.5 w-3.5" /> Activate
+          </button>
+          <button
+            onClick={() => handleBulkActivate(false)}
+            className="px-3 py-1.5 bg-brand-dark-hover hover:bg-brand-dark-border text-brand-text text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+            title="Mark selected as Inactive (hides from the app)"
+          >
+            <ToggleLeft className="h-3.5 w-3.5" /> Deactivate
+          </button>
+          {selectedIds.size === 1 && (
+            <button
+              onClick={() => setMergeOpen(true)}
+              className="px-3 py-1.5 bg-brand-dark-hover hover:bg-brand-indigo/20 hover:text-brand-indigo text-brand-text text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
+              title="Merge this category's posters into another category, then delete this one"
+            >
+              <GitMerge className="h-3.5 w-3.5" /> Merge into…
+            </button>
+          )}
           <button
             onClick={() => setBulkDeleteOpen(true)}
             className="px-3 py-1.5 bg-status-error/90 hover:bg-status-error text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
@@ -534,6 +773,202 @@ export default function BusinessCategoryPage() {
         confirmText={bulkDeleting ? 'Deleting…' : 'Delete all'}
         variant="danger"
       />
+
+      {/* ── 2026-04 power-admin modals ───────────────────────────── */}
+
+      {/* Bulk Create (A): paste a list, one category per line. Backend
+          auto-generates slugs and skips duplicates rather than failing
+          the whole batch. */}
+      <Modal
+        isOpen={bulkCreateOpen}
+        onClose={() => !bulkCreating && setBulkCreateOpen(false)}
+        title="Bulk Create Categories"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-brand-text-muted">
+            Paste one category name per line. New categories will be
+            created under the <span className="text-brand-gold font-medium">Business</span> tab.
+            Slugs are auto-generated. Duplicates are skipped.
+          </p>
+          <textarea
+            value={bulkCreateText}
+            onChange={e => setBulkCreateText(e.target.value)}
+            rows={10}
+            placeholder={`Restaurant\nSalon\nGym\nBoutique\n…`}
+            className={`${inputClass} font-mono text-sm`}
+            disabled={bulkCreating}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setBulkCreateText(''); setBulkCreateOpen(false) }}
+              disabled={bulkCreating}
+              className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkCreate}
+              disabled={bulkCreating || !bulkCreateText.trim()}
+              className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+            >
+              {bulkCreating ? 'Creating…' : 'Create all'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Change Admin Tab (B): move N selected categories to a
+          different scope. Backend calls cat.save() per-instance so the
+          PosterCategory.save retag hook fires for each (and all posters
+          inside get re-tagged to the new scope automatically). */}
+      <Modal
+        isOpen={bulkScopeOpen}
+        onClose={() => !bulkScoping && setBulkScopeOpen(false)}
+        title={`Change Admin Tab for ${selectedIds.size} categor${selectedIds.size === 1 ? 'y' : 'ies'}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-brand-text-muted">
+            All posters inside the selected categories will also be
+            re-tagged to the new tab. This runs per-category on the
+            backend, so it may take a moment for large groups.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">New Admin Tab</label>
+            <select
+              value={bulkScopeTarget}
+              onChange={e => setBulkScopeTarget(e.target.value as FormState['default_scope'])}
+              className={inputClass}
+              disabled={bulkScoping}
+            >
+              <option value="business">Business Tab</option>
+              <option value="categories">Categories Tab</option>
+              <option value="home">Home Tab</option>
+              <option value="festival">Festival</option>
+              <option value="greeting">Greeting</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => setBulkScopeOpen(false)}
+              disabled={bulkScoping}
+              className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkChangeScope}
+              disabled={bulkScoping}
+              className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+            >
+              {bulkScoping ? 'Moving…' : 'Change tab'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Merge (H): source is the single selected row; admin picks the
+          target from a dropdown of other categories. Backend moves all
+          posters from source → target, updates their scope to match,
+          then soft-deletes the source. */}
+      <Modal
+        isOpen={mergeOpen}
+        onClose={() => !merging && setMergeOpen(false)}
+        title="Merge category"
+      >
+        <div className="space-y-4">
+          {(() => {
+            const [srcId] = Array.from(selectedIds)
+            const source = data.find(c => c.id === srcId)
+            return (
+              <p className="text-sm text-brand-text-muted">
+                Move every poster from{' '}
+                <span className="text-brand-gold font-medium">
+                  {source?.name ?? '?'}
+                </span>{' '}
+                into the target below, then soft-delete this category.
+                The source category can be restored from the Recycle Bin
+                but its posters will stay in the target.
+              </p>
+            )
+          })()}
+          <div>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Target category</label>
+            <select
+              value={mergeTargetId}
+              onChange={e => setMergeTargetId(Number(e.target.value))}
+              className={inputClass}
+              disabled={merging}
+            >
+              <option value={0}>— Select target —</option>
+              {data
+                .filter(c => !selectedIds.has(c.id))
+                .map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.poster_count} posters)
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setMergeTargetId(0); setMergeOpen(false) }}
+              disabled={merging}
+              className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleMerge}
+              disabled={merging || !mergeTargetId}
+              className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+            >
+              {merging ? 'Merging…' : 'Merge'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* CSV Import (F): uploads a CSV with the same columns csv_export
+          produces. Rows with an `id` column update existing rows; rows
+          without one are created using `slug` as the primary key. */}
+      <Modal
+        isOpen={csvImportOpen}
+        onClose={() => !csvImporting && setCsvImportOpen(false)}
+        title="Import categories from CSV"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-brand-text-muted">
+            Upload a CSV with columns: <code className="text-brand-text bg-brand-dark px-1.5 py-0.5 rounded">id, name, slug, default_scope, parent_slug, language_code, icon_url, is_active</code>.
+            Rows with an <code className="bg-brand-dark px-1.5 py-0.5 rounded">id</code> are
+            updated; rows without are created (using <code className="bg-brand-dark px-1.5 py-0.5 rounded">slug</code> as
+            the key). Run <span className="text-brand-gold">CSV Export</span> first to
+            get a template.
+          </p>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={e => setCsvFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-brand-text-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-gold file:text-gray-900 hover:file:bg-brand-gold-dark file:cursor-pointer"
+            disabled={csvImporting}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setCsvFile(null); setCsvImportOpen(false) }}
+              disabled={csvImporting}
+              className="px-4 py-2 text-sm rounded-lg bg-brand-dark-hover text-brand-text hover:bg-brand-dark-border transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCsvImport}
+              disabled={csvImporting || !csvFile}
+              className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors disabled:opacity-50"
+            >
+              {csvImporting ? 'Importing…' : 'Import'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

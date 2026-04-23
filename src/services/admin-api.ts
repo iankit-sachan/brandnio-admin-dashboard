@@ -182,6 +182,28 @@ export const posterAnalyticsApi = {
 export const posterBulkApi = {
   bulkMove: (ids: number[], category: number) =>
     api.post('/api/admin/posters/bulk_move/', { ids, category }).then(r => r.data),
+  // 2026-04: add/remove/replace tags on N posters in one request.
+  bulkTags: (ids: number[], op: 'add' | 'remove' | 'replace', tags: string[]) =>
+    api.post('/api/admin/posters/bulk_tags/', { ids, op, tags }).then(r => r.data),
+}
+
+// 2026-04: power-admin bulk actions for PosterCategory. See
+// admin_api/views.PosterCategoryViewSet for implementation details.
+export const posterCategoryBulkApi = {
+  bulkCreate: (names: string[], default_scope: string) =>
+    api.post('/api/admin/poster-categories/bulk_create/', { names, default_scope }).then(r => r.data),
+  bulkChangeScope: (ids: number[], default_scope: string) =>
+    api.post('/api/admin/poster-categories/bulk_change_scope/', { ids, default_scope }).then(r => r.data),
+  bulkSetActive: (ids: number[], is_active: boolean) =>
+    api.post('/api/admin/poster-categories/bulk_set_active/', { ids, is_active }).then(r => r.data),
+  mergeInto: (sourceId: number, targetId: number) =>
+    api.post(`/api/admin/poster-categories/${sourceId}/merge_into/`, { target_id: targetId }).then(r => r.data),
+  csvExportUrl: (): string => '/api/admin/poster-categories/csv-export/',
+  csvImport: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/poster-categories/csv-import/', fd).then(r => r.data)
+  },
 }
 export const posterTagsApi = {
   list: (): Promise<{ tag: string; count: number }[]> =>
