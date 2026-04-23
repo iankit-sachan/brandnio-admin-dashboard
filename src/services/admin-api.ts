@@ -1120,6 +1120,13 @@ export const formatCategoriesApi = crud('format-categories')
 // ── Explore Features ───────────────────────────────────────
 export const exploreFeaturesApi = crud('explore-features')
 
+// ── Home-Tools CMS v1 — UI Strings ─────────────────────────
+// Admin-editable UI strings (and JSON blobs) that were previously
+// hardcoded in the Android APK for the 6 Explore Features tools.
+// Android reads via the public GET /api/ui-strings/ endpoint; admin
+// edits via this CRUD interface.
+export const uiStringsApi = crud('ui-strings')
+
 // ── BG Removal Config ──────────────────────────────────────
 export const bgRemovalConfigApi = {
   get: () => api.get('/api/admin/bg-removal-config/').then(r => r.data),

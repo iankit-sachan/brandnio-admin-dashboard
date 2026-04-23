@@ -259,6 +259,7 @@ export const navSections: NavSection[] = [
     items: [
       { path: '/misc/languages', label: 'Languages', icon: Globe },
       { path: '/misc/contact-config', label: 'Contact Config', icon: Phone },
+      { path: '/misc/ui-strings', label: 'UI Strings', icon: Type },
       { path: '/settings/taglines', label: 'Taglines', icon: Type },
       { path: '/settings/policies', label: 'Policy Pages', icon: Shield },
       { path: '/business/setup-config', label: 'Business Setup', icon: Building },

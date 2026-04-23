@@ -197,6 +197,7 @@ const ContactConfigPage = lazy(() => import('./pages/misc/ContactConfigPage'))
 const LanguageOptionsPage = lazy(() => import('./pages/misc/LanguageOptionsPage'))
 const FormatCategoriesPage = lazy(() => import('./pages/misc/FormatCategoriesPage'))
 const ExploreFeaturesPage = lazy(() => import('./pages/misc/ExploreFeaturesPage'))
+const UiStringsPage = lazy(() => import('./pages/misc/UiStringsPage'))
 const EditorStickerCategoriesPage = lazy(() => import('./pages/misc/EditorStickerCategoriesPage'))
 const MallCategoriesPage = lazy(() => import('./pages/misc/MallCategoriesPage'))
 
@@ -393,6 +394,7 @@ export default function App() {
                 <Route path="/misc/languages" element={<LanguageOptionsPage />} />
                 <Route path="/misc/format-categories" element={<FormatCategoriesPage />} />
                 <Route path="/misc/explore-features" element={<ExploreFeaturesPage />} />
+                <Route path="/misc/ui-strings" element={<UiStringsPage />} />
                 <Route path="/misc/editor-sticker-categories" element={<EditorStickerCategoriesPage />} />
                 <Route path="/misc/mall-categories" element={<MallCategoriesPage />} />
               </Route>
