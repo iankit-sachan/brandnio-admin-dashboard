@@ -121,21 +121,51 @@ export default function PosterListPage() {
     finally { setAnalyticsLoading(false) }
   }, [analytics])
 
-  // Bulk upload state
+  // Bulk upload state — two-level category picker.
+  // bulkParentCategory  = top-level chip (required).
+  // bulkCategory        = child subcategory id, or 0 when the chosen parent
+  //                       has no children (then uploads route to the parent).
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[]>([])
-  const [bulkCategory, setBulkCategory] = useState<number>(urlCategory ? Number(urlCategory) : 0)
+  const [bulkParentCategory, setBulkParentCategory] = useState<number>(0)
+  const [bulkCategory, setBulkCategory] = useState<number>(0)
 
-  // Auto-open bulk upload when navigated from Category page with ?upload=1
+  // Auto-open bulk upload when navigated from Category page with ?upload=1&category=X.
+  // The id can be a parent OR a child — we can only tell once `categories`
+  // has loaded, so re-run the effect until it resolves. Ref guards one-shot.
+  const urlOpenedRef = useRef(false)
   useEffect(() => {
-    if (urlUpload && urlCategory) {
-      setBulkUploadOpen(true)
-      setBulkCategory(Number(urlCategory))
-      setShowFilters(true)
-      // Clean URL params so refresh doesn't re-open
-      setSearchParams({}, { replace: true })
+    if (urlOpenedRef.current) return
+    if (!urlUpload || !urlCategory) return
+    if ((categories as any[]).length === 0) return
+    const catId = Number(urlCategory)
+    const cat = (categories as any[]).find((c: any) => c.id === catId)
+    if (cat) {
+      if (cat.parent) {
+        // child id → preselect parent + child
+        setBulkParentCategory(cat.parent)
+        setBulkCategory(catId)
+      } else {
+        // parent id → preselect parent; admin picks child
+        setBulkParentCategory(catId)
+        setBulkCategory(0)
+      }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    setBulkUploadOpen(true)
+    setShowFilters(true)
+    setSearchParams({}, { replace: true })
+    urlOpenedRef.current = true
+  }, [urlUpload, urlCategory, categories, setSearchParams])
+
+  // Parent chips + children of the currently-selected parent.
+  const bulkParentCategories = useMemo(
+    () => (categories as any[]).filter((c: any) => !c.parent),
+    [categories],
+  )
+  const bulkChildCategories = useMemo(() => {
+    if (!bulkParentCategory) return []
+    return (categories as any[]).filter((c: any) => c.parent === bulkParentCategory)
+  }, [categories, bulkParentCategory])
   const [bulkRatio, setBulkRatio] = useState<AspectRatio>('1:1')
   const [bulkPremium, setBulkPremium] = useState(false)
   const [bulkActive, setBulkActive] = useState(true)
@@ -294,12 +324,20 @@ export default function PosterListPage() {
   // Parallel bulk upload with concurrency limit
   const handleBulkUpload = async () => {
     if (bulkFiles.length === 0) { addToast('No images selected', 'error'); return }
-    if (!bulkCategory) { addToast('Select a category', 'error'); return }
+    if (!bulkParentCategory) { addToast('Select a parent category', 'error'); return }
+    // If the chosen parent has any children, force admin to pick one so
+    // posters don't silently land on the parent bucket.
+    if (bulkChildCategories.length > 0 && !bulkCategory) {
+      addToast('Select a child subcategory', 'error'); return
+    }
     if (!bulkLanguage) { addToast('Select a language', 'error'); return }
+    // Route to child when one is picked, otherwise the parent itself
+    // (valid only when the parent has zero children).
+    const targetCategoryId = bulkCategory || bulkParentCategory
     setBulkUploading(true)
     setBulkProgress({ done: 0, total: bulkFiles.length, failed: 0 })
 
-    const categoryName = (categories as any[]).find((c: any) => c.id === bulkCategory)?.name || 'Poster'
+    const categoryName = (categories as any[]).find((c: any) => c.id === targetCategoryId)?.name || 'Poster'
     let success = 0
     let failed = 0
     const CONCURRENCY = 5
@@ -315,7 +353,7 @@ export default function PosterListPage() {
           const ratio = (detected_ratio as AspectRatio) || bulkRatio
           await create({
             title, image_url: imageUrl, thumbnail_url: thumbUrl,
-            category: bulkCategory, aspect_ratio: ratio, is_premium: bulkPremium,
+            category: targetCategoryId, aspect_ratio: ratio, is_premium: bulkPremium,
             is_active: bulkActive, tags: bulkTags.length > 0 ? bulkTags : [],
             festival: bulkFestival,
             language: bulkLanguage,  // Q2=B: required, picked once per batch
@@ -336,6 +374,8 @@ export default function PosterListPage() {
     setBulkFestival(null)
     setBulkLanguage(null)
     setBulkActive(true)
+    setBulkParentCategory(0)
+    setBulkCategory(0)
     setBulkUploadOpen(false)
   }
 
@@ -401,7 +441,7 @@ export default function PosterListPage() {
           <button onClick={() => setShowFilters(f => !f)} className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${hasFilters ? 'bg-brand-gold/10 border-brand-gold/50 text-brand-gold' : 'bg-brand-dark-card border-brand-dark-border text-brand-text-muted hover:text-brand-text'}`}>
             <Filter className="h-4 w-4" /> Filters {hasFilters && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-gold text-gray-900 font-bold">{[filterCategory, filterRatio, filterPremium, filterActive, filterScope, filterLanguage, filterTag, filterDateFrom, filterDateTo].filter(Boolean).length}</span>}
           </button>
-          <button onClick={() => setBulkUploadOpen(true)} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
+          <button onClick={() => { setBulkParentCategory(0); setBulkCategory(0); setBulkUploadOpen(true) }} className="px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5">
             <Upload className="h-4 w-4" /> Bulk Upload
           </button>
           <button onClick={openAdd} className="px-4 py-2 bg-brand-gold text-gray-900 font-medium text-sm rounded-lg hover:bg-brand-gold-dark transition-colors">+ Add Poster</button>
@@ -726,19 +766,55 @@ export default function PosterListPage() {
             </div>
           )}
 
-          {/* Category + Ratio + Premium */}
+          {/* Category — two-level picker: parent chip → child subcategory */}
           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category</label>
-            <select value={bulkCategory} onChange={e => setBulkCategory(Number(e.target.value))} className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50">
-              <option value={0}>-- Select Category --</option>
-              {(categories as any[]).filter((c: any) => !c.parent).map((c: any) => {
-                const children = (categories as any[]).filter((sub: any) => sub.parent === c.id)
-                return [
-                  <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>,
-                  ...children.map((sub: any) => <option key={sub.id} value={sub.id}>&nbsp;&nbsp;{sub.name} ({sub.poster_count || 0})</option>)
-                ]
-              })}
-            </select>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Category <span className="text-status-error">*</span></label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Parent (chip) category */}
+              <div>
+                <select
+                  value={bulkParentCategory}
+                  onChange={e => {
+                    // New parent wipes the child — stale child ids from a
+                    // different parent would upload into the wrong bucket.
+                    setBulkParentCategory(Number(e.target.value))
+                    setBulkCategory(0)
+                  }}
+                  className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50"
+                >
+                  <option value={0}>-- Select Parent --</option>
+                  {bulkParentCategories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-brand-text-muted mt-1">Top-level chip category.</p>
+              </div>
+              {/* Child subcategory */}
+              <div>
+                <select
+                  value={bulkCategory}
+                  onChange={e => setBulkCategory(Number(e.target.value))}
+                  disabled={!bulkParentCategory || bulkChildCategories.length === 0}
+                  className="w-full bg-brand-dark border border-brand-dark-border rounded-lg px-4 py-2.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50 disabled:opacity-60"
+                >
+                  <option value={0}>
+                    {!bulkParentCategory
+                      ? '-- Pick parent first --'
+                      : bulkChildCategories.length === 0
+                        ? '-- No subcategories --'
+                        : '-- Select Child --'}
+                  </option>
+                  {bulkChildCategories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.poster_count || 0})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-brand-text-muted mt-1">
+                  {bulkParentCategory && bulkChildCategories.length === 0
+                    ? 'No subcategories — uploads will go to the parent.'
+                    : 'Target subcategory for these posters.'}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
