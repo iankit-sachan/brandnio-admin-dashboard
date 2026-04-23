@@ -117,9 +117,7 @@ export default function BusinessCategoryPage() {
     {
       key: 'icon_url',
       title: 'Icon',
-      render: (item) => (
-        <img src={item.icon_url} alt={item.name} className="w-8 h-8 rounded-lg object-cover bg-brand-dark" />
-      ),
+      render: (item) => <CategoryIcon iconUrl={item.icon_url} name={item.name} />,
       className: 'w-16',
     },
     { key: 'name', title: 'Name', sortable: true },
@@ -210,5 +208,41 @@ export default function BusinessCategoryPage() {
 
       <ConfirmDialog isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${deleteItem?.name}"? This action cannot be undone.`} confirmText="Delete" variant="danger" />
     </div>
+  )
+}
+
+// 2026-04 fix: render a coloured letter chip when icon_url is empty
+// or the image fails to load, instead of showing a broken-image alt
+// tag. Deterministic colour per letter so the same category always
+// gets the same colour.
+const FALLBACK_COLORS = [
+  '#6637d9', '#16a34a', '#f59e0b', '#ef4444',
+  '#3b82f6', '#ec4899', '#14b8a6', '#a855f7',
+]
+
+function CategoryIcon({ iconUrl, name }: { iconUrl: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+  const trimmedUrl = (iconUrl || '').trim()
+  const letter = (name.trim().charAt(0) || '?').toUpperCase()
+  const color = FALLBACK_COLORS[letter.charCodeAt(0) % FALLBACK_COLORS.length]
+
+  if (!trimmedUrl || failed) {
+    return (
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+        style={{ backgroundColor: color }}
+        title={name}
+      >
+        {letter}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={trimmedUrl}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="w-8 h-8 rounded-lg object-cover bg-brand-dark"
+    />
   )
 }
