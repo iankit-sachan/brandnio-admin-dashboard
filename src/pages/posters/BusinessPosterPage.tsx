@@ -35,11 +35,17 @@ export default function BusinessPosterPage() {
   const { addToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Q2=ii: Business Posters page shows scope IN ('business','categories') so
-  // existing un-tagged posters stay visible until admin manually re-tags
-  // them. Memoized to keep referential equality across renders (otherwise
-  // useAdminCrud's useCallback deps would re-trigger fetches).
-  const crudParams = useMemo(() => ({ scope: 'business,categories' }), [])
+  // 2026-04: STRICT scope separation. Previously this page pulled scope
+  // IN ('business', 'categories') so legacy un-tagged posters stayed
+  // visible during the scope-migration rollout — but that was a
+  // transition window, not a permanent rule. The Business Posters
+  // admin page should ONLY show scope='business' posters, otherwise
+  // every poster uploaded under the Category tab shows up here too
+  // (reported as a bug: "posters uploaded to Category tab are also
+  // appearing in Business tab"). Memoized to keep referential equality
+  // across renders (otherwise useAdminCrud's useCallback deps would
+  // re-trigger fetches every render).
+  const crudParams = useMemo(() => ({ scope: 'business' }), [])
   const { data, loading, create, update, remove, refresh } = useAdminCrud<Poster>(postersApi, crudParams)
   const { data: allCategories } = useAdminCrud<PosterCategory>(posterCategoriesApi)
   const { data: festivals } = useAdminCrud(festivalsApi)
