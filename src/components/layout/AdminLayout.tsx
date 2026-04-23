@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { CommandPalette } from './CommandPalette'
@@ -21,14 +21,16 @@ function isTypingTarget(e: KeyboardEvent): boolean {
 
 export function AdminLayout() {
   const { isAuthenticated } = useAuth()
+  const location = useLocation()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   const openPalette = useCallback(() => setPaletteOpen(true), [])
   const closePalette = useCallback(() => setPaletteOpen(false), [])
+  const openDrawer = useCallback(() => setMobileDrawerOpen(true), [])
+  const closeDrawer = useCallback(() => setMobileDrawerOpen(false), [])
 
-  // Global shortcut: Cmd+K (mac) / Ctrl+K (win) from anywhere opens the
-  // palette. "/" from outside a typing target also opens it (common pattern
-  // from GitHub, Linear, etc.).
+  // Global shortcut: Cmd+K / Ctrl+K / "/" opens the palette from anywhere.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const isK = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')
@@ -42,13 +44,24 @@ export function AdminLayout() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // Auto-close the mobile drawer whenever the route changes. Without this
+  // the drawer would stay open after clicking a link, hiding the page the
+  // admin just navigated to.
+  useEffect(() => {
+    setMobileDrawerOpen(false)
+  }, [location.pathname])
+
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar onOpenPalette={openPalette} />
+      <Sidebar
+        onOpenPalette={openPalette}
+        mobileOpen={mobileDrawerOpen}
+        onMobileClose={closeDrawer}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar onOpenDrawer={openDrawer} />
         <main className="flex-1 overflow-y-auto p-6 bg-brand-dark">
           <Outlet />
         </main>

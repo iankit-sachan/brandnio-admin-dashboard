@@ -15,6 +15,8 @@ import { useCallback, useEffect, useState } from 'react'
 const K_COLLAPSED = 'sidebar.collapsed'
 const K_OPEN_SECTIONS = 'sidebar.openSections'
 const K_PINNED = 'sidebar.pinned'
+const K_RECENT = 'sidebar.recent'
+const RECENT_LIMIT = 5
 
 function readBool(key: string, fallback: boolean): boolean {
   try {
@@ -38,12 +40,28 @@ function readStringSet(key: string, fallback: string[]): Set<string> {
   }
 }
 
+function readStringList(key: string, fallback: string[]): string[] {
+  try {
+    const v = localStorage.getItem(key)
+    if (!v) return [...fallback]
+    const parsed = JSON.parse(v)
+    if (!Array.isArray(parsed)) return [...fallback]
+    return parsed.filter(x => typeof x === 'string') as string[]
+  } catch {
+    return [...fallback]
+  }
+}
+
 function writeBool(key: string, value: boolean) {
   try { localStorage.setItem(key, String(value)) } catch { /* quota / private mode */ }
 }
 
 function writeStringSet(key: string, value: Set<string>) {
   try { localStorage.setItem(key, JSON.stringify([...value])) } catch { /* quota */ }
+}
+
+function writeStringList(key: string, value: string[]) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota */ }
 }
 
 export function useSidebarPrefs(initialOpenSections: string[]) {
@@ -107,12 +125,31 @@ export function useSidebarPrefs(initialOpenSections: string[]) {
     })
   }, [])
 
+  // Recently visited (ordered, most-recent-first, max 5) ────
+  // Separate from pinned — recent auto-updates as admin navigates.
+  const [recent, setRecentState] = useState<string[]>(() =>
+    readStringList(K_RECENT, []),
+  )
+
+  const visitPath = useCallback((path: string) => {
+    setRecentState(prev => {
+      // Ignore root path — it's the Dashboard and always visible. Keeps
+      // the recent list populated with useful destinations only.
+      if (!path || path === '/') return prev
+      const filtered = prev.filter(p => p !== path)
+      const next = [path, ...filtered].slice(0, RECENT_LIMIT)
+      writeStringList(K_RECENT, next)
+      return next
+    })
+  }, [])
+
   // Keep localStorage in sync if another tab changes prefs.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === K_COLLAPSED) setCollapsedState(readBool(K_COLLAPSED, false))
       if (e.key === K_OPEN_SECTIONS) setOpenSectionsState(readStringSet(K_OPEN_SECTIONS, []))
       if (e.key === K_PINNED) setPinnedState(readStringSet(K_PINNED, []))
+      if (e.key === K_RECENT) setRecentState(readStringList(K_RECENT, []))
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
@@ -122,5 +159,6 @@ export function useSidebarPrefs(initialOpenSections: string[]) {
     collapsed, setCollapsed,
     openSections, toggleSection, openSection,
     pinned, togglePin,
+    recent, visitPath,
   }
 }

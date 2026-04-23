@@ -40,6 +40,14 @@ export interface NavItem {
    * key in the backend `sidebar_badges` view response.
    */
   badgeKey?: 'contact_inbox' | 'partner_inbox' | 'delete_requests'
+  /**
+   * If set, a tiny uppercase label is rendered ABOVE this item as a
+   * sub-heading within its section (e.g. "── Logo Maker ──"). Useful
+   * for chunking long sections. Only needs to be set on the FIRST
+   * item of each sub-group; the heading renders once and subsequent
+   * items without a subheading flow under it until the next one.
+   */
+  subheading?: string
 }
 
 export interface NavSection {
@@ -105,21 +113,21 @@ export const navSections: NavSection[] = [
     color: '#3F5F92',
     defaultOpen: false,
     items: [
-      { path: '/posters/create-banners', label: 'Screen Banners', icon: Image },
+      { path: '/posters/create-banners', label: 'Screen Banners', icon: Image, subheading: 'Banners & Tools' },
       { path: '/posters/create-tools', label: 'Create Tools', icon: Wrench },
       { path: '/stickers', label: 'Sticker Packs', icon: Smile },
       { path: '/sticker-banners', label: 'Sticker Banners', icon: ImagePlus },
-      { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift },
+      { path: '/greetings/categories', label: 'Greeting Categories', icon: Gift, subheading: 'Greetings' },
       { path: '/greetings/templates', label: 'Greeting Templates', icon: FileText },
       { path: '/greetings/config', label: 'Greeting Config', icon: Settings },
-      { path: '/posters/video-categories', label: 'Video Categories', icon: Video },
+      { path: '/posters/video-categories', label: 'Video Categories', icon: Video, subheading: 'Video' },
       { path: '/posters/video-templates', label: 'Video Templates', icon: Film },
-      { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout },
+      { path: '/collage/layouts', label: 'Collage Layouts', icon: Layout, subheading: 'Collage' },
       { path: '/collage/config', label: 'Collage Config', icon: Cog },
-      { path: '/logo-maker/industries', label: 'Logo Industries', icon: Palette },
+      { path: '/logo-maker/industries', label: 'Logo Industries', icon: Palette, subheading: 'Logo Maker' },
       { path: '/logo-maker/styles', label: 'Logo Styles', icon: Paintbrush },
       { path: '/logo-maker/configs', label: 'Logo Config', icon: Settings2 },
-      { path: '/slideshow/config', label: 'Slideshow Config', icon: PlayCircle },
+      { path: '/slideshow/config', label: 'Slideshow Config', icon: PlayCircle, subheading: 'Slideshow' },
     ],
   },
   {
@@ -129,14 +137,14 @@ export const navSections: NavSection[] = [
     color: '#745B3B',
     defaultOpen: false,
     items: [
-      { path: '/posters/business', label: 'Business Posters', icon: Image },
+      { path: '/posters/business', label: 'Business Posters', icon: Image, subheading: 'Business Content' },
       { path: '/posters/business-category', label: 'Business Categories', icon: Layout },
-      { path: '/vbizcard/categories', label: 'Card Categories', icon: CreditCard },
+      { path: '/vbizcard/categories', label: 'Card Categories', icon: CreditCard, subheading: 'VBiz Card' },
       { path: '/vbizcard/templates', label: 'Card Templates', icon: FileText },
       { path: '/vbizcard/home-sections', label: 'Card Home Sections', icon: LayoutGrid },
       { path: '/vbizcard/promo-banners', label: 'Card Promo Banners', icon: ImagePlus },
       { path: '/vbizcard/testimonials', label: 'Card Testimonials', icon: MessageSquare },
-      { path: '/card-wizard/configs', label: 'Wizard Config', icon: Settings },
+      { path: '/card-wizard/configs', label: 'Wizard Config', icon: Settings, subheading: 'Card Wizard' },
       { path: '/card-wizard/features', label: 'Wizard Features', icon: Star },
       { path: '/card-wizard/form-fields', label: 'Wizard Fields', icon: Hash },
       { path: '/card-wizard/social-channels', label: 'Wizard Socials', icon: Share2 },
@@ -150,14 +158,14 @@ export const navSections: NavSection[] = [
     color: '#22C55E',
     defaultOpen: false,
     items: [
-      { path: '/ai-tools/manage', label: 'Tool List', icon: Wrench },
+      { path: '/ai-tools/manage', label: 'Tool List', icon: Wrench, subheading: 'BG Remover' },
       { path: '/ai-tools', label: 'Dashboard', icon: BarChart3 },
       { path: '/ai-tools/bg-credits', label: 'BG Credits', icon: CreditCard },
       { path: '/ai-tools/config', label: 'AI Config', icon: Settings },
       { path: '/ai-tools/faqs', label: 'BG FAQs', icon: HelpCircle },
       { path: '/ai-tools/testimonials', label: 'BG Testimonials', icon: MessageSquare },
       { path: '/ai-tools/credit-transactions', label: 'Credit Transactions', icon: DollarSign },
-      { path: '/product-ads/categories', label: 'Ad Categories', icon: Tag },
+      { path: '/product-ads/categories', label: 'Ad Categories', icon: Tag, subheading: 'Product Ads' },
       { path: '/product-ads/templates', label: 'Ad Templates', icon: FileText },
       { path: '/product-ads/products', label: 'Products', icon: Package },
       { path: '/product-ads', label: 'Generated Ads', icon: Zap },
@@ -224,23 +232,23 @@ export const navSections: NavSection[] = [
     icon: FileText,
     defaultOpen: false,
     items: [
-      { path: '/content/tutorials', label: 'Tutorials', icon: BookOpen },
+      { path: '/content/tutorials', label: 'Tutorials', icon: BookOpen, subheading: 'Help & Inbox' },
       { path: '/notifications/send', label: 'Send Notification', icon: Bell },
       { path: '/notifications/history', label: 'Notification History', icon: Bell },
       { path: '/content/contact', label: 'Contact Inbox', icon: Mail, badgeKey: 'contact_inbox' },
       { path: '/content/partners', label: 'Partner Inbox', icon: Handshake, badgeKey: 'partner_inbox' },
       { path: '/content/policies', label: 'Policies', icon: Shield },
-      { path: '/misc/mall-categories', label: 'Mall Categories', icon: ShoppingBag },
+      { path: '/misc/mall-categories', label: 'Mall Categories', icon: ShoppingBag, subheading: 'Brand Mall' },
       { path: '/content/mall', label: 'Mall Listings', icon: Store },
       { path: '/brand-mall/config', label: 'Mall Config', icon: Settings },
       { path: '/brand-mall/spotlight', label: 'Mall Spotlight', icon: ShoppingBag },
-      { path: '/categories/politician', label: 'Politician Cats', icon: User },
+      { path: '/categories/politician', label: 'Politician Cats', icon: User, subheading: 'Politicians' },
       { path: '/categories/politician-image', label: 'Politician Images', icon: Image },
-      { path: '/reels', label: 'Reels', icon: Film },
+      { path: '/reels', label: 'Reels', icon: Film, subheading: 'Reels & Services' },
       { path: '/services/categories', label: 'Service Categories', icon: Grid },
       { path: '/services', label: 'Services', icon: Wrench },
       { path: '/reels/music', label: 'Music Tracks', icon: Music },
-      { path: '/greetings/customers', label: 'Customers', icon: Users },
+      { path: '/greetings/customers', label: 'Customers', icon: Users, subheading: 'Customers' },
     ],
   },
   {

@@ -6,7 +6,12 @@ import { cn } from '../../utils/cn'
 import ClearCacheButton from '../ui/ClearCacheButton'
 import { dashboardApi } from '../../services/admin-api'
 
-export function TopBar() {
+interface Props {
+  /** Open the mobile sidebar drawer (rendered below lg:). */
+  onOpenDrawer?: () => void
+}
+
+export function TopBar({ onOpenDrawer }: Props = {}) {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -41,7 +46,11 @@ export function TopBar() {
     <header className="h-16 bg-brand-dark-card border-b border-brand-dark-border flex items-center justify-between px-6 shrink-0">
       {/* Left: Hamburger for mobile */}
       <div className="flex items-center">
-        <button className="lg:hidden p-2 text-brand-text-muted hover:text-brand-text rounded-lg hover:bg-brand-dark-hover transition-colors">
+        <button
+          onClick={onOpenDrawer}
+          aria-label="Open navigation"
+          className="lg:hidden p-2 text-brand-text-muted hover:text-brand-text rounded-lg hover:bg-brand-dark-hover transition-colors"
+        >
           <Menu className="h-5 w-5" />
         </button>
       </div>
