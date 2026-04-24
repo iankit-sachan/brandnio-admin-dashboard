@@ -2,6 +2,19 @@ import type { PoliticianProfile } from './content.types'
 
 export type PlanType = 'free' | 'basic' | 'pro' | 'enterprise'
 
+/**
+ * 2026-04-24: Language preference — dual representation during migration.
+ *   - `language` / `language_code` / `language_name`: legacy single-language
+ *     fields kept for backward compat with older Android clients. Mirror
+ *     of the FIRST entry in `languages` (M2M) on the backend.
+ *   - `languages`: NEW canonical multi-language list.
+ */
+export interface UserLanguage {
+  id: number
+  code: string          // ISO 639-1, e.g. "en"
+  name: string          // Display name, e.g. "English"
+}
+
 export interface User {
   id: number
   firebase_uid: string
@@ -19,6 +32,14 @@ export interface User {
   credits: number
   total_downloads: number
   total_shares: number
+  /** Legacy single-FK id (mirrors first entry in `languages`). */
+  language?: number | null
+  /** Legacy read-only code (mirrors first entry in `languages`). */
+  language_code?: string | null
+  /** Legacy read-only name (mirrors first entry in `languages`). */
+  language_name?: string | null
+  /** 2026-04-24: canonical multi-language preference array. */
+  languages?: UserLanguage[]
   is_active: boolean
   is_deleted: boolean
   joined_at: string

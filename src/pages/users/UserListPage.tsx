@@ -5,7 +5,7 @@ import { SearchInput } from '../../components/ui/SearchInput'
 import { Pagination } from '../../components/ui/Pagination'
 import { Avatar } from '../../components/ui/Avatar'
 import { ActionMenu, type ActionMenuItem } from '../../components/ui/ActionMenu'
-import { usersApi } from '../../services/admin-api'
+import { usersApi, languagesApi } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { useToast } from '../../context/ToastContext'
 import { formatDate } from '../../utils/formatters'
@@ -73,6 +73,16 @@ export default function UserListPage() {
   const [planFilter, setPlanFilter] = useState<PlanFilter>('')
   const [premiumFilter, setPremiumFilter] = useState<PremiumFilter>('')
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('')
+  // 2026-04-24: filter by user's preferred language. Stores the Language.id
+  // as a string (empty string = "all languages"). Backend UserViewSet maps
+  // `?languages=<id>` to the M2M exact lookup.
+  const [languageFilter, setLanguageFilter] = useState<string>('')
+  // Admin-managed Language catalogue — loaded once on mount to feed the
+  // filter dropdown and the column's id → display-name lookup. Small
+  // dataset (≤ 20 rows), fetched unpaginated.
+  const [availableLanguages, setAvailableLanguages] = useState<
+    Array<{ id: number; code: string; name: string }>
+  >([])
   const [sortKey, setSortKey] = useState<string>('joined_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -87,6 +97,8 @@ export default function UserListPage() {
     }
     if (planFilter) p.plan = planFilter
     if (premiumFilter) p.is_premium = premiumFilter
+    // 2026-04-24: language filter maps to the M2M exact lookup on backend.
+    if (languageFilter) p.languages = languageFilter
     // Pillar 2: server-side filter on last_seen_at via Django filter backend.
     // Map UI labels to ISO timestamp ranges that the User queryset will respect
     // (requires `django-filter` `last_seen_at__gte` lookup — added in views).
@@ -99,7 +111,7 @@ export default function UserListPage() {
       case 'never':  p.last_seen_at__isnull = 'true'; break
     }
     return p
-  }, [tab, planFilter, premiumFilter, activityFilter, sortKey, sortDir])
+  }, [tab, planFilter, premiumFilter, activityFilter, languageFilter, sortKey, sortDir])
 
   const { data, loading, page, totalPages, totalCount, search, setPage, setSearch, refresh } =
     useAdminPaginatedCrud<User>(usersApi, extraParams)
@@ -121,6 +133,32 @@ export default function UserListPage() {
       })
       .catch(() => { /* silent — non-critical */ })
   }, [tab])
+
+  // 2026-04-24: load the admin-managed Language catalogue once for the
+  // filter dropdown + the Languages column's id→name lookup. Only a
+  // handful of rows (< 20) so we fetch them unpaginated. Silent on error
+  // — the column falls back to rendering raw codes if the catalogue isn't
+  // available. Not in the hot path; does not block initial render.
+  useEffect(() => {
+    let cancelled = false
+    languagesApi.list()
+      .then((rows) => {
+        if (cancelled) return
+        const list = Array.isArray(rows) ? rows : []
+        setAvailableLanguages(
+          list
+            .filter((r): r is { id: number; code: string; name: string } =>
+              !!r && typeof r === 'object' &&
+              typeof (r as { id?: unknown }).id === 'number' &&
+              typeof (r as { code?: unknown }).code === 'string' &&
+              typeof (r as { name?: unknown }).name === 'string'
+            )
+            .map(r => ({ id: r.id, code: r.code, name: r.name }))
+        )
+      })
+      .catch(() => { /* silent — non-critical */ })
+    return () => { cancelled = true }
+  }, [])
 
   // ── Modals state ──────────────────────────────────────────────────
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -343,6 +381,51 @@ export default function UserListPage() {
         <span className="text-xs text-brand-text-muted">Free</span>
       ),
     },
+    /* 2026-04-24: Languages chip column. Reads `languages` (new M2M
+       list) first; falls back to `language_code` (legacy single) if the
+       backend returned only the legacy shape for some reason. Capped at
+       3 chips inline + "+N" overflow counter to avoid the grid ballooning
+       horizontally on power-users who picked every language. */
+    {
+      key: 'languages',
+      title: 'Languages',
+      className: 'w-[180px]',
+      render: (u) => {
+        const list = u.languages ?? []
+        if (list.length === 0) {
+          const fallback = u.language_code
+          if (!fallback) {
+            return <span className="text-xs text-brand-text-muted">—</span>
+          }
+          return (
+            <span className="inline-block text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-bg-soft text-brand-text-muted border border-brand-border">
+              {fallback}
+            </span>
+          )
+        }
+        const visible = list.slice(0, 3)
+        const overflow = list.length - visible.length
+        return (
+          <div className="flex flex-wrap gap-1">
+            {visible.map(l => (
+              <span
+                key={l.id}
+                title={l.name}
+                className="inline-block text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-bg-soft text-brand-text border border-brand-border"
+              >
+                {l.code}
+              </span>
+            ))}
+            {overflow > 0 && (
+              <span
+                title={list.slice(3).map(l => l.name).join(', ')}
+                className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded text-brand-text-muted"
+              >+{overflow}</span>
+            )}
+          </div>
+        )
+      },
+    },
     {
       key: 'last_seen_at',
       title: 'Last Seen',
@@ -452,10 +535,28 @@ export default function UserListPage() {
               { value: 'never', label: 'Never seen' },
             ]}
           />
-          {(planFilter || premiumFilter || activityFilter || search) && (
+          {/* 2026-04-24: Languages filter dropdown. Single-select because
+              DRF-filter's M2M `exact` lookup takes one id at a time; the
+              admin typically wants to slice to ONE language anyway
+              ("show me all Hindi users"). Multi-select is a future
+              refinement if it becomes a real workflow. */}
+          <FilterSelect
+            label="Language"
+            value={languageFilter}
+            onChange={(v) => { setLanguageFilter(v); setPage(1) }}
+            options={[
+              { value: '', label: 'All languages' },
+              ...availableLanguages.map(l => ({
+                value: String(l.id),
+                label: `${l.name} (${l.code})`,
+              })),
+            ]}
+          />
+          {(planFilter || premiumFilter || activityFilter || languageFilter || search) && (
             <button
               onClick={() => {
                 setPlanFilter(''); setPremiumFilter(''); setActivityFilter('');
+                setLanguageFilter('');
                 setSearch(''); setPage(1)
               }}
               className="text-xs px-2 py-1.5 text-brand-text-muted hover:text-brand-text underline"
