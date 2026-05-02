@@ -14,6 +14,88 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
+// ── Error formatting ─────────────────────────────────────────────
+
+/**
+ * 2026-05-02 — Format an axios/DRF error into a single readable string for
+ * toasts and inline error UI. Handles three response shapes DRF actually
+ * returns, in order:
+ *
+ *   1. {"detail": "..."}                      — auth / permission / 404 / throttle
+ *   2. {"non_field_errors": ["..."]}          — serializer-level validation
+ *   3. {"<field>": ["...", "..."], ...}       — per-field validation
+ *
+ * Falls back to status-code messages (413, 401, 403, 5xx) and finally to
+ * axios's err.message.
+ *
+ * Why this exists: previously each admin page wrote its own catch handler
+ * that only checked `err.response?.data?.detail`, missing field-level errors
+ * entirely. The user saw a meaningless "Request failed with status code 400"
+ * even though the server response body explicitly listed which fields were
+ * wrong. This helper unswallows that information.
+ *
+ * Cancellation (axios abort) returns the literal string 'Cancelled' — most
+ * callers should `if (err.code === 'ERR_CANCELED') return` BEFORE calling
+ * this, so the user doesn't see a "Cancelled" toast for their own action.
+ *
+ * @example
+ *   try { await create(form) }
+ *   catch (e) {
+ *     if ((e as { code?: string }).code === 'ERR_CANCELED') return
+ *     setError(formatApiError(e))
+ *   }
+ */
+export function formatApiError(err: unknown): string {
+  const e = err as {
+    response?: { status?: number; data?: unknown }
+    message?: string
+    code?: string
+  }
+
+  // User-cancelled (axios abort)
+  if (e.code === 'ERR_CANCELED' || e.message === 'canceled') return 'Cancelled'
+
+  const status = e.response?.status
+  const data = e.response?.data
+
+  // Status-code shortcuts before parsing body
+  if (status === 413) return 'File(s) too large for the server.'
+  if (status === 401) return 'Session expired — please sign in again.'
+  if (status === 403) return 'You do not have permission for this action.'
+  if (status && status >= 500) return `Server error (${status}). Please try again.`
+
+  // Parse DRF error body
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+
+    // Shape 1: {"detail": "..."}
+    if (typeof obj.detail === 'string') return obj.detail
+
+    // Shapes 2 + 3: collect all field errors as "Field: message"
+    const parts: string[] = []
+    for (const [field, value] of Object.entries(obj)) {
+      const messages = Array.isArray(value) ? value : [value]
+      for (const m of messages) {
+        if (typeof m !== 'string') continue
+        parts.push(field === 'non_field_errors' ? m : `${prettyFieldName(field)}: ${m}`)
+      }
+    }
+    if (parts.length > 0) return parts.join(' · ')
+  }
+
+  // Final fallback
+  if (status) return e.message ? `${e.message} (${status})` : `Request failed (${status})`
+  return e.message || 'Operation failed'
+}
+
+/** Convert "banner_url" → "Banner URL" for user-facing display. */
+function prettyFieldName(field: string): string {
+  return field
+    .split('_')
+    .map(w => w === 'url' ? 'URL' : w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function crud<T = any>(resource: string) {
   const base = `/api/admin/${resource}/`

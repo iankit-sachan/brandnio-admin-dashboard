@@ -7,7 +7,7 @@ import { Pagination } from '../../components/ui/Pagination'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useToast } from '../../context/ToastContext'
 import { Pencil, Trash2, Upload, Check } from 'lucide-react'
-import { festivalsApi, festivalCalendarApi, languagesApi } from '../../services/admin-api'
+import { festivalsApi, festivalCalendarApi, languagesApi, formatApiError } from '../../services/admin-api'
 import { useAdminPaginatedCrud } from '../../hooks/useAdminPaginatedCrud'
 import { formatDate } from '../../utils/formatters'
 import QuickStats from '../../components/ui/QuickStats'
@@ -17,8 +17,14 @@ import BulkFestivalPosterUploadModal from './BulkFestivalPosterUploadModal'
 import { detectImageRatio, groupFilesByRatio, groupFilesByRatioAndLanguage, formatBytes, type DetectedRatio } from './uploadHelpers'
 
 interface FormState {
-  banner_url: string | null
-  icon_url: string | null
+  // banner_url / icon_url are '' (not null) by design — the backend Festival
+  // model declares these as URLField(blank=True, default=''). DRF's auto-
+  // generated serializer accepts '' but rejects null with
+  // "This field may not be null." (would need allow_null=True to accept null).
+  // 2026-05-02 (v52 admin-fix): switching from `string | null` to `string`
+  // resolves a hard 400 on every "create festival without images" attempt.
+  banner_url: string
+  icon_url: string
   name: string
   slug: string
   description: string
@@ -26,7 +32,7 @@ interface FormState {
   is_active: boolean
 }
 
-const emptyForm: FormState = { banner_url: null, icon_url: null, name: '', slug: '', description: '', date: '', is_active: true }
+const emptyForm: FormState = { banner_url: '', icon_url: '', name: '', slug: '', description: '', date: '', is_active: true }
 
 const IMG_MAX = 20 * 1024 * 1024
 const VID_MAX = 100 * 1024 * 1024
@@ -128,7 +134,10 @@ export default function FestivalListPage() {
   const openEdit = (item: Festival) => {
     resetWizard()
     setEditingItem(item)
-    setForm({ banner_url: item.banner_url, icon_url: item.icon_url, name: item.name, slug: item.slug, description: item.description, date: item.date, is_active: item.is_active })
+    // Coerce existing-row nulls to '' — server rows from before the
+    // FormState type-tightening may still carry null in these columns;
+    // we never want to round-trip null back to the API (see Fix 1 note above).
+    setForm({ banner_url: item.banner_url ?? '', icon_url: item.icon_url ?? '', name: item.name, slug: item.slug, description: item.description, date: item.date, is_active: item.is_active })
     setModalOpen(true)
   }
 
@@ -313,17 +322,19 @@ export default function FestivalListPage() {
         refresh()
       }
     } catch (e: unknown) {
-      const err = e as { response?: { status?: number; data?: { detail?: string } }; message?: string; code?: string }
-      // Cancellation isn't a real error — user-initiated.
-      if (err.code === 'ERR_CANCELED' || err.message === 'canceled') {
+      // Cancellation isn't a real error — user-initiated. Skip BEFORE
+      // formatApiError() so the user doesn't see a "Cancelled" toast for
+      // their own abort.
+      const meta = e as { code?: string; message?: string }
+      if (meta.code === 'ERR_CANCELED' || meta.message === 'canceled') {
         return
       }
-      const status = err.response?.status
-      let msg = 'Operation failed'
-      if (status === 413) msg = 'File(s) too large for server.'
-      else if (err.response?.data?.detail) msg = `Operation failed: ${err.response.data.detail}`
-      else if (err.message) msg = `Operation failed: ${err.message}`
-      setError(msg)
+      // Surface DRF field-level errors verbatim so the admin can see which
+      // field is wrong. Previously this layer only checked .detail and
+      // swallowed field errors, leaving the admin staring at a raw HTTP
+      // status code (e.g. "Request failed with status code 400"). See
+      // services/admin-api.ts → formatApiError for shape coverage.
+      setError(formatApiError(e))
       // Note: festival may have been created. Retry will skip festival creation
       // (createdFestivalIdRef preserved) and only retry the bulk upload.
     } finally {
@@ -399,8 +410,12 @@ export default function FestivalListPage() {
         {(!isAdding || step === 1) && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <ImageUpload label="Banner Image" value={form.banner_url} onChange={v => setForm(f => ({ ...f, banner_url: v }))} aspectHint="Wide banner, 1200x400" />
-              <ImageUpload label="Icon" value={form.icon_url} onChange={v => setForm(f => ({ ...f, icon_url: v }))} aspectHint="Square, 128x128" />
+              {/* ImageUpload speaks `string | null`; our FormState uses `string` (see Fix 1
+                  note above). Bridge the gap: '' → null when passing in (so the empty-state
+                  UI renders correctly), and null → '' when receiving back (so we never
+                  serialize null to the API). */}
+              <ImageUpload label="Banner Image" value={form.banner_url || null} onChange={v => setForm(f => ({ ...f, banner_url: v ?? '' }))} aspectHint="Wide banner, 1200x400" />
+              <ImageUpload label="Icon" value={form.icon_url || null} onChange={v => setForm(f => ({ ...f, icon_url: v ?? '' }))} aspectHint="Square, 128x128" />
             </div>
             <div>
               <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Name <span className="text-status-error">*</span></label>
@@ -679,7 +694,11 @@ export default function FestivalListPage() {
             {submitting && progress && (
               <div className="space-y-1.5 p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/40">
                 <div className="flex items-center justify-between text-xs text-indigo-200">
-                  <span>Uploading {files.length} file{files.length === 1 ? '' : 's'}…</span>
+                  {/* 2026-05-02: was `files.length` — undefined ReferenceError that
+                      crashed this branch the moment a real upload started. The
+                      original variable was renamed to `staged` in an earlier refactor
+                      and this line was missed. Now matches the actual state. */}
+                  <span>Uploading {staged.length} file{staged.length === 1 ? '' : 's'}…</span>
                   <span className="font-semibold">{progress.percent}%</span>
                 </div>
                 <div className="h-2 bg-brand-dark rounded-full overflow-hidden">
@@ -697,13 +716,26 @@ export default function FestivalListPage() {
                 <div className="flex items-start gap-2">
                   <span className="text-status-error text-lg leading-none">⚠</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-status-error">Upload failed</div>
+                    {/* Title is context-aware: when the festival itself never got
+                        created, "Upload failed" is misleading — nothing was even
+                        uploaded. Use a more accurate label in that case. */}
+                    <div className="text-sm font-semibold text-status-error">
+                      {createdFestivalIdRef.current == null ? 'Festival not created' : 'Upload failed'}
+                    </div>
                     <div className="text-xs text-status-error/80 mt-0.5 break-words">{error}</div>
                     {createdFestivalIdRef.current != null && (
                       <div className="text-xs text-status-error/70 mt-1">Festival was created. Click Retry to upload posters again.</div>
                     )}
-                    {createdFestivalIdRef.current == null && (
+                    {/* Three sub-cases when the festival creation step itself failed:
+                        - staged > 0  → preserve original "files are still selected" hint
+                        - staged === 0 → the failure is purely on festival creation
+                        Hiding the "0 files" branch removes the misleading message that
+                        was driving production-quality complaints (2026-05-02). */}
+                    {createdFestivalIdRef.current == null && staged.length > 0 && (
                       <div className="text-xs text-status-error/70 mt-1">Your {staged.length} file{staged.length === 1 ? '' : 's'} are still selected. Click Retry below.</div>
+                    )}
+                    {createdFestivalIdRef.current == null && staged.length === 0 && (
+                      <div className="text-xs text-status-error/70 mt-1">Click Retry to try creating the festival again.</div>
                     )}
                   </div>
                 </div>
