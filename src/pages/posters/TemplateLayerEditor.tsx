@@ -18,6 +18,21 @@ import type { Poster } from '../../types'
 
 // ─── Types (snake_case matching Android EditorLayer.fromMap) ───────────
 
+/**
+ * Mirror of Android's `EditorLayer.toMap()` shape (43 keys) — the
+ * canonical wire format for `template_data.layers[*]`. Backend
+ * `posters.layer_schema.LAYER_DEFAULTS` is the single source of truth;
+ * this interface and `createDefaultLayer()` below MUST stay in sync.
+ *
+ * 2026-05-04: added 6 keys that previously round-tripped through the
+ * editor and got STRIPPED, silently corrupting every poster the admin
+ * edited (text_stroke_color → fell back to '#000000', frame_field_name
+ * → photo zones became unidentifiable, frame_config_json → frame
+ * layers became empty, frame_id, frame_text_tag, schema_version).
+ * The backend now back-fills these via `Poster.save()` /
+ * `GreetingTemplate.save()` so even if a future edit drops them
+ * accidentally, the next save restores the canonical shape.
+ */
 interface TemplateLayer {
   id: string
   type: 'text' | 'image' | 'shape' | 'logo' | 'sticker' | 'frame'
@@ -42,6 +57,7 @@ interface TemplateLayer {
   text_align: 'left' | 'center' | 'right'
   line_spacing: number
   text_stroke_width: number
+  text_stroke_color: string
   // Shape
   shape_type: string
   shape_color: string
@@ -62,6 +78,13 @@ interface TemplateLayer {
   shape_gradient_angle: number
   // Grouping
   group_id: string
+  // Frame integration (Android renders these; admin previously stripped them)
+  frame_config_json: string
+  frame_id: number
+  frame_text_tag: boolean
+  frame_field_name: string
+  // Schema version (1 today; reserved for future migrations)
+  schema_version: number
 }
 
 interface TemplateData {
@@ -124,6 +147,10 @@ const labelClass = 'block text-xs font-medium text-brand-text-muted mb-1'
 const sectionTitle = 'text-xs font-semibold text-brand-text-muted uppercase tracking-wider mb-2'
 
 function createDefaultLayer(type: TemplateLayer['type'], zIndex: number): TemplateLayer {
+  // Defaults mirror backend `posters/layer_schema.py::LAYER_DEFAULTS`
+  // and Android `EditorLayer.kt`'s primary-constructor defaults. Keep
+  // the three in sync — Phase 5 of the parity plan auto-generates this
+  // from the JSON Schema.
   const base: TemplateLayer = {
     id: crypto.randomUUID(),
     type,
@@ -133,7 +160,8 @@ function createDefaultLayer(type: TemplateLayer['type'], zIndex: number): Templa
     is_visible: true, is_locked: false,
     font_size: 24, font_family: 'sans-serif', font_color: '#FFFFFF',
     is_bold: false, is_italic: false, is_underline: false,
-    letter_spacing: 0, text_align: 'center', line_spacing: 1.2, text_stroke_width: 0,
+    letter_spacing: 0, text_align: 'center', line_spacing: 1.2,
+    text_stroke_width: 0, text_stroke_color: '#000000',
     shape_type: 'rectangle', shape_color: '#F5A623',
     image_url: '', scale_type: 'centerCrop',
     blend_mode: 'normal',
@@ -142,6 +170,9 @@ function createDefaultLayer(type: TemplateLayer['type'], zIndex: number): Templa
     shape_gradient_enabled: false, shape_gradient_start: '', shape_gradient_end: '',
     shape_gradient_angle: 0,
     group_id: '',
+    frame_config_json: '', frame_id: 0,
+    frame_text_tag: false, frame_field_name: '',
+    schema_version: 1,
   }
   if (type === 'text') return { ...base, content: 'Tap to edit' }
   if (type === 'image') return { ...base, x: 10, y: 10, width: 80, height: 60 }
