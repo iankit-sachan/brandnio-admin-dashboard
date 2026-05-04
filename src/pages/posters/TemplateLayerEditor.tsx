@@ -383,7 +383,8 @@ const MIN_DIM_PCT = 2
 
 function CanvasPreview({
   layers, selectedLayerId, posterImageUrl, aspectRatio,
-  imageWidth, imageHeight, onSelectLayer, onUpdateLayer,
+  imageWidth, imageHeight, alphaMode,
+  onSelectLayer, onUpdateLayer,
 }: {
   layers: TemplateLayer[]
   selectedLayerId: string | null
@@ -391,6 +392,12 @@ function CanvasPreview({
   aspectRatio: string
   imageWidth?: number | null
   imageHeight?: number | null
+  // 2026-05-04 — `template_data.alpha_mode` from the backend. True
+  // for templates that follow the new export convention (transparent
+  // placeholder hole). When true, user_photo zones render BELOW the
+  // bg <img> so the PNG's alpha hole reveals the photo. When false
+  // (legacy templates), photos render above as before.
+  alphaMode?: boolean
   onSelectLayer: (id: string | null) => void
   onUpdateLayer: (id: string, patch: Partial<TemplateLayer>) => void
 }) {
@@ -489,6 +496,14 @@ function CanvasPreview({
     // No special handling needed; we just clear drag state.
   }
 
+  // Z-stack constants — referenced by layer style below to put
+  // user_photo zones either UNDER (alpha-mode) or OVER (legacy) the
+  // bg PNG <img>. The bg img sits at Z_BG_IMAGE; everything ABOVE
+  // that paints on top, everything BELOW it paints behind.
+  const Z_PHOTO_BEHIND_BG = 1   // alpha-mode user_photo zones
+  const Z_BG_IMAGE        = 2   // the poster <img> (renders the decorative ring)
+  const Z_LAYER_ABOVE_BG  = 3   // text / stickers / non-photo layers
+
   return (
     <div
       ref={canvasRef}
@@ -496,12 +511,10 @@ function CanvasPreview({
       style={{
         width: ratio.w,
         height: ratio.h,
-        backgroundImage: posterImageUrl ? `url(${posterImageUrl})` : undefined,
-        backgroundSize: 'contain',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        // touchAction:none lets us preventDefault on pointer events so
-        // mobile drag of resize handles doesn't trigger the page scroll.
+        // 2026-05-04 — bg moved from CSS backgroundImage onto a real
+        // <img> element below so we can z-stack photo zones BEHIND it
+        // for alpha-mode templates. The <img> is `pointer-events:none`
+        // so clicks still go through to the canvas / layers.
         touchAction: 'none',
       }}
       onClick={() => onSelectLayer(null)}
@@ -509,6 +522,23 @@ function CanvasPreview({
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
+      {posterImageUrl && (
+        <img
+          src={posterImageUrl}
+          alt=""
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            objectPosition: 'center',
+            pointerEvents: 'none',
+            zIndex: Z_BG_IMAGE,
+          }}
+        />
+      )}
       {!posterImageUrl && (
         <div className="absolute inset-0 flex items-center justify-center text-brand-text-muted text-xs">
           No background image
@@ -522,8 +552,19 @@ function CanvasPreview({
         // photo zone show as a circle (not a square gray box) in the editor.
         const shape = shapeStyle(layer.shape_type)
 
+        // 2026-05-04 — alpha-mode z-routing. user_photo zones on
+        // alpha-mode templates render BELOW the bg <img> so the PNG's
+        // transparent placeholder hole reveals them. All other layers
+        // (text, decorative shapes, etc.) render ABOVE the bg <img>
+        // as normal. Layer's own `z_index` is offset within whichever
+        // band it lands in so internal ordering is preserved.
+        const isUserPhotoZone = layer.frame_field_name === 'user_photo'
+        const layerZ = (alphaMode && isUserPhotoZone)
+          ? Z_PHOTO_BEHIND_BG
+          : Z_LAYER_ABOVE_BG + layer.z_index
+
         // Layer container style — geometry, rotation, opacity, z-index,
-        // shape mask, and blend mode (Phase 4 will mirror this on Android).
+        // shape mask, and blend mode.
         const containerStyle: React.CSSProperties = {
           left: `${layer.x}%`,
           top: `${layer.y}%`,
@@ -531,7 +572,7 @@ function CanvasPreview({
           height: `${layer.height}%`,
           opacity: layer.opacity,
           transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-          zIndex: layer.z_index,
+          zIndex: layerZ,
           ...shape,
           // Blend mode: 'normal' is the default (omit to avoid `mix-blend-mode: normal`
           // which would create a stacking context unnecessarily).
@@ -1139,6 +1180,7 @@ export default function TemplateLayerEditor({ isOpen, onClose, poster, onSave }:
                 aspectRatio={poster.aspect_ratio}
                 imageWidth={poster.image_width}
                 imageHeight={poster.image_height}
+                alphaMode={Boolean((poster.template_data as Record<string, unknown> | null)?.alpha_mode)}
                 onSelectLayer={setSelectedLayerId}
                 onUpdateLayer={updateLayer}
               />
