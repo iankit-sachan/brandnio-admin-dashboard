@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../context/ToastContext'
 import {
@@ -359,9 +359,31 @@ function SortableLayerItem({
 
 // ─── CanvasPreview ─────────────────────────────────────────────────────
 
+// Drag-to-edit support. Eight handle positions plus a 'move' mode for
+// the body grab. Names follow CSS resize-direction conventions so the
+// cursor mapping is straightforward.
+type DragMode = 'move' | 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
+
+interface DragState {
+  layerId: string
+  mode: DragMode
+  pointerId: number
+  startMouseX: number
+  startMouseY: number
+  startX: number
+  startY: number
+  startW: number
+  startH: number
+  moved: boolean   // true once cursor has moved past the click-threshold
+}
+
+const CLICK_THRESHOLD_PX = 3
+const SNAP_PCT = 0.5    // snap drag updates to half-percent steps
+const MIN_DIM_PCT = 2
+
 function CanvasPreview({
   layers, selectedLayerId, posterImageUrl, aspectRatio,
-  imageWidth, imageHeight, onSelectLayer,
+  imageWidth, imageHeight, onSelectLayer, onUpdateLayer,
 }: {
   layers: TemplateLayer[]
   selectedLayerId: string | null
@@ -370,6 +392,7 @@ function CanvasPreview({
   imageWidth?: number | null
   imageHeight?: number | null
   onSelectLayer: (id: string | null) => void
+  onUpdateLayer: (id: string, patch: Partial<TemplateLayer>) => void
 }) {
   const ratio = resolveCanvasDims(aspectRatio, imageWidth, imageHeight)
   const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
@@ -378,8 +401,97 @@ function CanvasPreview({
   // shows the correct typeface, matching Android's FontManager.
   useGoogleFonts(layers)
 
+  // Drag-to-edit state. The canvas rect is captured in `canvasRef` so
+  // pointer deltas convert to canvas-percentage units regardless of the
+  // window scroll position or the modal's flex layout. `useRef` keeps
+  // the drag state across pointer events without re-rendering on every
+  // mousemove (we re-render via onUpdateLayer, which propagates the
+  // change to layer state).
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<DragState | null>(null)
+
+  const beginDrag = (
+    e: React.PointerEvent<HTMLDivElement>,
+    layerId: string,
+    mode: DragMode,
+  ) => {
+    const layer = layers.find(l => l.id === layerId)
+    if (!layer || layer.is_locked) return
+    e.stopPropagation()
+    e.preventDefault()
+    // Capture the pointer so subsequent moves go to the same target
+    // even if the cursor leaves the handle's bounding box.
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    dragRef.current = {
+      layerId, mode,
+      pointerId: e.pointerId,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: layer.x, startY: layer.y,
+      startW: layer.width, startH: layer.height,
+      moved: false,
+    }
+    onSelectLayer(layerId)
+  }
+
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    const dxAbs = e.clientX - drag.startMouseX
+    const dyAbs = e.clientY - drag.startMouseY
+    if (!drag.moved &&
+        Math.abs(dxAbs) <= CLICK_THRESHOLD_PX &&
+        Math.abs(dyAbs) <= CLICK_THRESHOLD_PX) {
+      return  // still potentially a click, don't mutate the layer yet
+    }
+    drag.moved = true
+
+    const dxPct = (dxAbs / rect.width) * 100
+    const dyPct = (dyAbs / rect.height) * 100
+
+    let nx = drag.startX
+    let ny = drag.startY
+    let nw = drag.startW
+    let nh = drag.startH
+
+    if (drag.mode === 'move') {
+      nx = drag.startX + dxPct
+      ny = drag.startY + dyPct
+    } else {
+      const m = drag.mode
+      // West edges move x AND adjust width inversely.
+      if (m.includes('w')) { nx = drag.startX + dxPct; nw = drag.startW - dxPct }
+      if (m.includes('e')) { nw = drag.startW + dxPct }
+      if (m.includes('n')) { ny = drag.startY + dyPct; nh = drag.startH - dyPct }
+      if (m.includes('s')) { nh = drag.startH + dyPct }
+    }
+
+    // Snap + constrain.
+    nw = Math.max(MIN_DIM_PCT, Math.min(100, Math.round(nw / SNAP_PCT) * SNAP_PCT))
+    nh = Math.max(MIN_DIM_PCT, Math.min(100, Math.round(nh / SNAP_PCT) * SNAP_PCT))
+    nx = Math.max(-20, Math.min(100 - nw, Math.round(nx / SNAP_PCT) * SNAP_PCT))
+    ny = Math.max(-20, Math.min(100 - nh, Math.round(ny / SNAP_PCT) * SNAP_PCT))
+
+    onUpdateLayer(drag.layerId, { x: nx, y: ny, width: nw, height: nh })
+  }
+
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== e.pointerId) return
+    dragRef.current = null
+    // If the pointer never moved past CLICK_THRESHOLD, treat as a plain
+    // click (selection only — the body-grab path does that anyway).
+    // No special handling needed; we just clear drag state.
+  }
+
   return (
     <div
+      ref={canvasRef}
       className="relative bg-[#1a1a2e] rounded-lg overflow-hidden border border-brand-dark-border mx-auto"
       style={{
         width: ratio.w,
@@ -388,8 +500,14 @@ function CanvasPreview({
         backgroundSize: 'contain',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
+        // touchAction:none lets us preventDefault on pointer events so
+        // mobile drag of resize handles doesn't trigger the page scroll.
+        touchAction: 'none',
       }}
       onClick={() => onSelectLayer(null)}
+      onPointerMove={handleMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     >
       {!posterImageUrl && (
         <div className="absolute inset-0 flex items-center justify-center text-brand-text-muted text-xs">
@@ -422,14 +540,25 @@ function CanvasPreview({
             : {}),
         }
 
+        const isSelected = selectedLayerId === layer.id
         return (
         <div
           key={layer.id}
           onClick={e => { e.stopPropagation(); onSelectLayer(layer.id) }}
-          className={`absolute cursor-pointer transition-shadow ${
-            selectedLayerId === layer.id ? 'ring-2 ring-brand-gold ring-offset-1 ring-offset-transparent' : ''
+          onPointerDown={e => {
+            // Body grab — drag to move. Skip when locked (admin can't
+            // accidentally move a locked detector layer like the bg).
+            // Right-click / middle-click pass through.
+            if (e.button !== 0 || layer.is_locked) return
+            beginDrag(e, layer.id, 'move')
+          }}
+          className={`absolute transition-shadow ${
+            isSelected ? 'ring-2 ring-brand-gold ring-offset-1 ring-offset-transparent' : ''
           }`}
-          style={containerStyle}
+          style={{
+            ...containerStyle,
+            cursor: layer.is_locked ? 'pointer' : 'move',
+          }}
         >
           {layer.type === 'text' && (() => {
             // Build the text-effect style additively so missing/empty
@@ -536,6 +665,62 @@ function CanvasPreview({
               </div>
             )
           })()}
+
+          {/* Resize handles — only show on the selected layer, only when
+              not locked. 8 handles + 1 invisible body-grab (the layer's
+              own onPointerDown handles 'move'). Handles render OUTSIDE
+              the shape clip so they're never hidden by hexagon /
+              circular masks. */}
+          {isSelected && !layer.is_locked && (
+            <>
+              {(['nw','n','ne','w','e','sw','s','se'] as const).map(mode => {
+                // Position is the centre of each handle, in % of the
+                // layer (0=left/top, 50=middle, 100=right/bottom).
+                const pos: Record<DragMode, { left: string; top: string; cursor: string }> = {
+                  move: { left: '50%', top: '50%', cursor: 'move' },
+                  nw:   { left: '0%',  top: '0%',  cursor: 'nwse-resize' },
+                  n:    { left: '50%', top: '0%',  cursor: 'ns-resize' },
+                  ne:   { left: '100%',top: '0%',  cursor: 'nesw-resize' },
+                  w:    { left: '0%',  top: '50%', cursor: 'ew-resize' },
+                  e:    { left: '100%',top: '50%', cursor: 'ew-resize' },
+                  sw:   { left: '0%',  top: '100%',cursor: 'nesw-resize' },
+                  s:    { left: '50%', top: '100%',cursor: 'ns-resize' },
+                  se:   { left: '100%',top: '100%',cursor: 'nwse-resize' },
+                }
+                const p = pos[mode]
+                return (
+                  <div
+                    key={mode}
+                    onPointerDown={e => beginDrag(e, layer.id, mode)}
+                    style={{
+                      position: 'absolute',
+                      left: p.left,
+                      top: p.top,
+                      width: 12,
+                      height: 12,
+                      transform: 'translate(-50%, -50%)',
+                      background: '#FFD700',
+                      border: '2px solid #1a1a2e',
+                      borderRadius: '50%',
+                      cursor: p.cursor,
+                      // The handle MUST escape the parent clip-path /
+                      // border-radius — `clip-path` clips children, but
+                      // setting `clip-path: none` on the handle itself
+                      // doesn't unclip it from the parent. The trick is
+                      // `pointer-events:auto` so the handle stays
+                      // interactive, plus a high z-index so it renders
+                      // above shape masks.
+                      zIndex: 9999,
+                      pointerEvents: 'auto',
+                      // Belt & braces: explicit cursor wins over
+                      // parent's `move` cursor.
+                      touchAction: 'none',
+                    }}
+                  />
+                )
+              })}
+            </>
+          )}
         </div>
         )
       })}
@@ -955,6 +1140,7 @@ export default function TemplateLayerEditor({ isOpen, onClose, poster, onSave }:
                 imageWidth={poster.image_width}
                 imageHeight={poster.image_height}
                 onSelectLayer={setSelectedLayerId}
+                onUpdateLayer={updateLayer}
               />
             </div>
             {/* Add layer buttons */}
