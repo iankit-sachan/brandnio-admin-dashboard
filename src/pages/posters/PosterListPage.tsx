@@ -643,6 +643,13 @@ export default function PosterListPage() {
                 <option value="4:5">4:5 (Portrait)</option>
                 <option value="9:16">9:16 (Story)</option>
                 <option value="16:9">16:9 (Landscape)</option>
+                <option value="2:3">2:3 (Portrait tall)</option>
+                <option value="3:2">3:2 (Landscape)</option>
+                <option value="3:4">3:4 (Portrait)</option>
+                <option value="4:3">4:3 (Landscape)</option>
+                <option value="2:1">2:1 (Wide banner)</option>
+                <option value="1:2">1:2 (Tall banner)</option>
+                <option value="2.35:1">2.35:1 (Cinematic)</option>
               </select>
             </div>
           </div>
@@ -824,6 +831,13 @@ export default function PosterListPage() {
                 <option value="4:5">4:5 (Portrait)</option>
                 <option value="9:16">9:16 (Story)</option>
                 <option value="16:9">16:9 (Landscape)</option>
+                <option value="2:3">2:3 (Portrait tall)</option>
+                <option value="3:2">3:2 (Landscape)</option>
+                <option value="3:4">3:4 (Portrait)</option>
+                <option value="4:3">4:3 (Landscape)</option>
+                <option value="2:1">2:1 (Wide banner)</option>
+                <option value="1:2">1:2 (Tall banner)</option>
+                <option value="2.35:1">2.35:1 (Cinematic)</option>
               </select>
             </div>
             <div>

@@ -1,4 +1,11 @@
-export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9'
+// Keep in sync with the dropdown options in PosterListPage.tsx
+// (Add modal + Bulk Upload modal) and the resolveCanvasDims() lookup in
+// TemplateLayerEditor.tsx. Backend's posters.models.detect_aspect_ratio()
+// can emit any of these.
+export type AspectRatio =
+  | '1:1' | '4:5' | '9:16' | '16:9'
+  | '2:3' | '3:2' | '3:4' | '4:3'
+  | '2:1' | '1:2' | '2.35:1'
 export type AutoPosterStatus = 'pending' | 'generated' | 'accepted' | 'failed'
 export type FestivalPosterStatus = 'scheduled' | 'generated' | 'sent' | 'failed'
 export type PosterScope = 'home' | 'categories' | 'business' | 'festival' | 'greeting'

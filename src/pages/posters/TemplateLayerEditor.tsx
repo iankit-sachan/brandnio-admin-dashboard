@@ -82,6 +82,36 @@ const ASPECT_RATIOS: Record<string, { w: number; h: number }> = {
   '4:5': { w: 400, h: 500 },
   '9:16': { w: 340, h: 604 },
   '16:9': { w: 540, h: 304 },
+  '2:3': { w: 400, h: 600 },
+  '3:2': { w: 600, h: 400 },
+  '3:4': { w: 400, h: 533 },
+  '4:3': { w: 533, h: 400 },
+  '2:1': { w: 600, h: 300 },
+  '1:2': { w: 300, h: 600 },
+  '2.35:1': { w: 600, h: 255 },
+}
+
+/**
+ * Resolve a "W:H" string to canvas dimensions. Falls back to the lookup
+ * above for the common cases, then to a parsed fraction so any ratio the
+ * backend stores still gets a faithful preview (instead of being forced
+ * into 1:1, which used to distort non-square posters in the layer
+ * editor — the user saw rectangular posters squashed into a square
+ * canvas with `cover` cropping the artwork).
+ */
+function resolveCanvasDims(aspectRatio: string): { w: number; h: number } {
+  if (ASPECT_RATIOS[aspectRatio]) return ASPECT_RATIOS[aspectRatio]
+  const m = /^([\d.]+):([\d.]+)$/.exec(aspectRatio || '')
+  if (m) {
+    const a = parseFloat(m[1])
+    const b = parseFloat(m[2])
+    if (a > 0 && b > 0) {
+      // Anchor on the longer side at ~600px; preserve the actual ratio.
+      if (a >= b) return { w: 600, h: Math.round((600 * b) / a) }
+      return { w: Math.round((600 * a) / b), h: 600 }
+    }
+  }
+  return ASPECT_RATIOS['1:1']
 }
 
 const FONT_FAMILIES = [
@@ -184,18 +214,25 @@ function CanvasPreview({
   aspectRatio: string
   onSelectLayer: (id: string | null) => void
 }) {
-  const ratio = ASPECT_RATIOS[aspectRatio] || ASPECT_RATIOS['1:1']
+  const ratio = resolveCanvasDims(aspectRatio)
   const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
 
   return (
     <div
-      className="relative bg-gray-800 rounded-lg overflow-hidden border border-brand-dark-border mx-auto"
+      className="relative bg-[#1a1a2e] rounded-lg overflow-hidden border border-brand-dark-border mx-auto"
       style={{
         width: ratio.w,
         height: ratio.h,
         backgroundImage: posterImageUrl ? `url(${posterImageUrl})` : undefined,
-        backgroundSize: 'cover',
+        // 2026-05-04: was `cover`, which CROPPED the poster when the
+        // canvas dims didn't match the image's aspect (or when an
+        // admin's stored aspect_ratio drifted from the file's actual
+        // dimensions). `contain` preserves the upload faithfully —
+        // the admin sees their poster as it really is, with the
+        // backdrop showing through any letterbox.
+        backgroundSize: 'contain',
         backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
       onClick={() => onSelectLayer(null)}
     >
@@ -205,7 +242,19 @@ function CanvasPreview({
         </div>
       )}
 
-      {sortedLayers.filter(l => l.is_visible).map(layer => (
+      {sortedLayers.filter(l => l.is_visible).map(layer => {
+        // Border-radius for the whole layer container honours `shape_type`
+        // so a "circle"/"oval" photo zone shows a CIRCULAR outline /
+        // placeholder, not a square one. Without this the gray placeholder
+        // blob (and the selected-layer ring) draw a rectangle over circular
+        // zones — which is what made the user's Christmas poster look
+        // "broken" in the layer editor (a square gray box smothering the
+        // circular cloud-and-hill placeholder area in the design).
+        const shapeRadius =
+          layer.shape_type === 'circle' || layer.shape_type === 'oval' ? '50%'
+          : layer.shape_type === 'rounded_rect' ? '8px'
+          : '0'
+        return (
         <div
           key={layer.id}
           onClick={e => { e.stopPropagation(); onSelectLayer(layer.id) }}
@@ -220,6 +269,7 @@ function CanvasPreview({
             opacity: layer.opacity,
             transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
             zIndex: layer.z_index,
+            borderRadius: shapeRadius,
           }}
         >
           {layer.type === 'text' && (
@@ -249,17 +299,30 @@ function CanvasPreview({
             />
           )}
           {['image', 'logo', 'sticker', 'frame'].includes(layer.type) && (
-            <div className="w-full h-full relative">
+            <div className="w-full h-full relative" style={{ borderRadius: shapeRadius }}>
               {layer.image_url ? (
                 <img
                   src={layer.image_url}
                   alt={layer.type}
                   className="w-full h-full"
-                  style={{ objectFit: layer.scale_type === 'fitCenter' ? 'contain' : 'cover' }}
+                  style={{
+                    objectFit: layer.scale_type === 'fitCenter' ? 'contain' : 'cover',
+                    borderRadius: shapeRadius,
+                  }}
                 />
               ) : (
-                <div className="w-full h-full bg-gray-600/50 flex items-center justify-center">
-                  <Image className="h-6 w-6 text-gray-400" />
+                // Empty image zone (the photo placeholder a user will fill
+                // on the phone). Show a TRANSPARENT dashed outline + tiny
+                // icon so the admin can still see the underlying poster
+                // design through the zone. The previous bg-gray-600/50
+                // fill smothered the design (circular cloud/hill area was
+                // hidden behind a 50%-opacity gray rectangle), and the
+                // missing border-radius made circular zones look square.
+                <div
+                  className="w-full h-full flex items-center justify-center border-2 border-dashed border-brand-gold/70 bg-brand-gold/5"
+                  style={{ borderRadius: shapeRadius }}
+                >
+                  <Image className="h-5 w-5 text-brand-gold/80" />
                 </div>
               )}
               {layer.type !== 'image' && (
@@ -270,7 +333,8 @@ function CanvasPreview({
             </div>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
