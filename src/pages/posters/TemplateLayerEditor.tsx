@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../context/ToastContext'
 import {
@@ -14,6 +14,7 @@ import {
   useSortable, arrayMove
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import WebFont from 'webfontloader'
 import type { Poster } from '../../types'
 
 // ─── Types (snake_case matching Android EditorLayer.fromMap) ───────────
@@ -137,10 +138,109 @@ function resolveCanvasDims(aspectRatio: string): { w: number; h: number } {
   return ASPECT_RATIOS['1:1']
 }
 
-const FONT_FAMILIES = [
+// Fonts available in both renderers. System fonts render natively in
+// the browser; Google fonts get dynamically loaded by useGoogleFonts()
+// below (and Android downloads the same families via FontManager.kt).
+//
+// Keep in sync with `android/app/src/main/java/com/brandnio/app/util/
+// FontManager.kt` so a poster designed in admin always renders the
+// same family on device.
+const SYSTEM_FONTS = [
   'sans-serif', 'serif', 'monospace', 'cursive',
   'Arial', 'Georgia', 'Verdana', 'Times New Roman',
 ]
+const GOOGLE_FONTS = [
+  'Inter', 'Poppins', 'Roboto', 'Montserrat', 'Open Sans',
+  'Lato', 'Oswald', 'Raleway', 'Bebas Neue', 'Playfair Display',
+  'Khand', 'Mukta', 'Noto Sans Gujarati', 'Noto Sans Devanagari',
+  'Hind', 'Tiro Devanagari Hindi',
+]
+const FONT_FAMILIES = [...SYSTEM_FONTS, ...GOOGLE_FONTS]
+
+/** Convert an Android ARGB hex (#AARRGGBB) into a CSS-compatible rgba()
+ *  string. CSS color hex doesn't support a leading alpha byte; the
+ *  Android `shadowColor` default '#40000000' would otherwise parse as
+ *  '#40000000' = colour `#40000000` truncated to first 6 chars. */
+function argbToCssColor(argbOrHex: string): string {
+  if (!argbOrHex) return 'rgba(0,0,0,0.25)'
+  const m = /^#([0-9a-fA-F]{8})$/.exec(argbOrHex.trim())
+  if (!m) return argbOrHex   // already CSS-friendly (#RRGGBB or rgba())
+  const aa = parseInt(m[1].slice(0, 2), 16)
+  const rr = parseInt(m[1].slice(2, 4), 16)
+  const gg = parseInt(m[1].slice(4, 6), 16)
+  const bb = parseInt(m[1].slice(6, 8), 16)
+  return `rgba(${rr},${gg},${bb},${(aa / 255).toFixed(3)})`
+}
+
+/** Return a CSS clip-path or border-radius for a given shape_type.
+ *  Hexagon is pointy-top (vertices at 12/6 o'clock) — Phase 4 will
+ *  match Android's renderer to this orientation. */
+function shapeStyle(shape: string): { borderRadius?: string; clipPath?: string } {
+  switch (shape) {
+    case 'circle':
+    case 'oval':
+      return { borderRadius: '50%' }
+    case 'rounded_rect':
+      return { borderRadius: '8px' }
+    case 'hexagon':
+      // Pointy-top hex: 12-o'clock vertex, 6-o'clock vertex, four sides.
+      return { clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }
+    case 'line_horizontal':
+      return { borderRadius: '0' }
+    default:
+      return { borderRadius: '0' }
+  }
+}
+
+/** Build a CSS `linear-gradient` from layer gradient props.
+ *  Returns null when gradient disabled or any colour missing. */
+function gradientCss(layer: TemplateLayer): string | null {
+  if (!layer.shape_gradient_enabled) return null
+  const start = layer.shape_gradient_start
+  const end = layer.shape_gradient_end
+  if (!start || !end) return null
+  const angle = layer.shape_gradient_angle || 0
+  return `linear-gradient(${angle}deg, ${start}, ${end})`
+}
+
+/** Map Android `scale_type` values to CSS `objectFit` + `objectPosition`. */
+function scaleTypeStyle(scale: string): { objectFit: 'cover' | 'contain' | 'fill' | 'none'; objectPosition: string } {
+  switch (scale) {
+    case 'fitCenter': return { objectFit: 'contain', objectPosition: 'center' }
+    case 'fitXY':     return { objectFit: 'fill', objectPosition: 'center' }     // stretch
+    case 'centerInside': return { objectFit: 'none', objectPosition: 'center' }  // no scale-up
+    case 'centerCrop':
+    default:           return { objectFit: 'cover', objectPosition: 'center' }
+  }
+}
+
+/** Hook: dynamically load any Google Fonts referenced by [layers].
+ *  Uses webfontloader so Android-side `FontManager` parity is achievable
+ *  without bundling 50+ font files into the admin SPA. Idempotent: re-
+ *  triggered loads of the same family are deduped by webfontloader. */
+function useGoogleFonts(layers: TemplateLayer[]) {
+  const families = useMemo(() => {
+    const out = new Set<string>()
+    for (const l of layers) {
+      const f = (l.font_family || '').trim()
+      if (f && (GOOGLE_FONTS as readonly string[]).includes(f)) out.add(f)
+    }
+    return Array.from(out)
+  }, [layers])
+
+  useEffect(() => {
+    if (families.length === 0) return
+    WebFont.load({
+      google: {
+        // webfontloader expects 'Family:weights' — request 400+700 for each.
+        families: families.map(f => `${f}:400,700`),
+      },
+      // Defensive: a network error mustn't break the editor; let the
+      // browser fall back to the next font in the CSS stack.
+      timeout: 5000,
+    })
+  }, [families])
+}
 
 const inputClass = 'w-full bg-brand-dark border border-brand-dark-border rounded-lg px-3 py-1.5 text-sm text-brand-text focus:outline-none focus:border-brand-gold/50'
 const labelClass = 'block text-xs font-medium text-brand-text-muted mb-1'
@@ -248,6 +348,10 @@ function CanvasPreview({
   const ratio = resolveCanvasDims(aspectRatio)
   const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
 
+  // Lazy-load any Google fonts referenced by these layers so the canvas
+  // shows the correct typeface, matching Android's FontManager.
+  useGoogleFonts(layers)
+
   return (
     <div
       className="relative bg-[#1a1a2e] rounded-lg overflow-hidden border border-brand-dark-border mx-auto"
@@ -255,12 +359,6 @@ function CanvasPreview({
         width: ratio.w,
         height: ratio.h,
         backgroundImage: posterImageUrl ? `url(${posterImageUrl})` : undefined,
-        // 2026-05-04: was `cover`, which CROPPED the poster when the
-        // canvas dims didn't match the image's aspect (or when an
-        // admin's stored aspect_ratio drifted from the file's actual
-        // dimensions). `contain` preserves the upload faithfully —
-        // the admin sees their poster as it really is, with the
-        // backdrop showing through any letterbox.
         backgroundSize: 'contain',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -274,17 +372,30 @@ function CanvasPreview({
       )}
 
       {sortedLayers.filter(l => l.is_visible).map(layer => {
-        // Border-radius for the whole layer container honours `shape_type`
-        // so a "circle"/"oval" photo zone shows a CIRCULAR outline /
-        // placeholder, not a square one. Without this the gray placeholder
-        // blob (and the selected-layer ring) draw a rectangle over circular
-        // zones — which is what made the user's Christmas poster look
-        // "broken" in the layer editor (a square gray box smothering the
-        // circular cloud-and-hill placeholder area in the design).
-        const shapeRadius =
-          layer.shape_type === 'circle' || layer.shape_type === 'oval' ? '50%'
-          : layer.shape_type === 'rounded_rect' ? '8px'
-          : '0'
+        // shapeStyle returns either border-radius (circle/oval/rounded_rect)
+        // or clip-path (hexagon) — both work as masks on the layer container
+        // and any nested image / placeholder. This is what makes a circular
+        // photo zone show as a circle (not a square gray box) in the editor.
+        const shape = shapeStyle(layer.shape_type)
+
+        // Layer container style — geometry, rotation, opacity, z-index,
+        // shape mask, and blend mode (Phase 4 will mirror this on Android).
+        const containerStyle: React.CSSProperties = {
+          left: `${layer.x}%`,
+          top: `${layer.y}%`,
+          width: `${layer.width}%`,
+          height: `${layer.height}%`,
+          opacity: layer.opacity,
+          transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
+          zIndex: layer.z_index,
+          ...shape,
+          // Blend mode: 'normal' is the default (omit to avoid `mix-blend-mode: normal`
+          // which would create a stacking context unnecessarily).
+          ...(layer.blend_mode && layer.blend_mode !== 'normal'
+            ? { mixBlendMode: layer.blend_mode as React.CSSProperties['mixBlendMode'] }
+            : {}),
+        }
+
         return (
         <div
           key={layer.id}
@@ -292,77 +403,113 @@ function CanvasPreview({
           className={`absolute cursor-pointer transition-shadow ${
             selectedLayerId === layer.id ? 'ring-2 ring-brand-gold ring-offset-1 ring-offset-transparent' : ''
           }`}
-          style={{
-            left: `${layer.x}%`,
-            top: `${layer.y}%`,
-            width: `${layer.width}%`,
-            height: `${layer.height}%`,
-            opacity: layer.opacity,
-            transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-            zIndex: layer.z_index,
-            borderRadius: shapeRadius,
-          }}
+          style={containerStyle}
         >
-          {layer.type === 'text' && (
-            <div
-              className="w-full h-full flex items-center overflow-hidden"
-              style={{
-                fontSize: `${Math.max(8, layer.font_size * (ratio.w / 1080))}px`,
-                fontFamily: layer.font_family,
-                color: layer.font_color,
-                fontWeight: layer.is_bold ? 'bold' : 'normal',
-                fontStyle: layer.is_italic ? 'italic' : 'normal',
-                textAlign: layer.text_align,
-                lineHeight: layer.line_spacing,
-                justifyContent: layer.text_align === 'center' ? 'center' : layer.text_align === 'right' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              <span className="w-full">{layer.content || 'Empty text'}</span>
-            </div>
-          )}
-          {layer.type === 'shape' && (
-            <div
-              className="w-full h-full"
-              style={{
-                backgroundColor: layer.shape_color,
-                borderRadius: layer.shape_type === 'circle' ? '50%' : layer.shape_type === 'rounded_rect' ? '8px' : '0',
-              }}
-            />
-          )}
-          {['image', 'logo', 'sticker', 'frame'].includes(layer.type) && (
-            <div className="w-full h-full relative" style={{ borderRadius: shapeRadius }}>
-              {layer.image_url ? (
-                <img
-                  src={layer.image_url}
-                  alt={layer.type}
-                  className="w-full h-full"
-                  style={{
-                    objectFit: layer.scale_type === 'fitCenter' ? 'contain' : 'cover',
-                    borderRadius: shapeRadius,
-                  }}
-                />
-              ) : (
-                // Empty image zone (the photo placeholder a user will fill
-                // on the phone). Show a TRANSPARENT dashed outline + tiny
-                // icon so the admin can still see the underlying poster
-                // design through the zone. The previous bg-gray-600/50
-                // fill smothered the design (circular cloud/hill area was
-                // hidden behind a 50%-opacity gray rectangle), and the
-                // missing border-radius made circular zones look square.
-                <div
-                  className="w-full h-full flex items-center justify-center border-2 border-dashed border-brand-gold/70 bg-brand-gold/5"
-                  style={{ borderRadius: shapeRadius }}
-                >
-                  <Image className="h-5 w-5 text-brand-gold/80" />
-                </div>
-              )}
-              {layer.type !== 'image' && (
-                <span className="absolute top-0 right-0 bg-brand-gold text-gray-900 text-[8px] font-bold px-1 rounded-bl leading-tight">
-                  {layer.type.toUpperCase()}
-                </span>
-              )}
-            </div>
-          )}
+          {layer.type === 'text' && (() => {
+            // Build the text-effect style additively so missing/empty
+            // properties don't generate stray CSS.
+            const effects: React.CSSProperties = {}
+
+            // Stroke (CSS `-webkit-text-stroke`). Android renders this via
+            // a 2-pass STROKE→FILL paint; the CSS spec uses a single
+            // property and is widely supported in modern browsers.
+            if (layer.text_stroke_width > 0) {
+              const strokePx = Math.max(0, layer.text_stroke_width * (ratio.w / 1080))
+              effects.WebkitTextStroke = `${strokePx}px ${layer.text_stroke_color || '#000000'}`
+            }
+
+            // Drop shadow (CSS `text-shadow`). Android writes ARGB hex
+            // (e.g. '#40000000'); CSS only understands #RRGGBB or rgba()
+            // so argbToCssColor rewrites the leading alpha byte.
+            if (layer.shadow_enabled) {
+              const ox = layer.shadow_offset_x * (ratio.w / 1080)
+              const oy = layer.shadow_offset_y * (ratio.w / 1080)
+              const blur = layer.shadow_radius * (ratio.w / 1080)
+              effects.textShadow =
+                `${ox}px ${oy}px ${blur}px ${argbToCssColor(layer.shadow_color)}`
+            }
+
+            // Underline (CSS `textDecoration`).
+            if (layer.is_underline) {
+              effects.textDecoration = 'underline'
+            }
+
+            // Letter spacing — Android applies `paint.letterSpacing = ls/10f`
+            // (em-relative). Match the same scale here so a poster designed
+            // with letter_spacing=5 looks the same in both renderers.
+            if (layer.letter_spacing) {
+              effects.letterSpacing = `${layer.letter_spacing / 10}em`
+            }
+
+            return (
+              <div
+                className="w-full h-full flex items-center overflow-hidden"
+                style={{
+                  fontSize: `${Math.max(8, layer.font_size * (ratio.w / 1080))}px`,
+                  fontFamily: layer.font_family,
+                  color: layer.font_color,
+                  fontWeight: layer.is_bold ? 'bold' : 'normal',
+                  fontStyle: layer.is_italic ? 'italic' : 'normal',
+                  textAlign: layer.text_align,
+                  lineHeight: layer.line_spacing,
+                  justifyContent: layer.text_align === 'center' ? 'center' : layer.text_align === 'right' ? 'flex-end' : 'flex-start',
+                  ...effects,
+                }}
+              >
+                <span className="w-full">{layer.content || 'Empty text'}</span>
+              </div>
+            )
+          })()}
+          {layer.type === 'shape' && (() => {
+            // Gradient fill (CSS `linear-gradient`). When disabled or any
+            // colour missing, fall back to solid `shape_color`.
+            const gradient = gradientCss(layer)
+            return (
+              <div
+                className="w-full h-full"
+                style={
+                  gradient
+                    ? { background: gradient, ...shape }
+                    : { backgroundColor: layer.shape_color, ...shape }
+                }
+              />
+            )
+          })()}
+          {['image', 'logo', 'sticker', 'frame'].includes(layer.type) && (() => {
+            const fit = scaleTypeStyle(layer.scale_type)
+            return (
+              <div className="w-full h-full relative" style={shape}>
+                {layer.image_url ? (
+                  <img
+                    src={layer.image_url}
+                    alt={layer.type}
+                    className="w-full h-full"
+                    style={{
+                      objectFit: fit.objectFit,
+                      objectPosition: fit.objectPosition,
+                      ...shape,
+                    }}
+                  />
+                ) : (
+                  // Empty image zone — transparent dashed outline so the
+                  // admin sees the underlying poster design through the
+                  // placeholder. (The previous bg-gray-600/50 fill smothered
+                  // the design, hiding the cloud/hill area behind a gray box.)
+                  <div
+                    className="w-full h-full flex items-center justify-center border-2 border-dashed border-brand-gold/70 bg-brand-gold/5"
+                    style={shape}
+                  >
+                    <Image className="h-5 w-5 text-brand-gold/80" />
+                  </div>
+                )}
+                {layer.type !== 'image' && (
+                  <span className="absolute top-0 right-0 bg-brand-gold text-gray-900 text-[8px] font-bold px-1 rounded-bl leading-tight">
+                    {layer.type.toUpperCase()}
+                  </span>
+                )}
+              </div>
+            )
+          })()}
         </div>
         )
       })}
@@ -467,7 +614,7 @@ function LayerPropertyPanel({
               <option value="right">Right</option>
             </select>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-1.5 text-xs text-brand-text-muted">
               <input type="checkbox" checked={layer.is_bold} onChange={e => onChange({ is_bold: e.target.checked })} className="rounded" />
               Bold
@@ -476,7 +623,68 @@ function LayerPropertyPanel({
               <input type="checkbox" checked={layer.is_italic} onChange={e => onChange({ is_italic: e.target.checked })} className="rounded" />
               Italic
             </label>
+            <label className="flex items-center gap-1.5 text-xs text-brand-text-muted">
+              <input type="checkbox" checked={layer.is_underline} onChange={e => onChange({ is_underline: e.target.checked })} className="rounded" />
+              Underline
+            </label>
           </div>
+          <div>
+            {numInput('Letter Spacing', 'letter_spacing', -10, 50, 0.5)}
+          </div>
+
+          {/* Stroke (CSS -webkit-text-stroke ~ Android OutlineTextView) */}
+          <p className={sectionTitle}>Stroke / Outline</p>
+          <div className="grid grid-cols-2 gap-2">
+            {numInput('Stroke Width', 'text_stroke_width', 0, 20, 0.5)}
+            <div>
+              <label className={labelClass}>Stroke Color</label>
+              <div className="flex gap-1">
+                <input
+                  type="color"
+                  value={layer.text_stroke_color}
+                  onChange={e => onChange({ text_stroke_color: e.target.value })}
+                  className="w-9 h-8 rounded border border-brand-dark-border cursor-pointer bg-transparent"
+                />
+                <input
+                  value={layer.text_stroke_color}
+                  onChange={e => onChange({ text_stroke_color: e.target.value })}
+                  className={inputClass}
+                  maxLength={7}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Shadow (CSS text-shadow ~ Android setShadowLayer) */}
+          <p className={sectionTitle}>Shadow</p>
+          <label className="flex items-center gap-1.5 text-xs text-brand-text-muted">
+            <input
+              type="checkbox"
+              checked={layer.shadow_enabled}
+              onChange={e => onChange({ shadow_enabled: e.target.checked })}
+              className="rounded"
+            />
+            Enable shadow
+          </label>
+          {layer.shadow_enabled && (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {numInput('Radius', 'shadow_radius', 0, 100, 1)}
+                {numInput('Offset X', 'shadow_offset_x', -50, 50, 1)}
+                {numInput('Offset Y', 'shadow_offset_y', -50, 50, 1)}
+              </div>
+              <div>
+                <label className={labelClass}>Color (#AARRGGBB or #RRGGBB)</label>
+                <input
+                  value={layer.shadow_color}
+                  onChange={e => onChange({ shadow_color: e.target.value })}
+                  className={inputClass}
+                  maxLength={9}
+                  placeholder="#40000000"
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -489,7 +697,9 @@ function LayerPropertyPanel({
             <select value={layer.shape_type} onChange={e => onChange({ shape_type: e.target.value })} className={inputClass}>
               <option value="rectangle">Rectangle</option>
               <option value="circle">Circle</option>
+              <option value="oval">Oval</option>
               <option value="rounded_rect">Rounded Rectangle</option>
+              <option value="hexagon">Hexagon</option>
               <option value="line_horizontal">Line</option>
             </select>
           </div>
@@ -500,6 +710,42 @@ function LayerPropertyPanel({
               <input value={layer.shape_color} onChange={e => onChange({ shape_color: e.target.value })} className={inputClass} maxLength={7} />
             </div>
           </div>
+
+          {/* Gradient (CSS linear-gradient ~ Android GradientDrawable) */}
+          <p className={sectionTitle}>Gradient</p>
+          <label className="flex items-center gap-1.5 text-xs text-brand-text-muted">
+            <input
+              type="checkbox"
+              checked={layer.shape_gradient_enabled}
+              onChange={e => onChange({ shape_gradient_enabled: e.target.checked })}
+              className="rounded"
+            />
+            Enable gradient
+          </label>
+          {layer.shape_gradient_enabled && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelClass}>Start</label>
+                  <div className="flex gap-1">
+                    <input type="color" value={layer.shape_gradient_start || '#000000'} onChange={e => onChange({ shape_gradient_start: e.target.value })} className="w-9 h-8 rounded border border-brand-dark-border cursor-pointer bg-transparent" />
+                    <input value={layer.shape_gradient_start} onChange={e => onChange({ shape_gradient_start: e.target.value })} className={inputClass} maxLength={7} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>End</label>
+                  <div className="flex gap-1">
+                    <input type="color" value={layer.shape_gradient_end || '#FFFFFF'} onChange={e => onChange({ shape_gradient_end: e.target.value })} className="w-9 h-8 rounded border border-brand-dark-border cursor-pointer bg-transparent" />
+                    <input value={layer.shape_gradient_end} onChange={e => onChange({ shape_gradient_end: e.target.value })} className={inputClass} maxLength={7} />
+                  </div>
+                </div>
+              </div>
+              {numInput('Angle (deg)', 'shape_gradient_angle', 0, 360, 1)}
+              <p className="text-[10px] text-brand-text-muted">
+                Android currently snaps angles to 0/90/180/270; Phase 4 unlocks arbitrary angles.
+              </p>
+            </>
+          )}
         </>
       )}
 
@@ -517,9 +763,42 @@ function LayerPropertyPanel({
               <option value="centerCrop">Cover (Center Crop)</option>
               <option value="fitCenter">Contain (Fit Center)</option>
               <option value="fitXY">Stretch (Fit XY)</option>
+              <option value="centerInside">Center Inside (no upscale)</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Shape (mask)</label>
+            <select value={layer.shape_type} onChange={e => onChange({ shape_type: e.target.value })} className={inputClass}>
+              <option value="rectangle">Rectangle</option>
+              <option value="circle">Circle</option>
+              <option value="oval">Oval</option>
+              <option value="rounded_rect">Rounded Rectangle</option>
+              <option value="hexagon">Hexagon</option>
             </select>
           </div>
         </>
+      )}
+
+      {/* Blend mode (CSS mix-blend-mode ~ Android RenderNode.setBlendMode API 29+) */}
+      <p className={sectionTitle}>Blend Mode</p>
+      <select
+        value={layer.blend_mode}
+        onChange={e => onChange({ blend_mode: e.target.value })}
+        className={inputClass}
+      >
+        <option value="normal">Normal</option>
+        <option value="multiply">Multiply</option>
+        <option value="screen">Screen</option>
+        <option value="overlay">Overlay</option>
+        <option value="darken">Darken</option>
+        <option value="lighten">Lighten</option>
+        <option value="color-dodge">Color Dodge</option>
+        <option value="color-burn">Color Burn</option>
+      </select>
+      {layer.blend_mode !== 'normal' && (
+        <p className="text-[10px] text-brand-text-muted">
+          Android requires API 29+ to honour blend modes; older devices fall back to normal.
+        </p>
       )}
     </div>
   )

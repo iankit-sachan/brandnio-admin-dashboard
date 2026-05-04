@@ -16,6 +16,7 @@
     "@headlessui/react": "^2.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/postcss": "^4.2.2",
+    "@types/webfontloader": "^1.6.38",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "axios": "^1.15.0",
@@ -30,7 +31,8 @@
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.8"
+    "vite": "^8.0.8",
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
