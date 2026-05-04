@@ -116,25 +116,48 @@ const ASPECT_RATIOS: Record<string, { w: number; h: number }> = {
 }
 
 /**
- * Resolve a "W:H" string to canvas dimensions. Falls back to the lookup
- * above for the common cases, then to a parsed fraction so any ratio the
- * backend stores still gets a faithful preview (instead of being forced
- * into 1:1, which used to distort non-square posters in the layer
- * editor — the user saw rectangular posters squashed into a square
- * canvas with `cover` cropping the artwork).
+ * Resolve canvas preview dimensions. Priority:
+ *
+ *   1. **Real pixel dimensions** (image_width/image_height from the
+ *      uploaded file). The backend captures these on upload via
+ *      Pillow. Using the actual aspect avoids the coarse `1:1` /
+ *      `4:5` / `9:16` / `16:9` bucket-rounding that historically
+ *      distorted non-standard uploads (e.g. a 1080×1200 image
+ *      stored as `aspect_ratio='1:1'` — admin would render at 1:1
+ *      but Android would render at the true 9:10, putting layers
+ *      at different visual positions in each renderer).
+ *   2. **Aspect ratio lookup** for the 11 supported strings.
+ *   3. **Parsed "W:H" fraction** for any other ratio string.
+ *   4. **1:1 fallback** when nothing parses.
+ *
+ * Output is anchored at 600px on the longer side so the preview fits
+ * comfortably in the modal regardless of source resolution.
  */
-function resolveCanvasDims(aspectRatio: string): { w: number; h: number } {
+function resolveCanvasDims(
+  aspectRatio: string,
+  imageWidth?: number | null,
+  imageHeight?: number | null,
+): { w: number; h: number } {
+  // 1. Prefer real dims when both are present and positive.
+  if (imageWidth && imageHeight && imageWidth > 0 && imageHeight > 0) {
+    if (imageWidth >= imageHeight) {
+      return { w: 600, h: Math.round((600 * imageHeight) / imageWidth) }
+    }
+    return { w: Math.round((600 * imageWidth) / imageHeight), h: 600 }
+  }
+  // 2. Lookup table.
   if (ASPECT_RATIOS[aspectRatio]) return ASPECT_RATIOS[aspectRatio]
+  // 3. Parse arbitrary "W:H" strings.
   const m = /^([\d.]+):([\d.]+)$/.exec(aspectRatio || '')
   if (m) {
     const a = parseFloat(m[1])
     const b = parseFloat(m[2])
     if (a > 0 && b > 0) {
-      // Anchor on the longer side at ~600px; preserve the actual ratio.
       if (a >= b) return { w: 600, h: Math.round((600 * b) / a) }
       return { w: Math.round((600 * a) / b), h: 600 }
     }
   }
+  // 4. Final fallback.
   return ASPECT_RATIOS['1:1']
 }
 
@@ -337,15 +360,18 @@ function SortableLayerItem({
 // ─── CanvasPreview ─────────────────────────────────────────────────────
 
 function CanvasPreview({
-  layers, selectedLayerId, posterImageUrl, aspectRatio, onSelectLayer,
+  layers, selectedLayerId, posterImageUrl, aspectRatio,
+  imageWidth, imageHeight, onSelectLayer,
 }: {
   layers: TemplateLayer[]
   selectedLayerId: string | null
   posterImageUrl: string
   aspectRatio: string
+  imageWidth?: number | null
+  imageHeight?: number | null
   onSelectLayer: (id: string | null) => void
 }) {
-  const ratio = resolveCanvasDims(aspectRatio)
+  const ratio = resolveCanvasDims(aspectRatio, imageWidth, imageHeight)
   const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
 
   // Lazy-load any Google fonts referenced by these layers so the canvas
@@ -926,6 +952,8 @@ export default function TemplateLayerEditor({ isOpen, onClose, poster, onSave }:
                 selectedLayerId={selectedLayerId}
                 posterImageUrl={poster.image_url || poster.thumbnail_url || ''}
                 aspectRatio={poster.aspect_ratio}
+                imageWidth={poster.image_width}
+                imageHeight={poster.image_height}
                 onSelectLayer={setSelectedLayerId}
               />
             </div>

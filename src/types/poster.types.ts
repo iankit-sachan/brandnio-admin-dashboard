@@ -36,6 +36,13 @@ export interface Poster {
   image_url: string | null
   template_data: Record<string, unknown>
   aspect_ratio: AspectRatio
+  // True image pixel dimensions captured at upload time. Used by the
+  // layer editor's canvas to size at the actual aspect ratio rather
+  // than the coarse `aspect_ratio` enum (which buckets a 1080×1200
+  // image as `1:1` and would distort layer positions). Both renderers
+  // (admin + Android) prefer these when non-zero.
+  image_width: number
+  image_height: number
   tags: string[]
   is_premium: boolean
   is_active: boolean
