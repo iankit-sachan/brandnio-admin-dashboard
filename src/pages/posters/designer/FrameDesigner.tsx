@@ -12,6 +12,11 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { posterFramesApi } from '../../../services/admin-api'
+import {
+  FrameFieldsPayload,
+  getFrameFields,
+  suggestForUnknown,
+} from '../../../services/frame-fields'
 import { useToast } from '../../../context/ToastContext'
 import { ASPECT_RATIO_DIMS, FIELD_OPTIONS, FieldOption, fieldOption } from './constants'
 import { FieldPickerDialog } from './FieldPickerDialog'
@@ -216,6 +221,41 @@ export function FrameDesigner({
   const [safeZoneOn, setSafeZoneOn] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // 2026-05-05 — load the canonical alias map on mount so we can flag
+  // any layers whose `name` isn't in the vocabulary. Cached 1h in
+  // localStorage. Failure is silent — admin can still save; we just
+  // skip the validation hint.
+  const [fieldsPayload, setFieldsPayload] = useState<FrameFieldsPayload | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getFrameFields()
+      .then(p => { if (!cancelled) setFieldsPayload(p) })
+      .catch(() => { /* silent — validation becomes a no-op */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // Warn-only validation (D3 lenient). Layers with a `name` not in the
+  // vocabulary AND not in the tolerated structural set get a yellow
+  // pill in the unknown-fields banner with a Levenshtein "did you
+  // mean?" hint. Save is NOT blocked — legacy frames in the DB may
+  // have drifted names that admin needs to be able to keep editing.
+  const unknownNameLayers = useMemo(() => {
+    if (!fieldsPayload) return [] as Array<{ id: string; name: string; suggestion: string | null }>
+    const tolerated = new Set(['frame_name', 'watermark', 'custom', 'bg', 'frame', 'logo'])
+    const out: Array<{ id: string; name: string; suggestion: string | null }> = []
+    for (const l of undo.state) {
+      const n = (l.name || '').toLowerCase()
+      if (!n || tolerated.has(n)) continue
+      if (n in fieldsPayload.aliases) continue
+      out.push({
+        id: l.id,
+        name: l.name,
+        suggestion: suggestForUnknown(fieldsPayload, l.name),
+      })
+    }
+    return out
+  }, [undo.state, fieldsPayload])
+
   // Auto-insert frame_name watermark on FIRST edit only (brand-new frame with
   // no user layers yet). After admin saves even once, this effect stops
   // re-adding the layer — deletions are preserved.
@@ -386,6 +426,29 @@ export function FrameDesigner({
             >{saving ? 'Saving…' : '💾 Save Text Areas'}</button>
           </div>
         </div>
+
+        {/* 2026-05-05 — unknown-field warning banner. Surfaces when a
+            layer's `name` doesn't resolve to any canonical alias from
+            backend's frame-fields registry. Warn-only — admin can still
+            save (D3 lenient), but should rename to a recognised alias
+            so renderer can resolve to user data. */}
+        {unknownNameLayers.length > 0 && (
+          <div className="px-5 py-2 bg-amber-900/20 border-b border-amber-700/40 text-xs text-amber-200">
+            <span className="font-semibold">⚠ Unknown field name(s):</span>{' '}
+            {unknownNameLayers.map((u, i) => (
+              <span key={u.id} className="inline-block mr-2">
+                <code className="bg-amber-800/40 px-1 rounded">{u.name}</code>
+                {u.suggestion && (
+                  <span className="text-amber-300/80"> — did you mean <code className="bg-amber-800/40 px-1 rounded">{u.suggestion}</code>?</span>
+                )}
+                {i < unknownNameLayers.length - 1 && ','}
+              </span>
+            ))}
+            <span className="text-amber-200/60">
+              {' '}Renderer will show admin's placeholder text instead of user data for these layers.
+            </span>
+          </div>
+        )}
 
         {/* Body: canvas + sidebar */}
         <div className="flex-1 flex min-h-0">
